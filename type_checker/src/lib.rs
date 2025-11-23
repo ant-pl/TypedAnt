@@ -8,7 +8,6 @@ use ast::{
     stmt::Statement,
 };
 use token::token::Token;
-use utils::all_eq;
 
 use crate::{
     error::{TypeCheckerError, TypeCheckerErrorKind},
@@ -237,7 +236,11 @@ impl TypeChecker {
             }
 
             Expression::Infix {
-                token, left, right, op, ..
+                token,
+                left,
+                right,
+                op,
+                ..
             } => {
                 let left_t = self.check_expr(*left)?;
                 let right_t = self.check_expr(*right)?;
@@ -307,9 +310,28 @@ impl TypeChecker {
                     typed_params.push(Box::new(self.check_expr(*expr)?))
                 }
 
+                let mut params_type = vec![];
+
+                for typed_param in &typed_params {
+                    if let TypedExpression::TypeHint(_, _, ty) = &**typed_param {
+                        params_type.push(ty.clone());
+                    }
+                }
+
+                // 初步返回定义
                 let ret_ty = ret_ty_ident
                     .as_ref()
-                    .map_or_else(|| None, |it| str_to_ty(&it.value));
+                    .map_or_else(|| None, |it| str_to_ty(&it.value))
+                    .map_or(Ty::Unit, |it| it);
+
+                let func_ty = Ty::Function {
+                    params_type,
+                    ret_type: Box::new(ret_ty.clone()),
+                };
+
+                if let Some(name) = &name {
+                    self.table.borrow_mut().define_var(&name.value, func_ty.clone());
+                }
 
                 let typed_block = match *block {
                     Statement::Block {
@@ -327,33 +349,19 @@ impl TypeChecker {
                         let (stmts, scope) =
                             self.check_statements(statements, ScopeKind::Function)?;
 
-                        if let Some(ret_ty) = &ret_ty {
-                            for cur_ret_ty in &scope.collect_return_types {
-                                if cur_ret_ty == ret_ty {
-                                    continue;
-                                }
-
-                                return Err(Self::make_err(
-                                    Some(&format!("expected: {ret_ty}, got: {cur_ret_ty}",)),
-                                    TypeCheckerErrorKind::TypeMismatch,
-                                    None,
-                                ));
+                        for cur_ret_ty in &scope.collect_return_types {
+                            if cur_ret_ty == &ret_ty {
+                                continue;
                             }
-                        }
 
-                        let ret_ty = if let Some(ret_ty) = ret_ty {
-                            ret_ty
-                        } else if scope.collect_return_types.is_empty() {
-                            Ty::Unit
-                        } else if all_eq(scope.collect_return_types.iter()) {
-                            scope.collect_return_types[0].clone()
-                        } else {
                             return Err(Self::make_err(
-                                None,
+                                Some(&format!("expected: {ret_ty}, got: {cur_ret_ty}",)),
                                 TypeCheckerErrorKind::TypeMismatch,
                                 None,
                             ));
-                        };
+                        }
+
+                        let ret_ty = ret_ty;
 
                         TypedStatement::Block {
                             token: block_token,
