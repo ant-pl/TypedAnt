@@ -129,7 +129,10 @@ impl GetType for TypedExpression {
             Self::Infix { ty, .. } => ty.clone(),
             Self::TypeHint(_, _, ty) => ty.clone(),
             Self::If { consequence, .. } => consequence.get_type(),
-            Self::Call { func_ty, .. } => func_ty.clone()
+            Self::Call { func_ty, .. } => match func_ty {
+                Ty::Function { ret_type, .. } => *ret_type.clone(),
+                _ => unreachable!()
+            }
         }
     }
 }
