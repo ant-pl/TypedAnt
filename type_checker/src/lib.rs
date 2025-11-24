@@ -81,6 +81,7 @@ pub enum Ty {
         ret_type: Box<Ty>,
     },
     IntTy(IntTy),
+    Bool,
     Unit,
 }
 
@@ -89,6 +90,7 @@ impl Display for Ty {
         match self {
             Self::BigInt => write!(f, "BigInt"),
             Self::IntTy(it) => write!(f, "{it}"),
+            Self::Bool => write!(f, "bool"),
             Self::Unit => write!(f, "Unit"),
             Self::Function {
                 params_type,
@@ -209,6 +211,11 @@ impl TypeChecker {
                 token,
                 value,
                 ty: Ty::BigInt,
+            }),
+            Expression::Bool { token, value } => Ok(TypedExpression::Bool {
+                token,
+                value,
+                ty: Ty::Bool,
             }),
             Expression::Int { token, value } => Ok(TypedExpression::Int {
                 token,

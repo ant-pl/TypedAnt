@@ -7,3 +7,4 @@ pub mod parse_ident;
 pub mod parse_block;
 pub mod parse_if;
 pub mod parse_call;
+pub mod parse_bool;

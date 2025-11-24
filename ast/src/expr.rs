@@ -46,6 +46,10 @@ pub enum Expression {
         token: Token,
         value: IntValue,
     },
+    Bool {
+        token: Token,
+        value: bool
+    },
     Ident(Ident),
     TypeHint(Ident, Ident),
     Block(Vec<Statement>),
@@ -87,6 +91,7 @@ impl Display for Expression {
                     .join(", ")
             ),
             Self::BigInt { value, .. } => write!(f, "{}", value),
+            Self::Bool { value, .. } => write!(f, "{}", value),
             Self::Int { value, .. } => write!(f, "{}", value),
             Self::TypeHint(ident, ty) => write!(f, "{ident}: {ty}"),
             Self::Ident(ident) => write!(f, "{}", ident),

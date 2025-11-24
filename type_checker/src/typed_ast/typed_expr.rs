@@ -16,6 +16,11 @@ pub enum TypedExpression {
         value: BigDecimal,
         ty: Ty,
     },
+    Bool {
+        token: Token,
+        value: bool,
+        ty: Ty,
+    },
     Int {
         token: Token,
         value: IntValue,
@@ -79,6 +84,7 @@ impl Display for TypedExpression {
                 }
             ),
             Self::BigInt { value, .. } => write!(f, "{}", value),
+            Self::Bool { value, .. } => write!(f, "{}", value),
             Self::Int { value, .. } => write!(f, "{}", value),
             Self::Ident(ident, _) => write!(f, "{}", ident),
             Self::Block(it, _) => write!(
@@ -123,6 +129,7 @@ impl GetType for TypedExpression {
         match self {
             Self::BigInt { ty, .. } => ty.clone(),
             Self::Int { ty, .. } => ty.clone(),
+            Self::Bool { ty, .. } => ty.clone(),
             Self::Ident(_, ty) => ty.clone(),
             Self::Block(_, ty) => ty.clone(),
             Self::Function { ty, .. } => ty.clone(),
