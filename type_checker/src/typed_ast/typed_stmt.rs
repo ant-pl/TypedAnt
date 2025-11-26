@@ -2,7 +2,10 @@ use std::fmt::Display;
 
 use token::token::Token;
 
-use crate::{Ty, typed_ast::{GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident}};
+use crate::{
+    Ty,
+    typed_ast::{GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident},
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TypedStatement {
@@ -24,11 +27,19 @@ pub enum TypedStatement {
         value: TypedExpression,
         ty: Ty,
     },
+    While {
+        token: Token,
+        condition: TypedExpression,
+        block: Box<TypedStatement>,
+    },
 }
 
 impl Display for TypedStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::While {
+                condition, block, ..
+            } => write!(f, "while {condition} {block} "),
             Self::ExpressionStatement(expr) => expr.fmt(f),
             Self::Return { expr, .. } => write!(f, "return {expr}"),
             Self::Let {
@@ -60,6 +71,7 @@ impl GetType for TypedStatement {
             Self::ExpressionStatement(expr) => expr.get_type(),
             Self::Return { ty, .. } => ty.clone(),
             Self::Let { ty, .. } => ty.clone(),
+            Self::While { .. } => Ty::Unit,
         }
     }
 }

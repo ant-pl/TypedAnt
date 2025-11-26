@@ -125,7 +125,7 @@ impl Display for Expression {
                 ..
             } => write!(
                 f,
-                "func {}({}){}{{\n{}\n}}",
+                "func {}({}){}{}",
                 name.as_ref()
                     .map_or_else(|| "".into(), |it| it.value.clone()),
                 params

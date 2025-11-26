@@ -15,6 +15,11 @@ pub enum Statement {
         token: Token,
         statements: Vec<Statement>,
     },
+    While {
+        token: Token,
+        condition: Expression,
+        block: Box<Statement>,
+    },
     Let {
         token: Token,
         name: Ident,
@@ -26,6 +31,13 @@ pub enum Statement {
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::While {
+                condition,
+                block,
+                ..
+            } => write!(
+                f, "while {condition} {block} "
+            ),
             Self::ExpressionStatement(expr) => expr.fmt(f),
             Self::Return { expr, .. } => write!(f, "return {expr}"),
             Self::Let {
@@ -39,7 +51,7 @@ impl Display for Statement {
             },
             Self::Block { statements, .. } => write!(
                 f,
-                "{}",
+                "{{\n{}\n}}",
                 statements
                     .iter()
                     .map(|it| "\t".to_owned() + &it.to_string())

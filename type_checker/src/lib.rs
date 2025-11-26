@@ -337,7 +337,9 @@ impl TypeChecker {
                 };
 
                 if let Some(name) = &name {
-                    self.table.borrow_mut().define_var(&name.value, func_ty.clone());
+                    self.table
+                        .borrow_mut()
+                        .define_var(&name.value, func_ty.clone());
                 }
 
                 let typed_block = match *block {
@@ -472,6 +474,22 @@ impl TypeChecker {
 
     pub fn check_statement(&mut self, stmt: Statement) -> CheckResult<TypedStatement> {
         match stmt {
+            Statement::While {
+                token,
+                condition,
+                block,
+            } => {
+                let typed_condition = self.check_expr(condition)?;
+                
+                let typed_block = Box::new(self.check_statement(*block)?);
+
+                Ok(TypedStatement::While {
+                    token,
+                    condition: typed_condition,
+                    block: typed_block,
+                })
+            }
+
             Statement::ExpressionStatement(expr) => {
                 Ok(TypedStatement::ExpressionStatement(self.check_expr(expr)?))
             }
