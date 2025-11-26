@@ -48,7 +48,7 @@ pub enum Expression {
     },
     Bool {
         token: Token,
-        value: bool
+        value: bool,
     },
     Ident(Ident),
     TypeHint(Ident, Ident),
@@ -77,11 +77,17 @@ pub enum Expression {
         func: Box<Expression>,
         args: Vec<Box<Expression>>,
     },
+    Assign {
+        token: Token,
+        left: Box<Expression>,
+        right: Box<Expression>,
+    },
 }
 
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
                 f,
                 "{func}({})",

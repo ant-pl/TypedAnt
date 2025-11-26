@@ -223,6 +223,30 @@ impl TypeChecker {
                 ty: Ty::IntTy(value.into()),
             }),
 
+            Expression::Assign { token, left, right } => {
+                let typed_left = self.check_expr(*left)?;
+                let typed_right = self.check_expr(*right)?;
+
+                if typed_left.get_type() != typed_right.get_type() {
+                    // 赋值给变量的类型不符合
+                    return Err(Self::make_err(
+                        Some(&format!(
+                            "expected: {}, got: {}",
+                            typed_left.get_type(),
+                            typed_right.get_type()
+                        )),
+                        TypeCheckerErrorKind::TypeMismatch,
+                        None,
+                    ));
+                }
+
+                Ok(TypedExpression::Assign {
+                    token,
+                    left: Box::new(typed_left),
+                    right: Box::new(typed_right),
+                })
+            }
+
             Expression::Ident(it) => {
                 let ident_name = &it.value;
 
@@ -480,7 +504,7 @@ impl TypeChecker {
                 block,
             } => {
                 let typed_condition = self.check_expr(condition)?;
-                
+
                 let typed_block = Box::new(self.check_statement(*block)?);
 
                 Ok(TypedStatement::While {

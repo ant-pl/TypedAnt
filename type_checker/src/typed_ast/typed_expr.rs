@@ -56,11 +56,17 @@ pub enum TypedExpression {
         consequence: Box<TypedExpression>,
         else_block: Option<Box<TypedExpression>>,
     },
+    Assign {
+        token: Token,
+        left: Box<TypedExpression>,
+        right: Box<TypedExpression>,
+    },
 }
 
 impl Display for TypedExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
                 f,
                 "{func}({})",
@@ -138,8 +144,9 @@ impl GetType for TypedExpression {
             Self::If { consequence, .. } => consequence.get_type(),
             Self::Call { func_ty, .. } => match func_ty {
                 Ty::Function { ret_type, .. } => *ret_type.clone(),
-                _ => unreachable!()
-            }
+                _ => unreachable!(),
+            },
+            Self::Assign { right, .. } => right.get_type()
         }
     }
 }
