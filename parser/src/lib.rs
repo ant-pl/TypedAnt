@@ -8,7 +8,7 @@ use token::{token::Token, token_type::TokenType};
 use crate::{
     error::{ParserError, ParserErrorKind},
     parse_functions::{
-        parse_assign::parse_assign, parse_block::parse_block_expr, parse_bool::parse_bool, parse_call::parse_call, parse_func::parse_func, parse_ident::parse_ident, parse_if::parse_if, parse_infix::parse_infix, parse_let::parse_let, parse_num::{parse_i64, parse_u64}, parse_while::parse_while
+        parse_assign::parse_assign, parse_block::parse_block_expr, parse_bool::parse_bool, parse_call::parse_call, parse_func::parse_func, parse_ident::parse_ident, parse_if::parse_if, parse_infix::parse_infix, parse_let::parse_let, parse_num::{parse_i64, parse_u64}, parse_str::parse_str, parse_while::parse_while
     },
     precedence::{Precedence, get_token_precedence},
 };
@@ -42,6 +42,7 @@ impl Parser {
         m.insert(TokenType::BoolFalse, parse_bool);
         m.insert(TokenType::Integer64, parse_i64);
         m.insert(TokenType::UInteger64, parse_u64);
+        m.insert(TokenType::String, parse_str);
 
         m.insert(TokenType::Ident, parse_ident);
         m.insert(TokenType::LBrace, parse_block_expr);

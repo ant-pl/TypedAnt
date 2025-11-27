@@ -10,3 +10,4 @@ pub mod parse_if;
 pub mod parse_call;
 pub mod parse_bool;
 pub mod parse_while;
+pub mod parse_str;

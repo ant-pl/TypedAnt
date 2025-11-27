@@ -82,11 +82,16 @@ pub enum Expression {
         left: Box<Expression>,
         right: Box<Expression>,
     },
+    StrLiteral {
+        token: Token,
+        value: Rc<str>
+    }
 }
 
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::StrLiteral { value, .. } => write!(f, "{value}"),
             Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
                 f,

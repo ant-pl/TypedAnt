@@ -83,12 +83,14 @@ pub enum Ty {
     IntTy(IntTy),
     Bool,
     Unit,
+    Str,
 }
 
 impl Display for Ty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::BigInt => write!(f, "BigInt"),
+            Self::Str => write!(f, "str"),
             Self::IntTy(it) => write!(f, "{it}"),
             Self::Bool => write!(f, "bool"),
             Self::Unit => write!(f, "Unit"),
@@ -221,6 +223,12 @@ impl TypeChecker {
                 token,
                 value,
                 ty: Ty::IntTy(value.into()),
+            }),
+
+            Expression::StrLiteral { token, value } => Ok(TypedExpression::StrLiteral {
+                token,
+                value,
+                ty: Ty::Str,
             }),
 
             Expression::Assign { token, left, right } => {

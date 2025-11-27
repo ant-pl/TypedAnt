@@ -61,11 +61,17 @@ pub enum TypedExpression {
         left: Box<TypedExpression>,
         right: Box<TypedExpression>,
     },
+    StrLiteral {
+        token: Token,
+        value: Rc<str>,
+        ty: Ty,
+    }
 }
 
 impl Display for TypedExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::StrLiteral { value, .. } => write!(f, "{value}"),
             Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
                 f,
@@ -133,6 +139,7 @@ impl Display for TypedExpression {
 impl GetType for TypedExpression {
     fn get_type(&self) -> Ty {
         match self {
+            Self::StrLiteral { ty, .. } => ty.clone(), 
             Self::BigInt { ty, .. } => ty.clone(),
             Self::Int { ty, .. } => ty.clone(),
             Self::Bool { ty, .. } => ty.clone(),
