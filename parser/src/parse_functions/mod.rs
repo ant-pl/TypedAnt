@@ -1,3 +1,4 @@
+pub mod parse_assign;
 pub mod parse_type_hint;
 pub mod parse_func;
 pub mod parse_num;
