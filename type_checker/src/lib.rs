@@ -423,7 +423,7 @@ impl TypeChecker {
             } => {
                 let typed_name = Ident {
                     token: name.token,
-                    value: name.value,
+                    value: name.value.clone(),
                 };
 
                 let mut typed_fields = vec![];
@@ -440,7 +440,7 @@ impl TypeChecker {
                 }
 
                 Ok(TypedStatement::Struct {
-                    ty: Ty::Struct({
+                    ty: Ty::Struct(name.value.clone(), {
                         let mut m = HashMap::new();
 
                         for field in &typed_fields {
