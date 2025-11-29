@@ -4,7 +4,7 @@ use token::token::Token;
 
 use crate::{expr::Expression, expressions::ident::Ident};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Statement {
     ExpressionStatement(Expression),
     Return {
@@ -26,18 +26,35 @@ pub enum Statement {
         var_type: Option<Ident>,
         value: Expression,
     },
+    Struct {
+        token: Token,
+        name: Ident,
+        fields: Vec<Box<Expression>>,
+    },
 }
 
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::While {
-                condition,
-                block,
-                ..
-            } => write!(
-                f, "while {condition} {block} "
+            Self::Struct { name, fields, .. } => write!(
+                f,
+                "struct {name} {}",
+                if fields.is_empty() {
+                    "{}".to_string()
+                } else {
+                    format!(
+                        "{{\n{}\n}}",
+                        fields
+                            .iter()
+                            .map(|it| "\t".to_owned() + &it.to_string())
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    )
+                }
             ),
+            Self::While {
+                condition, block, ..
+            } => write!(f, "while {condition} {block} "),
             Self::ExpressionStatement(expr) => expr.fmt(f),
             Self::Return { expr, .. } => write!(f, "return {expr}"),
             Self::Let {

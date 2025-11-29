@@ -1,24 +1,24 @@
-pub mod ty;
-pub mod scope;
-pub mod test;
 pub mod error;
+pub mod scope;
 pub mod table;
+pub mod test;
+pub mod ty;
 pub mod typed_ast;
 
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use ast::{
-    expr::Expression,
-    node::Node,
-    stmt::Statement,
-};
+use ast::{expr::Expression, node::Node, stmt::Statement};
 use token::token::Token;
 
 use crate::{
-    error::{TypeCheckerError, TypeCheckerErrorKind}, scope::{CheckScope, ScopeKind}, table::{TypeTable, str_to_ty}, ty::Ty, typed_ast::{
+    error::{TypeCheckerError, TypeCheckerErrorKind},
+    scope::{CheckScope, ScopeKind},
+    table::{TypeTable, str_to_ty},
+    ty::Ty,
+    typed_ast::{
         GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident,
         typed_node::TypedNode, typed_stmt::TypedStatement,
-    }
+    },
 };
 
 type CheckResult<T> = Result<T, TypeCheckerError>;
@@ -416,6 +416,52 @@ impl TypeChecker {
 
     pub fn check_statement(&mut self, stmt: Statement) -> CheckResult<TypedStatement> {
         match stmt {
+            Statement::Struct {
+                token,
+                name,
+                fields,
+            } => {
+                let typed_name = Ident {
+                    token: name.token,
+                    value: name.value,
+                };
+
+                let mut typed_fields = vec![];
+
+                for field in fields {
+                    if !matches!(*field, Expression::TypeHint(_, _)) {
+                        return Err(Self::make_err(
+                            Some(&format!("not a type hint: {field}")),
+                            TypeCheckerErrorKind::Other,
+                            None,
+                        ));
+                    }
+                    typed_fields.push(self.check_expr(*field)?);
+                }
+
+                Ok(TypedStatement::Struct {
+                    ty: Ty::Struct({
+                        let mut m = HashMap::new();
+
+                        for field in &typed_fields {
+                            if let TypedExpression::TypeHint(name, _, ty) = field {
+                                m.insert(name.value.clone(), ty.clone());
+                            } else {
+                                return Err(Self::make_err(
+                                    Some(&format!("not a type hint: {field}")),
+                                    TypeCheckerErrorKind::Other,
+                                    None,
+                                ));
+                            }
+                        }
+
+                        m
+                    }),
+                    token,
+                    name: typed_name,
+                    fields: typed_fields,
+                })
+            }
             Statement::While {
                 token,
                 condition,

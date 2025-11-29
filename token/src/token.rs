@@ -2,7 +2,7 @@ use std::{fmt::Display, rc::Rc};
 
 use crate::token_type::TokenType;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Token {
     pub value: Rc<str>,
     pub token_type: TokenType,

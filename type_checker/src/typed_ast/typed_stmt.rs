@@ -32,11 +32,33 @@ pub enum TypedStatement {
         condition: TypedExpression,
         block: Box<TypedStatement>,
     },
+    Struct {
+        token: Token,
+        name: Ident,
+        fields: Vec<TypedExpression>,
+        ty: Ty,
+    },
 }
 
 impl Display for TypedStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Struct { name, fields, .. } => write!(
+                f,
+                "struct {name} {}",
+                if fields.is_empty() {
+                    "{}".to_string()
+                } else {
+                    format!(
+                        "{{\n{}\n}}",
+                        fields
+                            .iter()
+                            .map(|it| "\t".to_owned() + &it.to_string())
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    )
+                }
+            ),
             Self::While {
                 condition, block, ..
             } => write!(f, "while {condition} {block} "),
@@ -71,6 +93,7 @@ impl GetType for TypedStatement {
             Self::ExpressionStatement(expr) => expr.get_type(),
             Self::Return { ty, .. } => ty.clone(),
             Self::Let { ty, .. } => ty.clone(),
+            Self::Struct { ty, .. } => ty.clone(),
             Self::While { .. } => Ty::Unit,
         }
     }

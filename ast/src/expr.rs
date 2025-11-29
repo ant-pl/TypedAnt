@@ -5,7 +5,7 @@ use token::token::Token;
 
 use crate::{expressions::ident::Ident, stmt::Statement};
 
-#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy, Hash)]
 pub enum IntValue {
     I64(i64),
     I32(i32),
@@ -36,7 +36,7 @@ impl Display for IntValue {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Expression {
     BigInt {
         token: Token,

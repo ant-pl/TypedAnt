@@ -74,13 +74,17 @@ impl Display for Ty {
             Self::IntTy(it) => write!(f, "{it}"),
             Self::Bool => write!(f, "bool"),
             Self::Unit => write!(f, "Unit"),
-            Self::Struct(it) => write!(
-                f, "struct {{\n{}\n}}",
-                it.iter()
-                    .map(|(name, ty)| format!("{name}: {ty}"))
-                    .collect::<Vec<String>>()
-                    .join("\n")
-            ),
+            Self::Struct(it) => {
+                if it.is_empty() {
+                    write!(f, "struct {{}}")
+                } else {
+                    writeln!(f, "struct {{")?;
+                    for (name, ty) in it {
+                        writeln!(f, "\t{name}: {ty}")?;
+                    }
+                    write!(f, "}}")
+                }
+            }
             Self::Function {
                 params_type,
                 ret_type,
@@ -94,6 +98,49 @@ impl Display for Ty {
                     .join(", "),
                 ret_type
             ),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use crate::ty::{IntTy, Ty};
+
+    fn expected_ty_display(ty: &Ty, expected: &str) {
+        assert_eq!(&ty.to_string(), expected);
+
+        println!("ok! ty: {ty}, expected: {expected}")
+    }
+
+    #[test]
+    fn expected_ty_displays() {
+        let cases = vec![
+            (Ty::BigInt, "BigInt"),
+            (Ty::IntTy(IntTy::I64), "i64"),
+            (Ty::IntTy(IntTy::I32), "i32"),
+            (Ty::IntTy(IntTy::I16), "i16"),
+            (Ty::IntTy(IntTy::I8), "i8"),
+            (Ty::IntTy(IntTy::U64), "u64"),
+            (Ty::IntTy(IntTy::U32), "u32"),
+            (Ty::IntTy(IntTy::U16), "u16"),
+            (Ty::IntTy(IntTy::U8), "u8"),
+            (Ty::IntTy(IntTy::USize), "usize"),
+            (Ty::IntTy(IntTy::ISize), "isize"),
+            (Ty::BigInt, "BigInt"),
+            (Ty::Struct(HashMap::new()), "struct {}"),
+            (Ty::Struct({
+                let mut m = HashMap::new();
+
+                m.insert("it".into(), Ty::IntTy(IntTy::U64));
+
+                m
+            }), "struct {\n\tit: u64\n}"),
+        ];
+
+        for (ty, expected) in cases {
+            expected_ty_display(&ty, expected);
         }
     }
 }

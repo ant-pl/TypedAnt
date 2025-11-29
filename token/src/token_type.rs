@@ -50,6 +50,7 @@ pub enum TokenType {
     Func,
     Comma,
     Class,
+    Struct,
     Public,
     Private,
     Readonly,
@@ -74,6 +75,7 @@ impl TokenType {
     /// 获取 TokenType 的字符串表示
     pub fn to_string(&self) -> &'static str {
         match self {
+            TokenType::Struct => "Struct",
             TokenType::Colon => ":",
             TokenType::Dot => ".",
             TokenType::LBracket => "[",
@@ -189,6 +191,7 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     "WHILE" => TokenType::While,
     "NEW" => TokenType::New,
     "IMPORT" => TokenType::Import,
+    "STRUCT" => TokenType::Struct,
     "FROM" => TokenType::From,
     "LET" => TokenType::Let,
     "::" => TokenType::GetClassMember,
