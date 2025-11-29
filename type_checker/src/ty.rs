@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, rc::Rc};
+use std::{fmt::Display, rc::Rc};
 
 use ast::expr::IntValue;
 
@@ -127,8 +127,6 @@ impl Display for Ty {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use crate::ty::{IntTy, Ty};
 
     fn expected_ty_display(ty: &Ty, expected: &str) {

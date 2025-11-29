@@ -5,7 +5,7 @@ pub mod test;
 pub mod ty;
 pub mod typed_ast;
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use ast::{expr::Expression, node::Node, stmt::Statement};
 use token::token::Token;
@@ -140,6 +140,42 @@ impl TypeChecker {
                 value,
                 ty: Ty::Str,
             }),
+
+            Expression::BuildStruct(struct_name, fields) => {
+                let struct_name = Ident {
+                    value: struct_name.value,
+                    token: struct_name.token,
+                };
+
+                let struct_ty = self.table.borrow().get(&struct_name.value).map_or_else(
+                    || {
+                        Err(Self::make_err(
+                            None,
+                            TypeCheckerErrorKind::VariableNotFound,
+                            Some(struct_name.token.clone()),
+                        ))
+                    },
+                    |it| Ok(it.ty.get_type()),
+                )?;
+
+                let mut typed_fields = vec![];
+
+                for (field_name, field_val) in fields {
+                    typed_fields.push((
+                        Ident {
+                            value: field_name.value.clone(),
+                            token: field_name.token,
+                        },
+                        self.check_expr(field_val)?,
+                    ));
+                }
+
+                Ok(TypedExpression::BuildStruct(
+                    struct_name,
+                    typed_fields,
+                    struct_ty,
+                ))
+            }
 
             Expression::Assign { token, left, right } => {
                 let typed_left = self.check_expr(*left)?;

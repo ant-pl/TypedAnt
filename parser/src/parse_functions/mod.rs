@@ -12,3 +12,4 @@ pub mod parse_bool;
 pub mod parse_while;
 pub mod parse_str;
 pub mod parse_struct;
+pub mod parse_build_struct;

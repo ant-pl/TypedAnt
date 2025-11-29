@@ -8,7 +8,7 @@ use token::{token::Token, token_type::TokenType};
 use crate::{
     error::{ParserError, ParserErrorKind},
     parse_functions::{
-        parse_assign::parse_assign, parse_block::parse_block_expr, parse_bool::parse_bool, parse_call::parse_call, parse_func::parse_func, parse_ident::parse_ident, parse_if::parse_if, parse_infix::parse_infix, parse_let::parse_let, parse_num::{parse_i64, parse_u64}, parse_str::parse_str, parse_struct::parse_struct, parse_while::parse_while
+        parse_assign::parse_assign, parse_block::parse_block_expr, parse_bool::parse_bool, parse_build_struct::parse_build_struct, parse_call::parse_call, parse_func::parse_func, parse_ident::parse_ident, parse_if::parse_if, parse_infix::parse_infix, parse_let::parse_let, parse_num::{parse_i64, parse_u64}, parse_str::parse_str, parse_struct::parse_struct, parse_while::parse_while
     },
     precedence::{Precedence, get_token_precedence},
 };
@@ -64,6 +64,7 @@ impl Parser {
 
         m.insert(TokenType::LParen, parse_call);
         m.insert(TokenType::Assign, parse_assign);
+        m.insert(TokenType::LBrace, parse_build_struct);
     }
 
     fn init_statement_parse_fn_map(m: &mut HashMap<TokenType, StmtParseFn>) {

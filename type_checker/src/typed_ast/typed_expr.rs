@@ -29,6 +29,7 @@ pub enum TypedExpression {
     Ident(Ident, Ty),
     Block(Vec<TypedStatement>, Ty),
     TypeHint(Ident, Ident, Ty),
+    BuildStruct(Ident, Vec<(Ident, TypedExpression)>, Ty),
     Infix {
         token: Token,
         op: Rc<str>,
@@ -71,6 +72,14 @@ pub enum TypedExpression {
 impl Display for TypedExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::BuildStruct(struct_name, block, _) => write!(
+                f, "{struct_name} {{\n{}\n}}",
+                block
+                    .iter()
+                    .map(|(name, val_expr)| format!("\t{name} = {val_expr}"))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            ),
             Self::StrLiteral { value, .. } => write!(f, "{value}"),
             Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
@@ -149,6 +158,7 @@ impl GetType for TypedExpression {
             Self::Infix { ty, .. } => ty.clone(),
             Self::TypeHint(_, _, ty) => ty.clone(),
             Self::If { consequence, .. } => consequence.get_type(),
+            Self::BuildStruct(_, _, ty) => ty.clone(),
             Self::Call { func_ty, .. } => match func_ty {
                 Ty::Function { ret_type, .. } => *ret_type.clone(),
                 _ => unreachable!(),

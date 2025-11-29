@@ -53,6 +53,7 @@ pub enum Expression {
     Ident(Ident),
     TypeHint(Ident, Ident),
     Block(Vec<Statement>),
+    BuildStruct(Ident, Vec<(Ident, Expression)>),
     Infix {
         token: Token,
         op: Rc<str>,
@@ -91,6 +92,14 @@ pub enum Expression {
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::BuildStruct(struct_name, block,) => write!(
+                f, "{struct_name} {{\n{}\n}}",
+                block
+                    .iter()
+                    .map(|(name, val_expr)| format!("\t{name} = {val_expr}"))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            ),
             Self::StrLiteral { value, .. } => write!(f, "{value}"),
             Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(

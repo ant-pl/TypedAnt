@@ -17,9 +17,7 @@ pub enum Precedence {
     Sum,         // +
     Product,     // *
     Prefix,      // -X | !X
-    Call,        // myFunction(X)
-    Index,       // array[index]
-    ObjMember,   // person.Name
+    Call,        // myFunction(X) array[index] person.Name 
     Highest,
 }
 
@@ -36,10 +34,11 @@ pub static TOKEN_PRECEDENCES: Lazy<HashMap<TokenType, Precedence>> = Lazy::new(|
     m.insert(TokenType::Slash, Precedence::Product);
     m.insert(TokenType::Asterisk, Precedence::Product);
     m.insert(TokenType::LParen, Precedence::Call);
-    m.insert(TokenType::LBracket, Precedence::Index);
+    m.insert(TokenType::LBracket, Precedence::Call);
     m.insert(TokenType::Assign, Precedence::Assignment);
-    m.insert(TokenType::Dot, Precedence::ObjMember);
-    m.insert(TokenType::GetClassMember, Precedence::ObjMember);
+    m.insert(TokenType::Dot, Precedence::Call);
+    m.insert(TokenType::GetClassMember, Precedence::Call);
+    m.insert(TokenType::LBrace, Precedence::Call);
     m.insert(TokenType::BoolOr, Precedence::AndOr);
     m.insert(TokenType::BoolAnd, Precedence::AndOr);
     
