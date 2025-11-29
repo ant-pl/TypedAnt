@@ -2,6 +2,17 @@ use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use ast::expr::IntValue;
 
+fn get_platform_width() -> usize {
+    #[cfg(target_pointer_width = "64")]
+    return 64;
+
+    #[cfg(target_pointer_width = "32")]
+    return 32;
+
+    #[cfg(target_pointer_width = "16")]
+    return 16;
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IntTy {
     ISize,
@@ -14,6 +25,18 @@ pub enum IntTy {
     U32,
     U16,
     U8,
+}
+
+impl IntTy {
+    pub fn get_bytes_size(&self) -> usize {
+        match *self {
+            Self::I8 | Self::U8 => 1,
+            Self::I16 | Self::U16 => 2,
+            Self::I32 | Self::U32 => 4,
+            Self::I64 | Self::U64 => 8,
+            Self::ISize | Self::USize => get_platform_width() / 8,
+        }
+    }
 }
 
 impl Display for IntTy {
@@ -130,13 +153,16 @@ mod tests {
             (Ty::IntTy(IntTy::ISize), "isize"),
             (Ty::BigInt, "BigInt"),
             (Ty::Struct("".into(), HashMap::new()), "struct {}"),
-            (Ty::Struct("".into(), {
-                let mut m = HashMap::new();
+            (
+                Ty::Struct("".into(), {
+                    let mut m = HashMap::new();
 
-                m.insert("it".into(), Ty::IntTy(IntTy::U64));
+                    m.insert("it".into(), Ty::IntTy(IntTy::U64));
 
-                m
-            }), "struct {\n\tit: u64\n}"),
+                    m
+                }),
+                "struct {\n\tit: u64\n}",
+            ),
         ];
 
         for (ty, expected) in cases {
