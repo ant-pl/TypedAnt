@@ -441,11 +441,11 @@ impl TypeChecker {
 
                 Ok(TypedStatement::Struct {
                     ty: Ty::Struct(name.value.clone(), {
-                        let mut m = HashMap::new();
+                        let mut v = Vec::new();
 
                         for field in &typed_fields {
                             if let TypedExpression::TypeHint(name, _, ty) = field {
-                                m.insert(name.value.clone(), ty.clone());
+                                v.push((name.value.clone(), ty.clone()));
                             } else {
                                 return Err(Self::make_err(
                                     Some(&format!("not a type hint: {field}")),
@@ -455,7 +455,7 @@ impl TypeChecker {
                             }
                         }
 
-                        m
+                        v
                     }),
                     token,
                     name: typed_name,

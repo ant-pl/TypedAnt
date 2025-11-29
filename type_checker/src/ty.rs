@@ -82,7 +82,7 @@ pub enum Ty {
         params_type: Vec<Ty>,
         ret_type: Box<Ty>,
     },
-    Struct(Rc<str>, HashMap<Rc<str>, Ty>),
+    Struct(Rc<str>, Vec<(Rc<str>, Ty)>),
     IntTy(IntTy),
     Bool,
     Unit,
@@ -152,15 +152,9 @@ mod tests {
             (Ty::IntTy(IntTy::USize), "usize"),
             (Ty::IntTy(IntTy::ISize), "isize"),
             (Ty::BigInt, "BigInt"),
-            (Ty::Struct("".into(), HashMap::new()), "struct {}"),
+            (Ty::Struct("".into(), vec![]), "struct {}"),
             (
-                Ty::Struct("".into(), {
-                    let mut m = HashMap::new();
-
-                    m.insert("it".into(), Ty::IntTy(IntTy::U64));
-
-                    m
-                }),
+                Ty::Struct("".into(), vec![("it".into(), Ty::IntTy(IntTy::U64))]),
                 "struct {\n\tit: u64\n}",
             ),
         ];
