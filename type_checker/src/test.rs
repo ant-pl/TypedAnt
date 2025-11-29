@@ -6,7 +6,7 @@ mod tests {
     use token::{token::Token, token_type::TokenType};
 
     use crate::{
-        Ty, TypeChecker,
+        ty::Ty, TypeChecker,
         table::TypeTable,
         typed_ast::{GetType, typed_expr::TypedExpression, typed_stmt::TypedStatement},
     };
@@ -17,7 +17,7 @@ mod tests {
 
         let table = Rc::new(RefCell::new(TypeTable::new()));
 
-        table.borrow_mut().define_var("a", crate::Ty::BigInt);
+        table.borrow_mut().define_var("a", Ty::BigInt);
 
         let checker = &mut TypeChecker::new(table);
 
