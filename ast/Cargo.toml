@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 bigdecimal = "0.4.9"
+indexmap = "2.12.1"
 token = { version = "0.1.0", path = "../token" }

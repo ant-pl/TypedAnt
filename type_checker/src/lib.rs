@@ -8,6 +8,7 @@ pub mod typed_ast;
 use std::{cell::RefCell, rc::Rc};
 
 use ast::{expr::Expression, node::Node, stmt::Statement};
+use indexmap::IndexMap;
 use token::token::Token;
 
 use crate::{
@@ -158,16 +159,16 @@ impl TypeChecker {
                     |it| Ok(it.ty.get_type()),
                 )?;
 
-                let mut typed_fields = vec![];
+                let mut typed_fields = IndexMap::new();
 
                 for (field_name, field_val) in fields {
-                    typed_fields.push((
+                    typed_fields.insert(
                         Ident {
                             value: field_name.value.clone(),
                             token: field_name.token,
                         },
                         self.check_expr(field_val)?,
-                    ));
+                    );
                 }
 
                 Ok(TypedExpression::BuildStruct(

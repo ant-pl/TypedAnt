@@ -4,7 +4,7 @@ use token::token::Token;
 
 use crate::{expr::Expression, expressions::ident::Ident};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
     ExpressionStatement(Expression),
     Return {

@@ -1,6 +1,7 @@
 use std::{fmt::Display, rc::Rc};
 
 use bigdecimal::BigDecimal;
+use indexmap::IndexMap;
 use token::token::Token;
 
 use crate::{expressions::ident::Ident, stmt::Statement};
@@ -36,7 +37,7 @@ impl Display for IntValue {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
     BigInt {
         token: Token,
@@ -53,7 +54,7 @@ pub enum Expression {
     Ident(Ident),
     TypeHint(Ident, Ident),
     Block(Vec<Statement>),
-    BuildStruct(Ident, Vec<(Ident, Expression)>),
+    BuildStruct(Ident, IndexMap<Ident, Expression>),
     Infix {
         token: Token,
         op: Rc<str>,

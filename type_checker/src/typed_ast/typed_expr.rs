@@ -2,6 +2,7 @@ use std::{fmt::Display, rc::Rc};
 
 use ast::expr::IntValue;
 use bigdecimal::BigDecimal;
+use indexmap::IndexMap;
 use token::token::Token;
 
 use crate::{
@@ -29,7 +30,8 @@ pub enum TypedExpression {
     Ident(Ident, Ty),
     Block(Vec<TypedStatement>, Ty),
     TypeHint(Ident, Ident, Ty),
-    BuildStruct(Ident, Vec<(Ident, TypedExpression)>, Ty),
+    BuildStruct(Ident, IndexMap<Ident, TypedExpression>, Ty),
+    FieldAccess(Box<TypedExpression>, Ident, Ty),
     Infix {
         token: Token,
         op: Rc<str>,
@@ -66,20 +68,22 @@ pub enum TypedExpression {
         token: Token,
         value: Rc<str>,
         ty: Ty,
-    }
+    },
 }
 
 impl Display for TypedExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::BuildStruct(struct_name, block, _) => write!(
-                f, "{struct_name} {{\n{}\n}}",
+                f,
+                "{struct_name} {{\n{}\n}}",
                 block
                     .iter()
                     .map(|(name, val_expr)| format!("\t{name} = {val_expr}"))
                     .collect::<Vec<String>>()
                     .join("\n")
             ),
+            Self::FieldAccess(obj, field, _) => write!(f, "{obj}.{field}"),
             Self::StrLiteral { value, .. } => write!(f, "{value}"),
             Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
@@ -148,7 +152,8 @@ impl Display for TypedExpression {
 impl GetType for TypedExpression {
     fn get_type(&self) -> Ty {
         match self {
-            Self::StrLiteral { ty, .. } => ty.clone(), 
+            Self::FieldAccess(_, _, field_ty) => field_ty.clone(),
+            Self::StrLiteral { ty, .. } => ty.clone(),
             Self::BigInt { ty, .. } => ty.clone(),
             Self::Int { ty, .. } => ty.clone(),
             Self::Bool { ty, .. } => ty.clone(),
@@ -163,7 +168,7 @@ impl GetType for TypedExpression {
                 Ty::Function { ret_type, .. } => *ret_type.clone(),
                 _ => unreachable!(),
             },
-            Self::Assign { right, .. } => right.get_type()
+            Self::Assign { right, .. } => right.get_type(),
         }
     }
 }
