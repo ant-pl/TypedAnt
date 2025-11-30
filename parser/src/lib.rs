@@ -265,9 +265,7 @@ impl Parser {
         }
 
         // 前进到结束的词法单元
-        if !self.cur_token_is(end) {
-            self.next_token();
-        }
+        self.next_token();
 
         // WARNING: 若想在调用后跳过结束的词法单元，请自行在使用后处理
 
