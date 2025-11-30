@@ -14,7 +14,8 @@ use token::token::Token;
 use crate::{
     error::{TypeCheckerError, TypeCheckerErrorKind},
     scope::{CheckScope, ScopeKind},
-    table::{TypeTable, str_to_ty},
+    table::TypeTable,
+    ty::str_to_ty,
     ty::Ty,
     typed_ast::{
         GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident,

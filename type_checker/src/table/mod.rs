@@ -82,21 +82,3 @@ impl TypeTable {
         sym
     }
 }
-
-pub fn str_to_ty(ty_str: &str) -> Option<Ty> {
-    match ty_str {
-        "i64" => Some(Ty::IntTy(crate::ty::IntTy::I64)),
-        "i32" => Some(Ty::IntTy(crate::ty::IntTy::I32)),
-        "i16" => Some(Ty::IntTy(crate::ty::IntTy::I16)),
-        "i8" => Some(Ty::IntTy(crate::ty::IntTy::I8)),
-        "u64" => Some(Ty::IntTy(crate::ty::IntTy::U64)),
-        "u32" => Some(Ty::IntTy(crate::ty::IntTy::U32)),
-        "u16" => Some(Ty::IntTy(crate::ty::IntTy::U16)),
-        "u8" => Some(Ty::IntTy(crate::ty::IntTy::U8)),
-        "usize" => Some(Ty::IntTy(crate::ty::IntTy::USize)),
-        "isize" => Some(Ty::IntTy(crate::ty::IntTy::ISize)),
-        "BigInt" => Some(Ty::BigInt),
-
-        _ => None
-    }
-}
