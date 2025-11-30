@@ -160,13 +160,23 @@ impl TypeChecker {
 
                 let Some(field_ty) = fields.get(&new_field.value) else {
                     Err(Self::make_err(
-                        Some(&format!("field {} of struct {struct_name} not found", &new_field.value)),
+                        Some(&format!(
+                            "field {} of struct {struct_name} not found",
+                            &new_field.value
+                        )),
                         TypeCheckerErrorKind::VariableNotFound,
-                        Some(new_field.token.clone())
+                        Some(new_field.token.clone()),
                     ))?
                 };
 
-                Ok(TypedExpression::FieldAccess(typed_struct_expr, new_field, field_ty.clone()))
+                let struct_ty = typed_struct_expr.get_type();
+
+                Ok(TypedExpression::FieldAccess(
+                    typed_struct_expr,
+                    struct_ty,
+                    new_field,
+                    field_ty.clone(),
+                ))
             }
 
             Expression::BuildStruct(struct_name, fields) => {
