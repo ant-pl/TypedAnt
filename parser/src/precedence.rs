@@ -38,7 +38,6 @@ pub static TOKEN_PRECEDENCES: Lazy<HashMap<TokenType, Precedence>> = Lazy::new(|
     m.insert(TokenType::Assign, Precedence::Assignment);
     m.insert(TokenType::Dot, Precedence::Call);
     m.insert(TokenType::GetClassMember, Precedence::Call);
-    m.insert(TokenType::LBrace, Precedence::Call);
     m.insert(TokenType::BoolOr, Precedence::AndOr);
     m.insert(TokenType::BoolAnd, Precedence::AndOr);
     
