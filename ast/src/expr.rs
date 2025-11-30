@@ -103,7 +103,7 @@ impl Display for Expression {
                     .join("\n")
             ),
             Self::FieldAccess(obj, field) => write!(f, "{obj}.{field}"),
-            Self::StrLiteral { value, .. } => write!(f, "{value}"),
+            Self::StrLiteral { value, .. } => write!(f, "\"{value}\""),
             Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
                 f,
