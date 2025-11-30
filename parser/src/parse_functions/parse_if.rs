@@ -2,7 +2,7 @@ use ast::expr::Expression;
 use token::token_type::TokenType;
 
 use crate::{
-    ParseResult, Parser, parse_functions::parse_block::parse_block_expr,
+    ParseResult, Parser,
     precedence::Precedence,
 };
 
@@ -15,7 +15,7 @@ pub fn parse_if(parser: &mut Parser) -> ParseResult<Expression> {
 
     parser.next_token(); // 离开表达式 (正常应跳转到左大括号)
 
-    let consequence = Box::new(parse_block_expr(parser)?);
+    let consequence = Box::new(parser.parse_expression(Precedence::Lowest)?);
 
     parser.expect_cur(TokenType::RBrace)?;
 

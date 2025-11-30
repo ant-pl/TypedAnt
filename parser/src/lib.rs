@@ -48,6 +48,7 @@ impl Parser {
         m.insert(TokenType::LBrace, parse_block_expr);
         m.insert(TokenType::If, parse_if);
         m.insert(TokenType::Func, parse_func);
+        m.insert(TokenType::New, parse_build_struct);
     }
 
     fn init_infix_parse_fn_map(m: &mut HashMap<TokenType, InfixParseFn>) {
@@ -64,7 +65,6 @@ impl Parser {
 
         m.insert(TokenType::LParen, parse_call);
         m.insert(TokenType::Assign, parse_assign);
-        m.insert(TokenType::LBrace, parse_build_struct);
         m.insert(TokenType::Dot, parse_field_access);
     }
 
