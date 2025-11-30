@@ -31,7 +31,7 @@ pub enum TypedExpression {
     Block(Vec<TypedStatement>, Ty),
     TypeHint(Ident, Ident, Ty),
     BuildStruct(Ident, IndexMap<Ident, TypedExpression>, Ty),
-    FieldAccess(Box<TypedExpression>, Ty, Ident, Ty),
+    FieldAccess(Box<TypedExpression>, Ident, Ty),
     Infix {
         token: Token,
         op: Rc<str>,
@@ -83,7 +83,7 @@ impl Display for TypedExpression {
                     .collect::<Vec<String>>()
                     .join("\n")
             ),
-            Self::FieldAccess(obj, _, field, _) => write!(f, "{obj}.{field}"),
+            Self::FieldAccess(obj, field, _) => write!(f, "{obj}.{field}"),
             Self::StrLiteral { value, .. } => write!(f, "{value}"),
             Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
@@ -152,7 +152,7 @@ impl Display for TypedExpression {
 impl GetType for TypedExpression {
     fn get_type(&self) -> Ty {
         match self {
-            Self::FieldAccess(_, _, _, field_ty) => field_ty.clone(),
+            Self::FieldAccess(_, _, field_ty) => field_ty.clone(),
             Self::StrLiteral { ty, .. } => ty.clone(),
             Self::BigInt { ty, .. } => ty.clone(),
             Self::Int { ty, .. } => ty.clone(),
