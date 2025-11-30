@@ -15,8 +15,8 @@ use crate::{
     error::{TypeCheckerError, TypeCheckerErrorKind},
     scope::{CheckScope, ScopeKind},
     table::TypeTable,
-    ty::str_to_ty,
     ty::Ty,
+    ty::str_to_ty,
     typed_ast::{
         GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident,
         typed_node::TypedNode, typed_stmt::TypedStatement,
@@ -161,13 +161,20 @@ impl TypeChecker {
 
                 let Some(field_ty) = fields.get(&new_field.value) else {
                     Err(Self::make_err(
-                        Some(&format!("field {} of struct {struct_name} not found", &new_field.value)),
+                        Some(&format!(
+                            "field {} of struct {struct_name} not found",
+                            &new_field.value
+                        )),
                         TypeCheckerErrorKind::VariableNotFound,
-                        Some(new_field.token.clone())
+                        Some(new_field.token.clone()),
                     ))?
                 };
 
-                Ok(TypedExpression::FieldAccess(typed_struct_expr, new_field, field_ty.clone()))
+                Ok(TypedExpression::FieldAccess(
+                    typed_struct_expr,
+                    new_field,
+                    field_ty.clone(),
+                ))
             }
 
             Expression::BuildStruct(struct_name, fields) => {
@@ -179,9 +186,9 @@ impl TypeChecker {
                 let struct_ty = self.table.borrow().get(&struct_name.value).map_or_else(
                     || {
                         Err(Self::make_err(
-                            None,
+                            Some(&format!("type not found: {struct_name}")),
                             TypeCheckerErrorKind::VariableNotFound,
-                            Some(struct_name.token.clone()),
+                            None,
                         ))
                     },
                     |it| Ok(it.ty.get_type()),
@@ -504,24 +511,28 @@ impl TypeChecker {
                     typed_fields.push(self.check_expr(*field)?);
                 }
 
-                Ok(TypedStatement::Struct {
-                    ty: Ty::Struct(name.value.clone(), {
-                        let mut m = IndexMap::new();
+                let ty = Ty::Struct(name.value.clone(), {
+                    let mut m = IndexMap::new();
 
-                        for field in &typed_fields {
-                            if let TypedExpression::TypeHint(name, _, ty) = field {
-                                m.insert(name.value.clone(), ty.clone());
-                            } else {
-                                return Err(Self::make_err(
-                                    Some(&format!("not a type hint: {field}")),
-                                    TypeCheckerErrorKind::Other,
-                                    None,
-                                ));
-                            }
+                    for field in &typed_fields {
+                        if let TypedExpression::TypeHint(name, _, ty) = field {
+                            m.insert(name.value.clone(), ty.clone());
+                        } else {
+                            return Err(Self::make_err(
+                                Some(&format!("not a type hint: {field}")),
+                                TypeCheckerErrorKind::Other,
+                                None,
+                            ));
                         }
+                    }
 
-                        m
-                    }),
+                    m
+                });
+
+                self.table.borrow_mut().define_var(&typed_name.value, ty.clone());
+
+                Ok(TypedStatement::Struct {
+                    ty,
                     token,
                     name: typed_name,
                     fields: typed_fields,
