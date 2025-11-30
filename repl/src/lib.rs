@@ -1,10 +1,13 @@
-use std::{io::Write, rc::Rc};
+use std::{cell::RefCell, io::Write, rc::Rc};
 
 use lexer::Lexer;
 use parser::{Parser, error::display_err};
+use type_checker::{TypeChecker, table::TypeTable};
 
 pub fn repl() {
     let file: Rc<str> = "*repl".into();
+
+    let table = Rc::new(RefCell::new(TypeTable::new()));
 
     loop {
         print!(">>> ");
@@ -26,11 +29,21 @@ pub fn repl() {
             continue;
         }
 
+        #[cfg(debug_assertions)]
+        println!("tokens: {tokens:#?}");
+
         let mut parser = Parser::new(tokens);
 
-        match parser.parse_program() {
-            Ok(it) => println!("{it}"),
-            Err(err) => display_err(&err),
+        let node = match parser.parse_program() {
+            Ok(it) => { println!("ast: {it}"); it },
+            Err(err) => { display_err(&err); continue; },
+        };
+
+        let mut checker = TypeChecker::new(table.clone());
+
+        match checker.check_node(node) {
+            Ok(it) => println!("typed_ast: {it}"),
+            Err(err) => println!("{err:#?}")
         }
     }
 }

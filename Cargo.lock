@@ -347,6 +347,7 @@ version = "0.1.0"
 dependencies = [
  "lexer",
  "parser",
+ "type_checker",
 ]
 
 [[package]]
