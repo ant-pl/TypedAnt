@@ -1,6 +1,7 @@
 use std::{fmt::Display, rc::Rc};
 
 use ast::expr::IntValue;
+use indexmap::IndexMap;
 
 fn get_platform_width() -> usize {
     #[cfg(target_pointer_width = "64")]
@@ -82,7 +83,7 @@ pub enum Ty {
         params_type: Vec<Ty>,
         ret_type: Box<Ty>,
     },
-    Struct(Rc<str>, Vec<(Rc<str>, Ty)>),
+    Struct(Rc<str>, IndexMap<Rc<str>, Ty>),
     IntTy(IntTy),
     Bool,
     Unit,
@@ -127,6 +128,8 @@ impl Display for Ty {
 
 #[cfg(test)]
 mod tests {
+    use indexmap::IndexMap;
+
     use crate::ty::{IntTy, Ty};
 
     fn expected_ty_display(ty: &Ty, expected: &str) {
@@ -150,9 +153,15 @@ mod tests {
             (Ty::IntTy(IntTy::USize), "usize"),
             (Ty::IntTy(IntTy::ISize), "isize"),
             (Ty::BigInt, "BigInt"),
-            (Ty::Struct("".into(), vec![]), "struct {}"),
+            (Ty::Struct("".into(), IndexMap::new()), "struct {}"),
             (
-                Ty::Struct("".into(), vec![("it".into(), Ty::IntTy(IntTy::U64))]),
+                Ty::Struct("".into(), {
+                    let mut m = IndexMap::new();
+
+                    m.insert("it".into(), Ty::IntTy(IntTy::U64));
+
+                    m
+                }),
                 "struct {\n\tit: u64\n}",
             ),
         ];

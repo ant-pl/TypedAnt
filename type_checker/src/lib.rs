@@ -142,6 +142,33 @@ impl TypeChecker {
                 ty: Ty::Str,
             }),
 
+            Expression::FieldAccess(struct_expr, field) => {
+                let new_field = Ident {
+                    value: field.value,
+                    token: field.token,
+                };
+
+                let typed_struct_expr = Box::new(self.check_expr(*struct_expr)?);
+
+                let Ty::Struct(struct_name, fields) = typed_struct_expr.get_type() else {
+                    Err(Self::make_err(
+                        Some("not a struct: {typed_struct_expr}"),
+                        TypeCheckerErrorKind::TypeMismatch,
+                        None,
+                    ))?
+                };
+
+                let Some(field_ty) = fields.get(&new_field.value) else {
+                    Err(Self::make_err(
+                        Some(&format!("field {} of struct {struct_name} not found", &new_field.value)),
+                        TypeCheckerErrorKind::VariableNotFound,
+                        Some(new_field.token.clone())
+                    ))?
+                };
+
+                Ok(TypedExpression::FieldAccess(typed_struct_expr, new_field, field_ty.clone()))
+            }
+
             Expression::BuildStruct(struct_name, fields) => {
                 let struct_name = Ident {
                     value: struct_name.value,
@@ -478,11 +505,11 @@ impl TypeChecker {
 
                 Ok(TypedStatement::Struct {
                     ty: Ty::Struct(name.value.clone(), {
-                        let mut v = Vec::new();
+                        let mut m = IndexMap::new();
 
                         for field in &typed_fields {
                             if let TypedExpression::TypeHint(name, _, ty) = field {
-                                v.push((name.value.clone(), ty.clone()));
+                                m.insert(name.value.clone(), ty.clone());
                             } else {
                                 return Err(Self::make_err(
                                     Some(&format!("not a type hint: {field}")),
@@ -492,7 +519,7 @@ impl TypeChecker {
                             }
                         }
 
-                        v
+                        m
                     }),
                     token,
                     name: typed_name,

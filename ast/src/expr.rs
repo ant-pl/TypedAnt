@@ -55,6 +55,7 @@ pub enum Expression {
     TypeHint(Ident, Ident),
     Block(Vec<Statement>),
     BuildStruct(Ident, IndexMap<Ident, Expression>),
+    FieldAccess(Box<Expression>, Ident),
     Infix {
         token: Token,
         op: Rc<str>,
@@ -101,6 +102,7 @@ impl Display for Expression {
                     .collect::<Vec<String>>()
                     .join("\n")
             ),
+            Self::FieldAccess(obj, field) => write!(f, "{obj}.{field}"),
             Self::StrLiteral { value, .. } => write!(f, "{value}"),
             Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
