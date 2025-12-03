@@ -38,11 +38,35 @@ pub enum TypedStatement {
         fields: Vec<TypedExpression>,
         ty: Ty,
     },
+    Extern {
+        token: Token,
+        abi: Token,
+        extern_func_name: Token,
+        alias: Token,
+        params: Vec<Box<TypedExpression>>,
+        ret_ty: Ident,
+        ty: Ty
+    },
 }
 
 impl Display for TypedStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Extern {
+                abi,
+                extern_func_name,
+                params,
+                ret_ty,
+                alias,
+                ..
+            } => write!(
+                f, "extern \"{abi}\" {extern_func_name}({}) -> {ret_ty} as {alias}",
+                params
+                    .iter()
+                    .map(|it| it.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
             Self::Struct { name, fields, .. } => write!(
                 f,
                 "struct {name} {}",
@@ -89,6 +113,7 @@ impl Display for TypedStatement {
 impl GetType for TypedStatement {
     fn get_type(&self) -> Ty {
         match self {
+            Self::Extern { ty, .. } => ty.clone(),
             Self::Block { ty, .. } => ty.clone(),
             Self::ExpressionStatement(expr) => expr.get_type(),
             Self::Return { ty, .. } => ty.clone(),

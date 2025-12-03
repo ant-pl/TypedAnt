@@ -402,11 +402,18 @@ impl TypeChecker {
 
                 let ty = Ty::Function {
                     params_type: typed_params.iter().map(|p| p.get_type()).collect(),
-                    ret_type: Box::new(
-                        ret_ident
-                            .as_ref()
-                            .map_or(Ty::Unit, |id| str_to_ty(&id.value).unwrap_or(Ty::BigInt)),
-                    ),
+                    ret_type: Box::new(ret_ident.as_ref().map_or(Ok(Ty::Unit), |id| {
+                        str_to_ty(&id.value).map_or_else(
+                            || {
+                                Err(TypeChecker::make_err(
+                                    Some(&format!("unknown type: {}", &id.value)),
+                                    TypeCheckerErrorKind::TypeNotFound,
+                                    Some(id.token.clone()),
+                                ))
+                            },
+                            |it| Ok(it),
+                        )
+                    })?),
                 };
 
                 if let Some(name) = &name {
@@ -488,6 +495,57 @@ impl TypeChecker {
 
     pub fn check_statement(&mut self, stmt: Statement) -> CheckResult<TypedStatement> {
         match stmt {
+            Statement::Extern {
+                token,
+                abi,
+                extern_func_name,
+                alias,
+                params,
+                ret_ty,
+            } => {
+                let mut typed_params = vec![];
+                let mut params_type = vec![];
+
+                for param in params {
+                    let typed_param = self.check_expr(*param)?;
+
+                    params_type.push(typed_param.get_type());
+                    typed_params.push(Box::new(typed_param));
+                }
+
+                let ret_ty_ident = Ident {
+                    value: ret_ty.value,
+                    token: ret_ty.token,
+                };
+
+                let func_ty = Ty::Function {
+                    params_type,
+                    ret_type: Box::new(str_to_ty(&ret_ty_ident.value).map_or_else(
+                        || {
+                            Err(TypeChecker::make_err(
+                                Some(&format!("unknown type: {}", &ret_ty_ident.value)),
+                                TypeCheckerErrorKind::TypeNotFound,
+                                Some(ret_ty_ident.token.clone()),
+                            ))
+                        },
+                        |it| Ok(it),
+                    )?),
+                };
+
+                self.table
+                    .borrow_mut()
+                    .define_var(&alias.value, func_ty.clone());
+
+                Ok(TypedStatement::Extern {
+                    ty: func_ty,
+                    token,
+                    abi,
+                    alias,
+                    extern_func_name,
+                    params: typed_params,
+                    ret_ty: ret_ty_ident,
+                })
+            }
             Statement::Struct {
                 token,
                 name,
@@ -529,7 +587,9 @@ impl TypeChecker {
                     m
                 });
 
-                self.table.borrow_mut().define_var(&typed_name.value, ty.clone());
+                self.table
+                    .borrow_mut()
+                    .define_var(&typed_name.value, ty.clone());
 
                 Ok(TypedStatement::Struct {
                     ty,

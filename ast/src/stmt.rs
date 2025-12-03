@@ -31,11 +31,34 @@ pub enum Statement {
         name: Ident,
         fields: Vec<Box<Expression>>,
     },
+    Extern {
+        token: Token,
+        abi: Token,
+        extern_func_name: Token,
+        alias: Token,
+        params: Vec<Box<Expression>>,
+        ret_ty: Ident,
+    },
 }
 
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Extern {
+                abi,
+                extern_func_name,
+                params,
+                ret_ty,
+                alias,
+                ..
+            } => write!(
+                f, "extern \"{abi}\" {extern_func_name}({}) -> {ret_ty} as {alias}",
+                params
+                    .iter()
+                    .map(|it| it.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
             Self::Struct { name, fields, .. } => write!(
                 f,
                 "struct {name} {}",
