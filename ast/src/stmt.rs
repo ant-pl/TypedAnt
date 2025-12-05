@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use token::token::Token;
 
-use crate::{expr::Expression, expressions::ident::Ident};
+use crate::{expr::Expression, expressions::ident::Ident, node::GetToken};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
@@ -34,6 +34,7 @@ pub enum Statement {
     Extern {
         token: Token,
         abi: Token,
+        vararg: bool,
         extern_func_name: Token,
         alias: Token,
         params: Vec<Box<Expression>>,
@@ -50,14 +51,17 @@ impl Display for Statement {
                 params,
                 ret_ty,
                 alias,
+                vararg,
                 ..
             } => write!(
-                f, "extern \"{abi}\" {extern_func_name}({}) -> {ret_ty} as {alias}",
+                f,
+                "extern \"{abi}\" {extern_func_name}({}{}) -> {ret_ty} as {alias}",
                 params
                     .iter()
                     .map(|it| it.to_string())
                     .collect::<Vec<String>>()
-                    .join(", ")
+                    .join(", "),
+                if *vararg { ", ..." } else { "" }
             ),
             Self::Struct { name, fields, .. } => write!(
                 f,
@@ -98,6 +102,20 @@ impl Display for Statement {
                     .collect::<Vec<String>>()
                     .join("\n")
             ),
+        }
+    }
+}
+
+impl GetToken for Statement {
+    fn token(&self) -> Token {
+        match self {
+            Statement::ExpressionStatement(expression) => expression.token(),
+            Statement::Return { token, .. } => token.clone(),
+            Statement::Block { token, .. } => token.clone(),
+            Statement::While { token, .. } => token.clone(),
+            Statement::Let { token, .. } => token.clone(),
+            Statement::Struct { token, .. } => token.clone(),
+            Statement::Extern { token, .. } => token.clone(),
         }
     }
 }

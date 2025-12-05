@@ -4,7 +4,7 @@ use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use token::token::Token;
 
-use crate::{expressions::ident::Ident, stmt::Statement};
+use crate::{expressions::ident::Ident, node::GetToken, stmt::Statement};
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy, Hash)]
 pub enum IntValue {
@@ -87,15 +87,18 @@ pub enum Expression {
     },
     StrLiteral {
         token: Token,
-        value: Rc<str>
-    }
+        value: Rc<str>,
+    },
+    ThreeDot(Token),
 }
 
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::BuildStruct(struct_name, block,) => write!(
-                f, "{struct_name} {{\n{}\n}}",
+            Self::ThreeDot(token) => write!(f, "{}", token.value),
+            Self::BuildStruct(struct_name, block) => write!(
+                f,
+                "{struct_name} {{\n{}\n}}",
                 block
                     .iter()
                     .map(|(name, val_expr)| format!("\t{name} = {val_expr}"))
@@ -164,6 +167,34 @@ impl Display for Expression {
             Self::Infix {
                 op, left, right, ..
             } => write!(f, "({}{}{})", left, op, right),
+        }
+    }
+}
+
+impl GetToken for Expression {
+    fn token(&self) -> Token {
+        match self {
+            Expression::BigInt { token, .. } => token.clone(),
+            Expression::Int { token, .. } => token.clone(),
+            Expression::Bool { token, .. } => token.clone(),
+            Expression::Ident(ident) => ident.token.clone(),
+            Expression::TypeHint(ident, ..) => ident.token.clone(),
+            Expression::Block(statements) => {
+                if !statements.is_empty() {
+                    statements[0].token()
+                } else {
+                    Token::eof("unknown".into(), 0, 0)
+                }
+            }
+            Expression::BuildStruct(ident, ..) => ident.token.clone(),
+            Expression::FieldAccess(expression, ..) => expression.token(),
+            Expression::Infix { token, .. } => token.clone(),
+            Expression::Function { token, .. } => token.clone(),
+            Expression::If { token, .. } => token.clone(),
+            Expression::Call { token, .. } => token.clone(),
+            Expression::Assign { token, .. } => token.clone(),
+            Expression::StrLiteral { token, .. } => token.clone(),
+            Expression::ThreeDot(token) => token.clone(),
         }
     }
 }

@@ -19,6 +19,8 @@ pub enum ParserErrorKind {
     InfixParseFnNotFound,
     StmtParseFnNotFound,
     ExpectedType,
+    ExpectedNothing,
+    NotExpectedPosition,
     Other
 }
 
@@ -26,6 +28,8 @@ impl Display for ParserErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Self::Other => "unknown parser error kind",
+            Self::NotExpectedPosition => "not expected position",
+            Self::ExpectedNothing => "expected nothing",
             Self::MissingExpression => "missing expression",
             Self::NotExpectedTokenType => "not expected token type",
             Self::PrefixParseFnNotFound => "prefix parse fn not found",

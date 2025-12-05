@@ -319,9 +319,20 @@ impl Lexer {
             ':' => {
                 let peek_char = self.peek_char();
                 if peek_char == ':' {
-                    token.token_type = TokenType::GetClassMember;
+                    token.token_type = TokenType::TwoColon;
                     token.value = format!("{}{}", self.cur_char, peek_char).into();
 
+                    self.read_char();
+                }
+            }
+            
+            '.' => {
+                let peek_char = self.peek_char();
+                if peek_char == '.' && self.get_char(self.next_pos + 1) == '.' {
+                    token.token_type = TokenType::ThreeDot;
+                    token.value = "...".into();
+
+                    self.read_char();
                     self.read_char();
                 }
             }

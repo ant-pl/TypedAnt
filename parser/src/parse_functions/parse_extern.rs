@@ -1,9 +1,13 @@
-use ast::{expressions::ident::Ident, stmt::Statement};
+use ast::{expr::Expression, expressions::ident::Ident, node::GetToken, stmt::Statement};
 use token::token_type::TokenType;
 
 use crate::{
     ParseResult, Parser,
-    parse_functions::{parse_ident::parse_ident, parse_type_hint::parse_type_hint},
+    error::{ParserError, ParserErrorKind},
+    parse_functions::{
+        parse_ident::parse_ident, parse_three_dot::parse_three_dot,
+        parse_type_hint::parse_type_hint,
+    },
 };
 
 pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
@@ -34,12 +38,20 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
         .prefix_parse_fn_map
         .insert(TokenType::Ident, parse_type_hint);
 
+    // 注入 ThreeDot 解析函数
+    parser
+        .prefix_parse_fn_map
+        .insert(TokenType::ThreeDot, parse_three_dot);
+
     let params = parser.parse_expression_list(TokenType::RParen)?;
 
     // 移除 TypeHint 解析函数
     parser
         .prefix_parse_fn_map
         .insert(TokenType::Ident, parse_ident);
+
+    // 移除 ThreeDot 解析函数
+    parser.prefix_parse_fn_map.remove(&TokenType::ThreeDot);
 
     parser.next_token(); // 离开右括号 (正常应前进到左大括号 或者 '->' )
 
@@ -72,12 +84,54 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
         parser.next_token();
     }
 
+    // 检查 params
+    let three_dots = params
+        .iter()
+        .enumerate()
+        .filter(|it| matches!(it.1.as_ref(), Expression::ThreeDot(_)))
+        .collect::<Vec<(usize, &Box<Expression>)>>();
+
+    if three_dots.is_empty() {
+        return Ok(Statement::Extern {
+            token,
+            abi,
+            extern_func_name: name,
+            params: params
+                .into_iter()
+                .filter(|it| !matches!(it.as_ref(), Expression::ThreeDot(_)))
+                .collect::<Vec<Box<Expression>>>(),
+            ret_ty: ret_type,
+            alias,
+            vararg: false
+        })
+    }
+
+    if three_dots.len() > 1 {
+        Err(ParserError {
+            token: three_dots[0].1.token(),
+            kind: ParserErrorKind::ExpectedNothing,
+            message: Some(format!("so many '...'").into()),
+        })?
+    }
+
+    if three_dots[0].0 != params.len() - 1 {
+        Err(ParserError {
+            token: three_dots[0].1.token(),
+            kind: ParserErrorKind::NotExpectedPosition,
+            message: Some(format!("'...' must be the last argument").into()),
+        })?
+    }
+
     Ok(Statement::Extern {
         token,
         abi,
         extern_func_name: name,
-        params,
+        params: params
+            .into_iter()
+            .filter(|it| !matches!(it.as_ref(), Expression::ThreeDot(_)))
+            .collect::<Vec<Box<Expression>>>(),
         ret_ty: ret_type,
         alias,
+        vararg: true
     })
 }

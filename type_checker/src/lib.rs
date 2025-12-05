@@ -136,7 +136,6 @@ impl TypeChecker {
                 value,
                 ty: Ty::IntTy(value.into()),
             }),
-
             Expression::StrLiteral { token, value } => Ok(TypedExpression::StrLiteral {
                 token,
                 value,
@@ -490,6 +489,9 @@ impl TypeChecker {
 
                 Ok(TypedExpression::TypeHint(new_ident, new_ty_ident, ty))
             }
+
+            // 如果出现此表达式请考虑parser是否损坏
+            Expression::ThreeDot(_) => unreachable!(),
         }
     }
 
@@ -502,6 +504,7 @@ impl TypeChecker {
                 alias,
                 params,
                 ret_ty,
+                vararg,
             } => {
                 let mut typed_params = vec![];
                 let mut params_type = vec![];
@@ -544,6 +547,7 @@ impl TypeChecker {
                     extern_func_name,
                     params: typed_params,
                     ret_ty: ret_ty_ident,
+                    vararg
                 })
             }
             Statement::Struct {

@@ -45,7 +45,8 @@ pub enum TypedStatement {
         alias: Token,
         params: Vec<Box<TypedExpression>>,
         ret_ty: Ident,
-        ty: Ty
+        ty: Ty,
+        vararg: bool,
     },
 }
 
@@ -58,14 +59,17 @@ impl Display for TypedStatement {
                 params,
                 ret_ty,
                 alias,
+                vararg,
                 ..
             } => write!(
-                f, "extern \"{abi}\" {extern_func_name}({}) -> {ret_ty} as {alias}",
+                f, "extern \"{abi}\" {extern_func_name}({}{}) -> {ret_ty} as {alias}",
                 params
                     .iter()
                     .map(|it| it.to_string())
                     .collect::<Vec<String>>()
-                    .join(", ")
+                    .join(", "),
+                if *vararg { ", ..." } else { "" }
+                
             ),
             Self::Struct { name, fields, .. } => write!(
                 f,

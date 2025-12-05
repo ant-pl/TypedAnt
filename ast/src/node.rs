@@ -28,3 +28,7 @@ impl Display for Node {
         }
     }
 }
+
+pub trait GetToken {
+    fn token(&self) -> Token;
+}
