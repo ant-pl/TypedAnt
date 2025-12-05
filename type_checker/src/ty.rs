@@ -82,6 +82,7 @@ pub enum Ty {
     Function {
         params_type: Vec<Ty>,
         ret_type: Box<Ty>,
+        is_variadic: bool,
     },
     Struct(Rc<str>, IndexMap<Rc<str>, Ty>),
     IntTy(IntTy),
@@ -112,6 +113,7 @@ impl Display for Ty {
             Self::Function {
                 params_type,
                 ret_type,
+                ..
             } => write!(
                 f,
                 "Func({}) -> {}",

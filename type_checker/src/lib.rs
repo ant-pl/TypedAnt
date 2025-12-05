@@ -347,6 +347,7 @@ impl TypeChecker {
                 let func_ty = Ty::Function {
                     params_type,
                     ret_type: Box::new(ret_ty.clone()),
+                    is_variadic: false,
                 };
 
                 if let Some(name) = &name {
@@ -413,6 +414,7 @@ impl TypeChecker {
                             |it| Ok(it),
                         )
                     })?),
+                    is_variadic: false,
                 };
 
                 if let Some(name) = &name {
@@ -533,6 +535,7 @@ impl TypeChecker {
                         },
                         |it| Ok(it),
                     )?),
+                    is_variadic: true,
                 };
 
                 self.table

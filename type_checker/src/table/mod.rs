@@ -12,15 +12,25 @@ pub enum SymbolScope {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SymbolType {
     Variable(Ty),
-    Function { params_type: Vec<Ty>, ret_type: Ty },
+    Function {
+        params_type: Vec<Ty>,
+        ret_type: Ty,
+        is_variadic: bool,
+    },
 }
 
 impl GetType for SymbolType {
     fn get_type(&self) -> Ty {
         match self {
             Self::Variable(ty) => ty.clone(),
-            Self::Function { params_type, ret_type } => Ty::Function {
-                params_type: params_type.clone(), ret_type: Box::new(ret_type.clone())
+            Self::Function {
+                params_type,
+                ret_type,
+                is_variadic,
+            } => Ty::Function {
+                params_type: params_type.clone(),
+                ret_type: Box::new(ret_type.clone()),
+                is_variadic: *is_variadic
             },
         }
     }
@@ -45,7 +55,7 @@ impl TypeTable {
             var_map: HashMap::new(),
         }
     }
-    
+
     pub fn new() -> Self {
         Self {
             outer: None,
@@ -61,7 +71,7 @@ impl TypeTable {
         }
 
         if let Some(outer) = &self.outer {
-            return outer.borrow().get(name)
+            return outer.borrow().get(name);
         }
 
         None
