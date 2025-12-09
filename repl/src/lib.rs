@@ -8,6 +8,7 @@ pub fn repl() {
     let file: Rc<str> = "*repl".into();
 
     let table = Rc::new(RefCell::new(TypeTable::new()));
+    table.borrow_mut().init_table();
 
     loop {
         print!(">>> ");

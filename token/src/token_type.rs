@@ -31,7 +31,9 @@ pub enum TokenType {
     Bang,
     BoolNot,
     Var,
+    /// <
     Lt,
+    /// >
     Gt,
     Semicolon,
     Eol,

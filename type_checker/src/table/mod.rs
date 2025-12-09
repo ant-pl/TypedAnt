@@ -2,7 +2,7 @@ pub mod test;
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{Ty, typed_ast::GetType};
+use crate::{Ty, ty::IntTy, typed_ast::GetType};
 
 pub enum SymbolScope {
     Global,
@@ -49,6 +49,21 @@ pub struct TypeTable {
 }
 
 impl TypeTable {
+    pub fn init_table(&mut self) {
+        self.define_var("str", Ty::Str);
+        self.define_var("i64", Ty::IntTy(IntTy::I64));
+        self.define_var("i32", Ty::IntTy(IntTy::I32));
+        self.define_var("i16", Ty::IntTy(IntTy::I16));
+        self.define_var("i8", Ty::IntTy(IntTy::I8));
+        self.define_var("u64", Ty::IntTy(IntTy::U64));
+        self.define_var("u32", Ty::IntTy(IntTy::U32));
+        self.define_var("u16", Ty::IntTy(IntTy::U16));
+        self.define_var("u8", Ty::IntTy(IntTy::U8));
+        self.define_var("usize", Ty::IntTy(IntTy::USize));
+        self.define_var("isize", Ty::IntTy(IntTy::ISize));
+        self.define_var("BigInt", Ty::BigInt);
+    }
+
     pub fn with_outer(outer: Rc<RefCell<TypeTable>>) -> Self {
         Self {
             outer: Some(outer),
@@ -90,5 +105,9 @@ impl TypeTable {
         self.insert_var(sym.clone());
 
         sym
+    }
+
+    pub fn remove(&mut self, name: &str) {
+        self.var_map.remove(name);
     }
 }

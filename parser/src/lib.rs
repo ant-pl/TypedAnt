@@ -248,7 +248,7 @@ impl Parser {
         self.next_token(); // 前进到表达式
 
         let mut expressions = vec![];
-        expressions.push(Box::new(self.parse_expression(Precedence::Lowest)?));
+        expressions.push(Box::new(self.parse_expression(get_token_precedence(end))?));
 
         while self.peek_token_is(TokenType::Comma) {
             self.next_token(); // 离开表达式
@@ -261,7 +261,7 @@ impl Parser {
 
             self.next_token(); // 离开逗号
 
-            let expression = self.parse_expression(Precedence::Lowest)?;
+            let expression = self.parse_expression(get_token_precedence(end))?;
             expressions.push(Box::new(expression));
         }
 

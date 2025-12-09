@@ -66,6 +66,7 @@ pub enum Expression {
         token: Token,
         name: Option<Token>,
         params: Vec<Box<Expression>>,
+        generics_params: Vec<Box<Expression>>,
         block: Box<Statement>,
         ret_ty: Option<Ident>,
     },
@@ -148,12 +149,24 @@ impl Display for Expression {
                 name,
                 block,
                 ret_ty,
+                generics_params,
                 ..
             } => write!(
                 f,
-                "func {}({}){}{}",
+                "func {}{}({}){}{}",
                 name.as_ref()
                     .map_or_else(|| "".into(), |it| it.value.clone()),
+                if generics_params.is_empty() {
+                    "".to_owned()
+                } else {
+                    "<".to_owned() + 
+                    &generics_params
+                        .iter()
+                        .map(|it| it.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ") + 
+                    ">"
+                },
                 params
                     .iter()
                     .map(|it| it.to_string())
