@@ -11,11 +11,15 @@ mod tests {
         typed_ast::{GetType, typed_expr::TypedExpression, typed_stmt::TypedStatement},
     };
 
+    fn empty_table() -> Rc<RefCell<TypeTable>> {
+        Rc::new(RefCell::new(TypeTable::new().init()))
+    }
+
     #[test]
     fn test_checker_var_get() {
         let file: Rc<str> = "__test_checker_var_get__".into();
 
-        let table = Rc::new(RefCell::new(TypeTable::new()));
+        let table = empty_table();
 
         table.borrow_mut().define_var("a", Ty::BigInt);
 
@@ -47,7 +51,7 @@ mod tests {
     fn test_checker_var_def() {
         let file: Rc<str> = "__test_checker_var_def__".into();
 
-        let table = Rc::new(RefCell::new(TypeTable::new()));
+        let table = empty_table();
 
         let checker = &mut TypeChecker::new(table.clone());
 
