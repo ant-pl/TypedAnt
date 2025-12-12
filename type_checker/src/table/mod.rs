@@ -64,6 +64,11 @@ impl TypeTable {
         self.define_var("BigInt", Ty::BigInt);
     }
 
+    pub fn init(mut self) -> Self {
+        self.init_table();
+        self
+    }
+
     pub fn with_outer(outer: Rc<RefCell<TypeTable>>) -> Self {
         Self {
             outer: Some(outer),
