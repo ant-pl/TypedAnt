@@ -8,7 +8,7 @@ use token::{token::Token, token_type::TokenType};
 use crate::{
     error::{ParserError, ParserErrorKind},
     parse_functions::{
-        parse_assign::parse_assign, parse_block::parse_block_expr, parse_bool::parse_bool, parse_build_struct::parse_build_struct, parse_call::parse_call, parse_extern::parse_extern, parse_field_access::parse_field_access, parse_func::parse_func, parse_ident::parse_ident, parse_if::parse_if, parse_infix::parse_infix, parse_let::parse_let, parse_num::{parse_i64, parse_u64}, parse_str::parse_str, parse_struct::parse_struct, parse_while::parse_while
+        parse_assign::parse_assign, parse_block::parse_block_expr, parse_bool::parse_bool, parse_build_struct::parse_build_struct, parse_call::parse_call, parse_extern::parse_extern, parse_field_access::parse_field_access, parse_func::parse_func, parse_ident::parse_ident, parse_if::parse_if, parse_infix::parse_infix, parse_let::parse_let, parse_num::{parse_i8, parse_i16, parse_i32, parse_i64, parse_isize, parse_u8, parse_u16, parse_u32, parse_u64, parse_usize}, parse_str::parse_str, parse_struct::parse_struct, parse_while::parse_while
     },
     precedence::{Precedence, get_token_precedence},
 };
@@ -38,10 +38,19 @@ pub struct Parser {
 
 impl Parser {
     fn init_prefix_parse_fn_map(m: &mut HashMap<TokenType, PrefixParseFn>) {
+        m.insert(TokenType::Integer64, parse_i64);
+        m.insert(TokenType::Integer32, parse_i32);
+        m.insert(TokenType::Integer16, parse_i16);
+        m.insert(TokenType::Integer8, parse_i8);
+        m.insert(TokenType::UInteger64, parse_u64);
+        m.insert(TokenType::UInteger32, parse_u32);
+        m.insert(TokenType::UInteger16, parse_u16);
+        m.insert(TokenType::UInteger8, parse_u8);
+        m.insert(TokenType::USize, parse_usize);
+        m.insert(TokenType::ISize, parse_isize);
+        
         m.insert(TokenType::BoolTrue, parse_bool);
         m.insert(TokenType::BoolFalse, parse_bool);
-        m.insert(TokenType::Integer64, parse_i64);
-        m.insert(TokenType::UInteger64, parse_u64);
         m.insert(TokenType::String, parse_str);
 
         m.insert(TokenType::Ident, parse_ident);

@@ -12,6 +12,8 @@ pub enum TokenType {
     UInteger32,
     UInteger16,
     UInteger8,
+    USize,
+    ISize,
     String,
     None,
     Colon,
@@ -139,7 +141,9 @@ impl TokenType {
             TokenType::UInteger64 => "uinteger64",
             TokenType::UInteger32 => "uinteger32",
             TokenType::UInteger16 => "uinteger16",
-            TokenType::UInteger8 => "uinteger8",      
+            TokenType::UInteger8 => "uinteger8",
+            TokenType::USize => "usize",
+            TokenType::ISize => "isize",
             TokenType::String => "string",
             TokenType::TwoColon => "::",
             TokenType::TestPrint => "testprint",
@@ -221,5 +225,7 @@ pub enum TokenNumType {
     UInt32(String),
     UInt16(String),
     UInt8(String),
+    USize(String),
+    ISize(String),
     Big(String)
 }

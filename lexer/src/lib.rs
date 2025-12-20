@@ -11,6 +11,63 @@ use token::{NEW_LINE, NULL_CHAR};
 
 use crate::error::{LexerError, LexerErrorKind};
 
+macro_rules! lexical_int_literal {
+    ($self:expr, $ty:expr, $token_num_type:ident, $code:expr) => {
+        let mut ty_chars = $ty.chars();
+        let a = ty_chars.next().unwrap_or('\0');
+        let b = ty_chars.next().unwrap_or('\0');
+        let c = ty_chars.next().unwrap_or('\0');
+
+        if $self.cur_char == a && $self.peek_char() == b && $self.get_char($self.next_pos + 1) == c
+        {
+            $self.read_char();
+            $self.read_char();
+            $self.read_char();
+
+            return TokenNumType::$token_num_type($code);
+        }
+    };
+}
+
+macro_rules! lexical_int_literal_xx {
+    ($self:expr, $ty:expr, $token_num_type:ident, $code:expr) => {
+        let mut ty_chars = $ty.chars();
+        let a = ty_chars.next().unwrap_or('\0');
+        let b = ty_chars.next().unwrap_or('\0');
+
+        if $self.cur_char == a && $self.peek_char() == b {
+            $self.read_char();
+            $self.read_char();
+
+            return TokenNumType::$token_num_type($code);
+        }
+    };
+}
+
+macro_rules! lexical_int_literal_xxxx {
+    ($self:expr, $ty:expr, $token_num_type:ident, $code:expr) => {
+        let mut ty_chars = $ty.chars();
+        let a = ty_chars.next().unwrap_or('\0');
+        let b = ty_chars.next().unwrap_or('\0');
+        let c = ty_chars.next().unwrap_or('\0');
+        let d = ty_chars.next().unwrap_or('\0');
+
+        if $self.cur_char == a
+            && $self.peek_char() == b
+            && $self.get_char($self.next_pos + 1) == c
+            && $self.get_char($self.next_pos + 2) == d
+        {
+            $self.read_char();
+            $self.read_char();
+            $self.read_char();
+            $self.read_char();
+            $self.read_char();
+
+            return TokenNumType::$token_num_type($code);
+        }
+    };
+}
+
 pub struct Lexer {
     cur_char: char,
     pos: usize,
@@ -120,15 +177,18 @@ impl Lexer {
             .collect::<Vec<String>>()
             .concat();
 
-        if self.peek_char() == '6' && self.get_char(self.next_pos + 1) == '4' {
-            self.read_char();
-            self.read_char();
-            self.read_char();
+        lexical_int_literal!(self, "i64", Int64, code);
+        lexical_int_literal!(self, "i32", Int32, code);
+        lexical_int_literal!(self, "i16", Int16, code);
+        lexical_int_literal_xx!(self, "i8", Int8, code);
+        lexical_int_literal!(self, "u64", UInt64, code);
+        lexical_int_literal!(self, "u32", UInt32, code);
+        lexical_int_literal!(self, "u16", UInt16, code);
+        lexical_int_literal_xx!(self, "u8", UInt8, code);
+        lexical_int_literal_xxxx!(self, "usize", USize, code);
+        lexical_int_literal_xxxx!(self, "isize", ISize, code);
 
-            TokenNumType::Int64(code)
-        } else {
-            TokenNumType::Big(code)
-        }
+        TokenNumType::Big(code)
     }
 
     fn push_err(&mut self, kind: LexerErrorKind, message: Option<Rc<str>>) {
@@ -325,7 +385,7 @@ impl Lexer {
                     self.read_char();
                 }
             }
-            
+
             '.' => {
                 let peek_char = self.peek_char();
                 if peek_char == '.' && self.get_char(self.next_pos + 1) == '.' {
@@ -409,6 +469,16 @@ impl Lexer {
 
                         TokenNumType::UInt8(num) => {
                             token.token_type = TokenType::UInteger8;
+                            token.value = num.into();
+                        }
+
+                        TokenNumType::USize(num) => {
+                            token.token_type = TokenType::USize;
+                            token.value = num.into();
+                        }
+
+                        TokenNumType::ISize(num) => {
+                            token.token_type = TokenType::ISize;
                             token.value = num.into();
                         }
                     }

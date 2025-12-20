@@ -37,6 +37,27 @@ impl Display for IntValue {
     }
 }
 
+macro_rules! impl_from {
+    ($ty:ident, $big_ty:ident) => {
+        impl From<$ty> for IntValue {
+            fn from(value: $ty) -> Self {
+                Self::$big_ty(value)
+            }
+        }
+    };
+}
+
+impl_from!(i64, I64);
+impl_from!(i32, I32);
+impl_from!(i16, I16);
+impl_from!(i8, I8);
+impl_from!(u64, U64);
+impl_from!(u32, U32);
+impl_from!(u16, U16);
+impl_from!(u8, U8);
+impl_from!(usize, USize);
+impl_from!(isize, ISize);
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
     BigInt {
