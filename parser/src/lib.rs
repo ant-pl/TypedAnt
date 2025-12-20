@@ -210,29 +210,26 @@ impl Parser {
         let prefix_parse_fn = self
             .prefix_parse_fn_map
             .get(&self.cur_token.token_type)
-            .map_or_else(
-                || {
-                    Err(self.make_error(
-                        ParserErrorKind::PrefixParseFnNotFound,
-                        Some(
-                            format!(
-                                "no prefix parse function for {:#?} found",
-                                self.cur_token.token_type
-                            )
-                            .into(),
-                        ),
-                    ))
-                },
+            .map_or(
+                Err(self.make_error(
+                    ParserErrorKind::PrefixParseFnNotFound,
+                    Some(
+                        format!(
+                            "no prefix parse function for {:#?} found",
+                            self.cur_token.token_type
+                        )
+                        .into(),
+                    ),
+                )),
                 |it| Ok(it),
             )?;
 
         let mut left = prefix_parse_fn(self)?;
 
-        while (
-            self.peek_token.token_type != TokenType::Semicolon
+        while (self.peek_token.token_type != TokenType::Semicolon
             || self.peek_token.token_type != TokenType::Eof)
-            && precedence < get_token_precedence(self.peek_token.token_type
-        ) {
+            && precedence < get_token_precedence(self.peek_token.token_type)
+        {
             let infix_parse_fn = *self
                 .infix_parse_fn_map
                 .get(&self.peek_token.token_type)
@@ -246,8 +243,8 @@ impl Parser {
                             )
                             .into(),
                         ),
-                    )), 
-                | it| Ok(it),
+                    )),
+                    |it| Ok(it),
                 )?;
 
             self.next_token();
