@@ -8,7 +8,25 @@ use token::{token::Token, token_type::TokenType};
 use crate::{
     error::{ParserError, ParserErrorKind},
     parse_functions::{
-        parse_assign::parse_assign, parse_block::parse_block_expr, parse_bool::parse_bool, parse_build_struct::parse_build_struct, parse_call::parse_call, parse_extern::parse_extern, parse_field_access::parse_field_access, parse_func::parse_func, parse_ident::parse_ident, parse_if::parse_if, parse_infix::parse_infix, parse_let::parse_let, parse_num::{parse_i8, parse_i16, parse_i32, parse_i64, parse_isize, parse_u8, parse_u16, parse_u32, parse_u64, parse_usize}, parse_str::parse_str, parse_struct::parse_struct, parse_while::parse_while
+        parse_assign::parse_assign,
+        parse_block::parse_block_expr,
+        parse_bool::parse_bool,
+        parse_build_struct::parse_build_struct,
+        parse_call::parse_call,
+        parse_extern::parse_extern,
+        parse_field_access::parse_field_access,
+        parse_func::parse_func,
+        parse_ident::parse_ident,
+        parse_if::parse_if,
+        parse_infix::parse_infix,
+        parse_let::parse_let,
+        parse_num::{
+            parse_i8, parse_i16, parse_i32, parse_i64, parse_isize, parse_u8, parse_u16, parse_u32,
+            parse_u64, parse_usize,
+        },
+        parse_str::parse_str,
+        parse_struct::parse_struct,
+        parse_while::parse_while,
     },
     precedence::{Precedence, get_token_precedence},
 };
@@ -48,7 +66,7 @@ impl Parser {
         m.insert(TokenType::UInteger8, parse_u8);
         m.insert(TokenType::USize, parse_usize);
         m.insert(TokenType::ISize, parse_isize);
-        
+
         m.insert(TokenType::BoolTrue, parse_bool);
         m.insert(TokenType::BoolFalse, parse_bool);
         m.insert(TokenType::String, parse_str);
@@ -80,7 +98,7 @@ impl Parser {
     fn init_statement_parse_fn_map(m: &mut HashMap<TokenType, StmtParseFn>) {
         m.insert(TokenType::Let, parse_let); // let a = 1
         m.insert(TokenType::While, parse_while); // while 1 {}
-        
+
         m.insert(TokenType::Struct, parse_struct);
         m.insert(TokenType::Extern, parse_extern);
     }
@@ -211,28 +229,25 @@ impl Parser {
         let mut left = prefix_parse_fn(self)?;
 
         while (
-            self.peek_token.token_type != TokenType::Semicolon ||
-            self.peek_token.token_type != TokenType::Eof
-        )
-            && precedence < get_token_precedence(self.peek_token.token_type)
-        {
+            self.peek_token.token_type != TokenType::Semicolon
+            || self.peek_token.token_type != TokenType::Eof)
+            && precedence < get_token_precedence(self.peek_token.token_type
+        ) {
             let infix_parse_fn = *self
                 .infix_parse_fn_map
                 .get(&self.peek_token.token_type)
-                .map_or_else(
-                    || {
-                        Err(self.make_error(
-                            ParserErrorKind::InfixParseFnNotFound,
-                            Some(
-                                format!(
-                                    "no infix parse function for {:#?} found",
-                                    self.peek_token.token_type
-                                )
-                                .into(),
-                            ),
-                        ))
-                    },
-                    |it| Ok(it),
+                .map_or(
+                    Err(self.make_error(
+                        ParserErrorKind::InfixParseFnNotFound,
+                        Some(
+                            format!(
+                                "no infix parse function for {:#?} found",
+                                self.peek_token.token_type
+                            )
+                            .into(),
+                        ),
+                    )), 
+                | it| Ok(it),
                 )?;
 
             self.next_token();
@@ -247,7 +262,10 @@ impl Parser {
     /// 例如 在使用该函数解析左括号到右括号的表达式时 请先前进到左括号  
     ///   
     /// 函数执行完后不会自动离开指定 结束Token 若要离开 请自行调用 next_token 方法  
-    pub fn parse_expression_list(&mut self, end: TokenType) -> Result<Vec<Box<Expression>>, ParserError> {
+    pub fn parse_expression_list(
+        &mut self,
+        end: TokenType,
+    ) -> Result<Vec<Box<Expression>>, ParserError> {
         // 检查下一个词法单元是否为对应结束的词法单元
         if self.peek_token_is(end) {
             self.next_token();
