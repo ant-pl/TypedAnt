@@ -104,9 +104,9 @@ impl Display for TypedExpression {
                 f,
                 "if {condition} {consequence}{}",
                 if let Some(it) = else_block {
-                    &format!(" else {it}")
+                    format!(" else {it}")
                 } else {
-                    ""
+                    "".to_string()
                 }
             ),
             Self::BigInt { value, .. } => write!(f, "{}", value),
