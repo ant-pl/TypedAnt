@@ -44,7 +44,7 @@ pub enum TypedExpression {
         name: Option<Token>,
         params: Vec<Box<TypedExpression>>,
         generics_params: Vec<Box<TypedExpression>>,
-        block: Box<TypedStatement>,
+        block: Box<TypedExpression>,
         ret_ty: Option<Ident>,
         ty: Ty,
     },
@@ -131,7 +131,7 @@ impl Display for TypedExpression {
                 ..
             } => write!(
                 f,
-                "func {}{}({}){}{{{}}}",
+                "func {}{}({}){}{}",
                 name.as_ref()
                     .map_or_else(|| "".into(), |it| it.value.clone()),
                 if generics_params.is_empty() {
@@ -152,7 +152,7 @@ impl Display for TypedExpression {
                     .join(", "),
                 ret_ty
                     .as_ref()
-                    .map_or_else(|| "".into(), |it| format!(" -> {it} ")),
+                    .map_or_else(|| " ".into(), |it| format!(" -> {it} ")),
                 block.to_string()
             ),
             Self::Infix {
