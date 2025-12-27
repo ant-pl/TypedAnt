@@ -24,6 +24,7 @@ use crate::{
             parse_i8, parse_i16, parse_i32, parse_i64, parse_isize, parse_u8, parse_u16, parse_u32,
             parse_u64, parse_usize,
         },
+        parse_return::parse_return,
         parse_str::parse_str,
         parse_struct::parse_struct,
         parse_while::parse_while,
@@ -100,6 +101,7 @@ impl Parser {
         m.insert(TokenType::While, parse_while); // while 1 {}
 
         m.insert(TokenType::Struct, parse_struct);
+        m.insert(TokenType::Return, parse_return);
         m.insert(TokenType::Extern, parse_extern);
     }
 

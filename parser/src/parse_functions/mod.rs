@@ -16,3 +16,4 @@ pub mod parse_struct;
 pub mod parse_build_struct;
 pub mod parse_field_access;
 pub mod parse_extern;
+pub mod parse_return;
