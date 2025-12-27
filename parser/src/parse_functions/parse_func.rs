@@ -3,9 +3,8 @@ use token::token_type::TokenType;
 
 use crate::{
     ParseResult, Parser,
-    parse_functions::{
-        parse_block::parse_block_stmt, parse_ident::parse_ident, parse_type_hint::parse_type_hint,
-    },
+    parse_functions::{parse_ident::parse_ident, parse_type_hint::parse_type_hint},
+    precedence::Precedence,
 };
 
 pub fn parse_func(parser: &mut Parser) -> ParseResult<Expression> {
@@ -66,7 +65,7 @@ pub fn parse_func(parser: &mut Parser) -> ParseResult<Expression> {
         parser.next_token(); // 理应前进到左大括号
     }
 
-    let block = Box::new(parse_block_stmt(parser)?);
+    let block = Box::new(parser.parse_expression(Precedence::Lowest)?);
 
     Ok(Expression::Function {
         token,
@@ -74,6 +73,6 @@ pub fn parse_func(parser: &mut Parser) -> ParseResult<Expression> {
         params,
         block,
         ret_ty: ret_type,
-        generics_params
+        generics_params,
     })
 }
