@@ -88,7 +88,7 @@ pub enum Expression {
         name: Option<Token>,
         params: Vec<Box<Expression>>,
         generics_params: Vec<Box<Expression>>,
-        block: Box<Statement>,
+        block: Box<Expression>,
         ret_ty: Option<Ident>,
     },
     If {
@@ -195,7 +195,7 @@ impl Display for Expression {
                     .join(", "),
                 ret_ty
                     .as_ref()
-                    .map_or_else(|| "".into(), |it| format!(" -> {it} ")),
+                    .map_or_else(|| " ".into(), |it| format!(" -> {it} ")),
                 block.to_string()
             ),
             Self::Infix {
