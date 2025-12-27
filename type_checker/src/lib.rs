@@ -382,10 +382,7 @@ impl TypeChecker {
                 }
 
                 let typed_block = match *block {
-                    Statement::Block {
-                        token: block_token,
-                        statements,
-                    } => {
+                    Expression::Block(statements) => {
                         self.enter_scope(ScopeKind::Function);
 
                         for typed_param in &typed_params {
@@ -411,13 +408,9 @@ impl TypeChecker {
 
                         let ret_ty = ret_ty;
 
-                        TypedStatement::Block {
-                            token: block_token,
-                            statements: stmts,
-                            ty: ret_ty,
-                        }
+                        TypedExpression::Block(stmts, ret_ty)
                     }
-                    other => self.check_statement(other)?,
+                    other => self.check_expr(other)?,
                 };
 
                 let ret_ident = ret_ty_ident.map(|it| Ident {
