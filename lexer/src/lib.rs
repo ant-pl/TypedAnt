@@ -552,4 +552,8 @@ impl Lexer {
             println!("    {}", error.to_string().purple());
         }
     }
+
+    pub fn lexer_errors(&self) -> &Vec<LexerError> {
+        &self.errors
+    }
 }
