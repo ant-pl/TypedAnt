@@ -1,11 +1,11 @@
-use std::{fmt::Display, rc::Rc};
+use std::{fmt::Display, sync::Arc};
 
 use token::token::Token;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Ident {
     pub token: Token,
-    pub value: Rc<str>,
+    pub value: Arc<str>,
 }
 
 impl Display for Ident {

@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::{fmt::Display, sync::Arc};
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum LexerErrorKind {
@@ -19,11 +19,11 @@ impl Display for LexerErrorKind {
 
 #[derive(Clone, Debug)]
 pub struct LexerError {
-    pub file: Rc<str>,
+    pub file: Arc<str>,
     pub line: usize,
     pub column: usize,
     pub kind: LexerErrorKind,
-    pub message: Option<Rc<str>>,
+    pub message: Option<Arc<str>>,
 }
 
 impl Display for LexerError {

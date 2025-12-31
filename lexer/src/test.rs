@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     use token::{token::Token, token_type::TokenType};
     use utils::assert_eq;
@@ -19,7 +19,7 @@ mod tests {
     fn test_lexer() {
         let mut l = Lexer::new(
             "{let a = 1 + 2 * 3 / 4}".into(),
-            Rc::from("__test_lexer__"),
+            Arc::from("__test_lexer__"),
         );
         let tokens = l.get_tokens();
 
@@ -46,7 +46,7 @@ mod tests {
     fn test_lexer_unicode() {
         let mut l = Lexer::new(
             "let ♿ = \"otto\"; let 你好 = \"Hello\"".into(),
-            Rc::from("__test_lexer_unicode__"),
+            Arc::from("__test_lexer_unicode__"),
         );
 
         let tokens = l.get_tokens();
@@ -71,7 +71,7 @@ mod tests {
     fn test_lexer_comment() {
         let mut l = Lexer::new(
             "// test comment".into(),
-            Rc::from("__test_lexer_comment__"),
+            Arc::from("__test_lexer_comment__"),
         );
         let tokens = l.get_tokens();
 
@@ -85,7 +85,7 @@ mod tests {
     fn test_lexer_test_print_token() {
         let mut l = Lexer::new(
             "TestPrint n".into(),
-            Rc::from("__test_lexer_test_print_token__"),
+            Arc::from("__test_lexer_test_print_token__"),
         );
 
         let tokens = l.get_tokens();
@@ -100,7 +100,7 @@ mod tests {
     fn test_lexer_error() {
         use utils::assert_eq;
 
-        let mut l = Lexer::new(r#""  """#.into(), Rc::from("test_lexer_error"));
+        let mut l = Lexer::new(r#""  """#.into(), Arc::from("test_lexer_error"));
 
         let _tokens = l.get_tokens();
 

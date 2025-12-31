@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::{fmt::Display, sync::Arc};
 
 use ast::expr::IntValue;
 use bigdecimal::BigDecimal;
@@ -34,7 +34,7 @@ pub enum TypedExpression {
     FieldAccess(Box<TypedExpression>, Ident, Ty),
     Infix {
         token: Token,
-        op: Rc<str>,
+        op: Arc<str>,
         left: Box<TypedExpression>,
         right: Box<TypedExpression>,
         ty: Ty,
@@ -67,7 +67,7 @@ pub enum TypedExpression {
     },
     StrLiteral {
         token: Token,
-        value: Rc<str>,
+        value: Arc<str>,
         ty: Ty,
     },
 }

@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::{fmt::Display, sync::Arc};
 
 use ast::expr::IntValue;
 use indexmap::IndexMap;
@@ -85,14 +85,14 @@ pub enum Ty {
         is_variadic: bool,
     },
     Struct {
-        name: Rc<str>, 
-        fields: IndexMap<Rc<str>, Ty>,
+        name: Arc<str>, 
+        fields: IndexMap<Arc<str>, Ty>,
     },
     Trait {
-        name: Rc<str>, 
-        functions: IndexMap<Rc<str>, Ty>,
+        name: Arc<str>, 
+        functions: IndexMap<Arc<str>, Ty>,
     },
-    Generic(Rc<str>, Vec<Ty>), // T, K, V ... 
+    Generic(Arc<str>, Vec<Ty>), // T, K, V ... 
     IntTy(IntTy),
     Bool,
     Unit,

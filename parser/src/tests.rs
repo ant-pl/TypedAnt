@@ -6,7 +6,7 @@ mod tests {
 
     #[test]
     fn test_parse_expr() {
-        let file_name: std::rc::Rc<str> = "__test_parse_expr__".into();
+        let file_name: std::sync::Arc<str> = "__test_parse_expr__".into();
 
         let mut parser = Parser::new(vec![
             Token::new("1".into(), TokenType::Integer64, file_name.clone(), 1, 1),

@@ -1,7 +1,7 @@
 pub mod error;
 pub mod test;
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use unicode_properties::UnicodeEmoji;
 
@@ -74,13 +74,13 @@ pub struct Lexer {
     next_pos: usize,
     line: usize,
     column: usize,
-    file: Rc<str>,
-    code_vec: Rc<[char]>,
+    file: Arc<str>,
+    code_vec: Arc<[char]>,
     errors: Vec<LexerError>,
 }
 
 impl Lexer {
-    pub fn new(code: String, file: Rc<str>) -> Lexer {
+    pub fn new(code: String, file: Arc<str>) -> Lexer {
         let mut lexer = Lexer {
             file,
             errors: vec![],
@@ -191,7 +191,7 @@ impl Lexer {
         TokenNumType::Big(code)
     }
 
-    fn push_err(&mut self, kind: LexerErrorKind, message: Option<Rc<str>>) {
+    fn push_err(&mut self, kind: LexerErrorKind, message: Option<Arc<str>>) {
         self.errors.push(LexerError {
             file: self.file.clone(),
             line: self.line,
@@ -204,7 +204,7 @@ impl Lexer {
     fn push_error(
         &mut self,
         kind: LexerErrorKind,
-        message: Option<Rc<str>>,
+        message: Option<Arc<str>>,
         line: usize,
         column: usize,
     ) {

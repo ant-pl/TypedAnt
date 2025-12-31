@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::{fmt::Display, sync::Arc};
 
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
@@ -79,7 +79,7 @@ pub enum Expression {
     FieldAccess(Box<Expression>, Ident),
     Infix {
         token: Token,
-        op: Rc<str>,
+        op: Arc<str>,
         left: Box<Expression>,
         right: Box<Expression>,
     },
@@ -109,7 +109,7 @@ pub enum Expression {
     },
     StrLiteral {
         token: Token,
-        value: Rc<str>,
+        value: Arc<str>,
     },
     ThreeDot(Token),
 }

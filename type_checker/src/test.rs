@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
+    use std::{cell::RefCell, rc::Rc, sync::Arc};
 
     use bigdecimal::BigDecimal;
     use token::{token::Token, token_type::TokenType};
@@ -17,7 +17,7 @@ mod tests {
 
     #[test]
     fn test_checker_var_get() {
-        let file: Rc<str> = "__test_checker_var_get__".into();
+        let file: Arc<str> = "__test_checker_var_get__".into();
 
         let table = empty_table();
 
@@ -49,7 +49,7 @@ mod tests {
 
     #[test]
     fn test_checker_var_def() {
-        let file: Rc<str> = "__test_checker_var_def__".into();
+        let file: Arc<str> = "__test_checker_var_def__".into();
 
         let table = empty_table();
 

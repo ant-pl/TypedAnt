@@ -1,15 +1,15 @@
-use std::{fmt::Display, rc::Rc};
+use std::{fmt::Display, sync::Arc};
 
 use crate::token_type::TokenType;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Token {
-    pub value: Rc<str>,
+    pub value: Arc<str>,
     pub token_type: TokenType,
 
     pub line: usize,
     pub column: usize,
-    pub file: Rc<str>,
+    pub file: Arc<str>,
 }
 
 impl Display for Token {
@@ -20,10 +20,10 @@ impl Display for Token {
 
 impl Token {
     pub fn new(
-        value: Rc<str>,
+        value: Arc<str>,
         token_type: TokenType,
 
-        file: Rc<str>,
+        file: Arc<str>,
         line: usize,
         column: usize,
     ) -> Token {
@@ -36,7 +36,7 @@ impl Token {
         }
     }
 
-    pub fn eof(file: Rc<str>, line: usize, column: usize) -> Token {
+    pub fn eof(file: Arc<str>, line: usize, column: usize) -> Token {
         Token::new("\0".into(), TokenType::Eof, file, line, column)
     }
 }
