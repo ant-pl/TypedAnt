@@ -73,6 +73,7 @@ pub enum TokenType {
     Break,
     Continue,
     Extern,
+    Trait,
     As,
     Eof,
 }
@@ -82,6 +83,7 @@ impl TokenType {
     pub fn to_string(&self) -> &'static str {
         match self {
             TokenType::Struct => "struct",
+            TokenType::Trait => "trait",
             TokenType::Extern => "extern",
             TokenType::As => "as",
             TokenType::Colon => ":",
@@ -176,6 +178,7 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     "!" => TokenType::Bang,
     "NOT" => TokenType::BoolNot,
     "VAR" => TokenType::Var,
+    "TRAIT" => TokenType::Trait,
     "<" => TokenType::Lt,
     ">" => TokenType::Gt,
     ";" => TokenType::Semicolon,
