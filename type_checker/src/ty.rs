@@ -88,7 +88,11 @@ pub enum Ty {
         name: Rc<str>, 
         fields: IndexMap<Rc<str>, Ty>,
     },
-    Generic(Rc<str>), // T, K, V ... 
+    Trait {
+        name: Rc<str>, 
+        functions: IndexMap<Rc<str>, Ty>,
+    },
+    Generic(Rc<str>, Vec<Ty>), // T, K, V ... 
     IntTy(IntTy),
     Bool,
     Unit,
@@ -100,13 +104,14 @@ impl Display for Ty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unknown => write!(f, "unknown"),
-            Self::Generic(it) => write!(f, "{it}"),
+            Self::Generic(it, _) => write!(f, "{it}"),
             Self::BigInt => write!(f, "BigInt"),
             Self::Str => write!(f, "str"),
             Self::IntTy(it) => write!(f, "{it}"),
             Self::Bool => write!(f, "bool"),
             Self::Unit => write!(f, "Unit"),
             Self::Struct { name, .. } => write!(f, "{name}"),
+            Self::Trait { name, .. } => write!(f, "{name}"),
             Self::Function {
                 params_type,
                 ret_type,

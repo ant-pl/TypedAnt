@@ -45,7 +45,7 @@ pub struct Symbol {
 pub struct TypeTable {
     pub outer: Option<Rc<RefCell<TypeTable>>>,
 
-    var_map: HashMap<Rc<str>, Symbol>,
+    pub var_map: HashMap<Rc<str>, Symbol>,
 }
 
 impl TypeTable {

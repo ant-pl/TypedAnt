@@ -38,6 +38,12 @@ pub enum TypedStatement {
         fields: Vec<TypedExpression>,
         ty: Ty,
     },
+    Trait {
+        token: Token,
+        name: Ident,
+        block: Box<TypedStatement>,
+        ty: Ty,
+    },
     Extern {
         token: Token,
         abi: Token,
@@ -48,11 +54,49 @@ pub enum TypedStatement {
         ty: Ty,
         vararg: bool,
     },
+    FuncDecl {
+        token: Token,
+        name: Token,
+        params: Vec<Box<TypedExpression>>,
+        generics_params: Vec<Box<TypedExpression>>,
+        ret_ty: Option<Ident>,
+        ty: Ty
+    },
 }
 
 impl Display for TypedStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::FuncDecl {
+                params,
+                name,
+                ret_ty,
+                generics_params,
+                ..
+            } => write!(
+                f,
+                "func {}{}({}){};",
+                name.value,
+                if generics_params.is_empty() {
+                    "".to_owned()
+                } else {
+                    "<".to_owned() + 
+                    &generics_params
+                        .iter()
+                        .map(|it| it.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ") + 
+                    ">"
+                },
+                params
+                    .iter()
+                    .map(|it| it.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                ret_ty
+                    .as_ref()
+                    .map_or_else(|| " ".into(), |it| format!(" -> {it} ")),
+            ),
             Self::Extern {
                 abi,
                 extern_func_name,
@@ -87,6 +131,10 @@ impl Display for TypedStatement {
                     )
                 }
             ),
+            Self::Trait { name, block, .. } => write!(
+                f,
+                "trait {name} {block}",
+            ),
             Self::While {
                 condition, block, ..
             } => write!(f, "while {condition} {block} "),
@@ -103,7 +151,7 @@ impl Display for TypedStatement {
             },
             Self::Block { statements, .. } => write!(
                 f,
-                "{}",
+                "{{{}}}",
                 statements
                     .iter()
                     .map(|it| it.to_string())
@@ -123,6 +171,8 @@ impl GetType for TypedStatement {
             Self::Return { ty, .. } => ty.clone(),
             Self::Let { ty, .. } => ty.clone(),
             Self::Struct { ty, .. } => ty.clone(),
+            Self::FuncDecl { ty, .. } => ty.clone(),
+            Self::Trait { ty, .. } => ty.clone(),
             Self::While { .. } => Ty::Unit,
         }
     }

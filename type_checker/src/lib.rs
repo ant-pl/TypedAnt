@@ -7,7 +7,11 @@ pub mod typed_ast;
 
 use std::{cell::RefCell, rc::Rc};
 
-use ast::{expr::Expression, node::Node, stmt::Statement};
+use ast::{
+    expr::Expression,
+    node::{GetToken, Node},
+    stmt::Statement,
+};
 use indexmap::IndexMap;
 use token::token::Token;
 
@@ -338,7 +342,7 @@ impl TypeChecker {
 
                     self.table
                         .borrow_mut()
-                        .define_var(&it.value, Ty::Generic(it.value.clone()));
+                        .define_var(&it.value, Ty::Generic(it.value.clone(), vec![]));
                 }
 
                 let mut typed_params: Vec<Box<TypedExpression>> = vec![];
@@ -539,6 +543,118 @@ impl TypeChecker {
 
     pub fn check_statement(&mut self, stmt: Statement) -> CheckResult<TypedStatement> {
         match stmt {
+            Statement::FuncDecl {
+                token,
+                name,
+                params,
+                ret_ty: ret_ty_ident,
+                generics_params,
+            } => {
+                for generics_param in generics_params
+                    .iter()
+                    .filter(|it| matches!(&***it, Expression::Ident(_)))
+                {
+                    let Expression::Ident(it) = &**generics_param else {
+                        unreachable!()
+                    };
+
+                    self.table
+                        .borrow_mut()
+                        .define_var(&it.value, Ty::Generic(it.value.clone(), vec![]));
+                }
+
+                let mut typed_params: Vec<Box<TypedExpression>> = vec![];
+
+                for param in params {
+                    typed_params.push(Box::new(self.check_expr(*param)?))
+                }
+
+                let mut params_type = vec![];
+
+                for typed_param in &typed_params {
+                    if let TypedExpression::TypeHint(_, _, ty) = &**typed_param {
+                        params_type.push(ty.clone());
+                    }
+                }
+
+                // 初步返回定义
+                let ret_ty = ret_ty_ident
+                    .as_ref()
+                    .map_or_else(
+                        || None,
+                        |it| {
+                            self.table
+                                .borrow()
+                                .get(&it.value)
+                                .map_or(None, |it| Some(it.ty.get_type()))
+                        },
+                    )
+                    .map_or(Ty::Unit, |it| it);
+
+                let func_ty = Ty::Function {
+                    params_type,
+                    ret_type: Box::new(ret_ty.clone()),
+                    is_variadic: false,
+                };
+
+                self.table
+                    .borrow_mut()
+                    .define_var(&name.value, func_ty.clone());
+
+                let ret_ident = ret_ty_ident.map(|it| Ident {
+                    token: it.token,
+                    value: it.value,
+                });
+
+                let ty = Ty::Function {
+                    params_type: typed_params.iter().map(|p| p.get_type()).collect(),
+                    ret_type: Box::new(ret_ident.as_ref().map_or(Ok(Ty::Unit), |id| {
+                        self.table.borrow().get(&id.value).map_or_else(
+                            || {
+                                Err(TypeChecker::make_err(
+                                    Some(&format!("unknown type: {}", &id.value)),
+                                    TypeCheckerErrorKind::TypeNotFound,
+                                    Some(id.token.clone()),
+                                ))
+                            },
+                            |it| Ok(it.ty.get_type()),
+                        )
+                    })?),
+                    is_variadic: false,
+                };
+
+                self.table.borrow_mut().define_var(&name.value, ty.clone());
+
+                let typed_generic_params = generics_params
+                    .clone()
+                    .into_iter()
+                    .map(|it| self.check_expr(*it))
+                    .collect::<Result<Vec<TypedExpression>, _>>()?
+                    .into_iter()
+                    .map(|it| Box::new(it))
+                    .collect();
+
+                // 移除之前定义的泛型避免污染全局空间
+                generics_params
+                    .iter()
+                    .filter(|it| matches!(&***it, Expression::Ident(_)))
+                    .for_each(|it| {
+                        let Expression::Ident(it) = &**it else {
+                            unreachable!()
+                        };
+
+                        self.table.borrow_mut().remove(&it.value);
+                    });
+
+                Ok(TypedStatement::FuncDecl {
+                    token,
+                    name,
+                    params: typed_params,
+                    ret_ty: ret_ident,
+                    ty,
+                    generics_params: typed_generic_params,
+                })
+            }
             Statement::Extern {
                 token,
                 abi,
@@ -646,6 +762,79 @@ impl TypeChecker {
                     token,
                     name: typed_name,
                     fields: typed_fields,
+                })
+            }
+            Statement::Trait { token, name, block } => {
+                let typed_name = Ident {
+                    token: name.token,
+                    value: name.value.clone(),
+                };
+
+                let mut typed_statements = vec![];
+
+                let Statement::Block {
+                    token: block_token,
+                    statements,
+                    ..
+                } = *block
+                else {
+                    return Err(Self::make_err(
+                        Some(&format!("not a block: {block}")),
+                        TypeCheckerErrorKind::Other,
+                        Some(block.token()),
+                    ));
+                };
+
+                self.enter_scope(ScopeKind::Trait);
+
+                for stmt in statements {
+                    if !matches!(stmt, Statement::FuncDecl { .. }) {
+                        return Err(Self::make_err(
+                            Some(&format!("not a func decl: {stmt}")),
+                            TypeCheckerErrorKind::Other,
+                            None,
+                        ));
+                    }
+
+                    typed_statements.push(self.check_statement(stmt)?);
+                }
+
+                self.leave_scope();
+
+                let ty = Ty::Trait {
+                    name: name.value.clone(),
+                    functions: {
+                        let mut m = IndexMap::new();
+
+                        for func in &typed_statements {
+                            if let TypedStatement::FuncDecl { ty, .. } = func {
+                                m.insert(name.value.clone(), ty.clone());
+                            } else {
+                                return Err(Self::make_err(
+                                    Some(&format!("not a func decl: {func}")),
+                                    TypeCheckerErrorKind::Other,
+                                    None,
+                                ));
+                            }
+                        }
+
+                        m
+                    },
+                };
+
+                self.table
+                    .borrow_mut()
+                    .define_var(&typed_name.value, ty.clone());
+
+                Ok(TypedStatement::Trait {
+                    ty,
+                    token,
+                    name: typed_name,
+                    block: Box::new(TypedStatement::Block {
+                        token: block_token,
+                        statements: typed_statements,
+                        ty: Ty::Unit,
+                    }),
                 })
             }
             Statement::While {

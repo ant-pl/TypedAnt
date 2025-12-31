@@ -4,7 +4,8 @@ use crate::ty::Ty;
 pub enum ScopeKind {
     Global,
     Function,
-    Class
+    Class,
+    Trait
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
