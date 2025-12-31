@@ -31,6 +31,11 @@ pub enum Statement {
         name: Ident,
         fields: Vec<Box<Expression>>,
     },
+    Trait {
+        token: Token,
+        name: Ident,
+        block: Box<Statement>,
+    },
     Extern {
         token: Token,
         abi: Token,
@@ -40,11 +45,48 @@ pub enum Statement {
         params: Vec<Box<Expression>>,
         ret_ty: Ident,
     },
+    FuncDecl {
+        token: Token,
+        name: Token,
+        params: Vec<Box<Expression>>,
+        generics_params: Vec<Box<Expression>>,
+        ret_ty: Option<Ident>,
+    },
 }
 
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::FuncDecl {
+                params,
+                name,
+                ret_ty,
+                generics_params,
+                ..
+            } => write!(
+                f,
+                "func {}{}({}){};",
+                name.value,
+                if generics_params.is_empty() {
+                    "".to_owned()
+                } else {
+                    "<".to_owned() + 
+                    &generics_params
+                        .iter()
+                        .map(|it| it.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ") + 
+                    ">"
+                },
+                params
+                    .iter()
+                    .map(|it| it.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                ret_ty
+                    .as_ref()
+                    .map_or_else(|| " ".into(), |it| format!(" -> {it} ")),
+            ),
             Self::Extern {
                 abi,
                 extern_func_name,
@@ -70,7 +112,7 @@ impl Display for Statement {
                     "{}".to_string()
                 } else {
                     format!(
-                        "{{\n{}\n}}",
+                        "\n{}\n",
                         fields
                             .iter()
                             .map(|it| "\t".to_owned() + &it.to_string())
@@ -79,6 +121,7 @@ impl Display for Statement {
                     )
                 }
             ),
+            Self::Trait { name, block, .. } => write!(f, "trait {name} {block}",),
             Self::While {
                 condition, block, ..
             } => write!(f, "while {condition} {block} "),
@@ -110,11 +153,13 @@ impl GetToken for Statement {
     fn token(&self) -> Token {
         match self {
             Statement::ExpressionStatement(expression) => expression.token(),
+            Statement::FuncDecl { token, .. } => token.clone(),
             Statement::Return { token, .. } => token.clone(),
             Statement::Block { token, .. } => token.clone(),
             Statement::While { token, .. } => token.clone(),
             Statement::Let { token, .. } => token.clone(),
             Statement::Struct { token, .. } => token.clone(),
+            Statement::Trait { token, .. } => token.clone(),
             Statement::Extern { token, .. } => token.clone(),
         }
     }
