@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::{fmt::Display, sync::Arc};
 
 use token::token::Token;
 
@@ -52,7 +52,7 @@ impl Display for ParserErrorKind {
 pub struct ParserError {
     pub token: Token,
     pub kind: ParserErrorKind,
-    pub message: Option<Rc<str>>,
+    pub message: Option<Arc<str>>,
 }
 
 impl Display for ParserError {

@@ -1,11 +1,11 @@
-use std::{cell::RefCell, io::Write, rc::Rc};
+use std::{cell::RefCell, io::Write, rc::Rc, sync::Arc};
 
 use lexer::Lexer;
 use parser::{Parser, error::display_err};
 use type_checker::{TypeChecker, table::TypeTable};
 
 pub fn repl() {
-    let file: Rc<str> = "*repl".into();
+    let file: Arc<str> = "*repl".into();
 
     let table = Rc::new(RefCell::new(TypeTable::new()));
     table.borrow_mut().init_table();

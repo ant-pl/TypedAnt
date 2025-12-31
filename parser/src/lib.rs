@@ -1,6 +1,6 @@
 mod parse_functions;
 pub mod tests;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
 use ast::{expr::Expression, node::Node, stmt::Statement};
 use token::{token::Token, token_type::TokenType};
@@ -284,7 +284,7 @@ impl Parser {
         Ok(expressions)
     }
 
-    pub fn make_error(&self, kind: ParserErrorKind, message: Option<Rc<str>>) -> ParserError {
+    pub fn make_error(&self, kind: ParserErrorKind, message: Option<Arc<str>>) -> ParserError {
         ParserError {
             token: self.cur_token.clone(),
             kind,
