@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Display, sync::Arc};
 
 use token::token::Token;
 
@@ -8,6 +8,19 @@ pub enum TypeCheckerErrorKind {
     TypeNotFound,
     TypeMismatch,
     Other,
+}
+
+impl Display for TypeCheckerErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            TypeCheckerErrorKind::VariableNotFound => "variable not found",
+            TypeCheckerErrorKind::TypeNotFound => "type not found",
+            TypeCheckerErrorKind::TypeMismatch => "type mismatch",
+            TypeCheckerErrorKind::Other => "other",
+        };
+
+        write!(f, "{s}")
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
