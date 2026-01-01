@@ -1,6 +1,6 @@
 use std::{fmt::Display, sync::Arc};
 
-use ast::expr::IntValue;
+use ast::{expr::IntValue, node::GetToken};
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use token::token::Token;
@@ -28,9 +28,9 @@ pub enum TypedExpression {
         ty: Ty,
     },
     Ident(Ident, Ty),
-    Block(Vec<TypedStatement>, Ty),
+    Block(Token, Vec<TypedStatement>, Ty),
     TypeHint(Ident, Ident, Ty),
-    BuildStruct(Ident, IndexMap<Ident, TypedExpression>, Ty),
+    BuildStruct(Token, Ident, IndexMap<Ident, TypedExpression>, Ty),
     FieldAccess(Box<TypedExpression>, Ident, Ty),
     Infix {
         token: Token,
@@ -75,7 +75,7 @@ pub enum TypedExpression {
 impl Display for TypedExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::BuildStruct(struct_name, block, _) => write!(
+            Self::BuildStruct(_, struct_name, block, _) => write!(
                 f,
                 "{struct_name} {{\n{}\n}}",
                 block
@@ -113,7 +113,7 @@ impl Display for TypedExpression {
             Self::Bool { value, .. } => write!(f, "{}", value),
             Self::Int { value, .. } => write!(f, "{}", value),
             Self::Ident(ident, _) => write!(f, "{}", ident),
-            Self::Block(it, _) => write!(
+            Self::Block(_, it, _) => write!(
                 f,
                 "{{\n{}\n}}",
                 it.iter()
@@ -171,17 +171,38 @@ impl GetType for TypedExpression {
             Self::Int { ty, .. } => ty.clone(),
             Self::Bool { ty, .. } => ty.clone(),
             Self::Ident(_, ty) => ty.clone(),
-            Self::Block(_, ty) => ty.clone(),
+            Self::Block(_, _, ty) => ty.clone(),
             Self::Function { ty, .. } => ty.clone(),
             Self::Infix { ty, .. } => ty.clone(),
             Self::TypeHint(_, _, ty) => ty.clone(),
             Self::If { consequence, .. } => consequence.get_type(),
-            Self::BuildStruct(_, _, ty) => ty.clone(),
+            Self::BuildStruct(_, _, _, ty) => ty.clone(),
             Self::Call { func_ty, .. } => match func_ty {
                 Ty::Function { ret_type, .. } => *ret_type.clone(),
                 _ => unreachable!(),
             },
             Self::Assign { right, .. } => right.get_type(),
+        }
+    }
+}
+
+impl GetToken for TypedExpression {
+    fn token(&self) -> Token {
+        match self {
+            TypedExpression::BigInt { token, .. } => token.clone(),
+            TypedExpression::Bool { token, ..  } => token.clone(),
+            TypedExpression::Int { token,  .. } => token.clone(),
+            TypedExpression::Ident(ident, ..) => ident.token.clone(),
+            TypedExpression::Block(token, ..) => token.clone(),
+            TypedExpression::TypeHint(ident, ..) => ident.token.clone(),
+            TypedExpression::BuildStruct(token, ..) => token.clone(),
+            TypedExpression::FieldAccess(typed_expression, ..) => typed_expression.token(),
+            TypedExpression::Infix { token, .. } => token.clone(),
+            TypedExpression::Function { token, .. } => token.clone(),
+            TypedExpression::Call { token, .. } => token.clone(),
+            TypedExpression::If { token, .. } => token.clone(),
+            TypedExpression::Assign { token, .. } => token.clone(),
+            TypedExpression::StrLiteral { token, .. } => token.clone(),
         }
     }
 }
