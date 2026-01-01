@@ -1,6 +1,6 @@
 pub mod test;
 
-use std::{collections::HashMap, rc::Rc, sync::{Arc, Mutex}};
+use std::{collections::HashMap, sync::{Arc, Mutex}};
 
 use crate::{Ty, ty::IntTy, typed_ast::GetType};
 
@@ -38,14 +38,14 @@ impl GetType for SymbolType {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Symbol {
-    pub name: Rc<str>,
+    pub name: Arc<str>,
     pub ty: SymbolType,
 }
 
 pub struct TypeTable {
     pub outer: Option<Arc<Mutex<TypeTable>>>,
 
-    pub var_map: HashMap<Rc<str>, Symbol>,
+    pub var_map: HashMap<Arc<str>, Symbol>,
 }
 
 impl TypeTable {
