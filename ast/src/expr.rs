@@ -74,8 +74,8 @@ pub enum Expression {
     },
     Ident(Ident),
     TypeHint(Ident, Ident),
-    Block(Vec<Statement>),
-    BuildStruct(Ident, IndexMap<Ident, Expression>),
+    Block(Token, Vec<Statement>),
+    BuildStruct(Token, Ident, IndexMap<Ident, Expression>),
     FieldAccess(Box<Expression>, Ident),
     Infix {
         token: Token,
@@ -118,9 +118,9 @@ impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ThreeDot(token) => write!(f, "{}", token.value),
-            Self::BuildStruct(struct_name, block) => write!(
+            Self::BuildStruct(_, struct_name, block) => write!(
                 f,
-                "{struct_name} {{\n{}\n}}",
+                "new {struct_name} {{\n{}\n}}",
                 block
                     .iter()
                     .map(|(name, val_expr)| format!("\t{name} = {val_expr}"))
@@ -157,7 +157,7 @@ impl Display for Expression {
                     "".to_string()
                 }
             ),
-            Self::Block(it) => write!(
+            Self::Block(_, it) => write!(
                 f,
                 "{{\n{}\n}}",
                 it.iter()
@@ -213,15 +213,9 @@ impl GetToken for Expression {
             Expression::Bool { token, .. } => token.clone(),
             Expression::Ident(ident) => ident.token.clone(),
             Expression::TypeHint(ident, ..) => ident.token.clone(),
-            Expression::Block(statements) => {
-                if !statements.is_empty() {
-                    statements[0].token()
-                } else {
-                    Token::eof("unknown".into(), 0, 0)
-                }
-            }
-            Expression::BuildStruct(ident, ..) => ident.token.clone(),
-            Expression::FieldAccess(expression, ..) => expression.token(),
+            Expression::Block(token, _) => token.clone(),
+            Expression::BuildStruct(token, ..) => token.clone(),
+            Expression::FieldAccess(expr, ..) => expr.token(),
             Expression::Infix { token, .. } => token.clone(),
             Expression::Function { token, .. } => token.clone(),
             Expression::If { token, .. } => token.clone(),
