@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use token::token::Token;
 
@@ -13,6 +13,6 @@ pub enum TypeCheckerErrorKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TypeCheckerError {
     pub kind: TypeCheckerErrorKind,
-    pub token: Option<Token>,
-    pub message: Option<Rc<str>>
+    pub token: Token,
+    pub message: Option<Arc<str>>
 }

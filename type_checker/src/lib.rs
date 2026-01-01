@@ -85,7 +85,9 @@ impl TypeChecker {
         let mut typed_statements = vec![];
 
         if statements.is_empty() {
-            self.current_scope_mut().collect_return_types.push(Ty::Unit);
+            self.current_scope_mut()
+                .collect_return_types
+                .push((Ty::Unit, Token::eof("unknown".into(), 0, 0)));
             return Ok((typed_statements, self.leave_scope()));
         }
 
@@ -100,7 +102,7 @@ impl TypeChecker {
 
                     self.current_scope_mut()
                         .collect_return_types
-                        .push(r.get_type());
+                        .push((r.get_type(), r.token()));
 
                     r
                 } else {
@@ -161,7 +163,7 @@ impl TypeChecker {
                     Err(Self::make_err(
                         Some("not a struct: {typed_struct_expr}"),
                         TypeCheckerErrorKind::TypeMismatch,
-                        None,
+                        typed_struct_expr.token(),
                     ))?
                 };
 
@@ -172,7 +174,7 @@ impl TypeChecker {
                             &new_field.value
                         )),
                         TypeCheckerErrorKind::VariableNotFound,
-                        Some(new_field.token.clone()),
+                        new_field.token.clone(),
                     ))?
                 };
 
@@ -183,7 +185,7 @@ impl TypeChecker {
                 ))
             }
 
-            Expression::BuildStruct(struct_name, fields) => {
+            Expression::BuildStruct(token, struct_name, fields) => {
                 let struct_name = Ident {
                     value: struct_name.value,
                     token: struct_name.token,
@@ -192,9 +194,9 @@ impl TypeChecker {
                 let struct_ty = self.table.borrow().get(&struct_name.value).map_or_else(
                     || {
                         Err(Self::make_err(
-                            Some(&format!("type not found: {struct_name}")),
+                            Some(&format!("type not found: {}", &struct_name.value)),
                             TypeCheckerErrorKind::VariableNotFound,
-                            None,
+                            struct_name.token.clone(),
                         ))
                     },
                     |it| Ok(it.ty.get_type()),
@@ -213,6 +215,7 @@ impl TypeChecker {
                 }
 
                 Ok(TypedExpression::BuildStruct(
+                    token,
                     struct_name,
                     typed_fields,
                     struct_ty,
@@ -232,7 +235,7 @@ impl TypeChecker {
                             typed_right.get_type()
                         )),
                         TypeCheckerErrorKind::TypeMismatch,
-                        None,
+                        typed_right.token(),
                     ));
                 }
 
@@ -257,7 +260,7 @@ impl TypeChecker {
                     None => Err(Self::make_err(
                         None,
                         TypeCheckerErrorKind::VariableNotFound,
-                        Some(it.token),
+                        it.token,
                     )),
                 }
             }
@@ -279,7 +282,7 @@ impl TypeChecker {
                     return Err(Self::make_err(
                         None,
                         TypeCheckerErrorKind::TypeMismatch,
-                        Some(token),
+                        token,
                     ));
                 }
 
@@ -308,7 +311,7 @@ impl TypeChecker {
                             return Err(Self::make_err(
                                 Some("`if` may be missing an `else` clause"),
                                 TypeCheckerErrorKind::Other,
-                                Some(token),
+                                token,
                             ));
                         } else {
                             None
@@ -386,7 +389,7 @@ impl TypeChecker {
                 }
 
                 let typed_block = match *block {
-                    Expression::Block(statements) => {
+                    Expression::Block(token, statements) => {
                         self.enter_scope(ScopeKind::Function);
 
                         for typed_param in &typed_params {
@@ -398,7 +401,7 @@ impl TypeChecker {
                         let (stmts, scope) =
                             self.check_statements(statements, ScopeKind::Function)?;
 
-                        for cur_ret_ty in &scope.collect_return_types {
+                        for (cur_ret_ty, token) in &scope.collect_return_types {
                             if cur_ret_ty == &ret_ty {
                                 continue;
                             }
@@ -406,13 +409,13 @@ impl TypeChecker {
                             return Err(Self::make_err(
                                 Some(&format!("expected: {ret_ty}, got: {cur_ret_ty}",)),
                                 TypeCheckerErrorKind::TypeMismatch,
-                                None,
+                                token.clone(),
                             ));
                         }
 
                         let ret_ty = ret_ty;
 
-                        TypedExpression::Block(stmts, ret_ty)
+                        TypedExpression::Block(token, stmts, ret_ty)
                     }
                     other => self.check_expr(other)?,
                 };
@@ -430,7 +433,7 @@ impl TypeChecker {
                                 Err(TypeChecker::make_err(
                                     Some(&format!("unknown type: {}", &id.value)),
                                     TypeCheckerErrorKind::TypeNotFound,
-                                    Some(id.token.clone()),
+                                    id.token.clone(),
                                 ))
                             },
                             |it| Ok(it.ty.get_type()),
@@ -481,7 +484,7 @@ impl TypeChecker {
                     return Err(Self::make_err(
                         Some("not a function"),
                         TypeCheckerErrorKind::TypeMismatch,
-                        None,
+                        typed_func.token(),
                     ));
                 }
 
@@ -499,7 +502,7 @@ impl TypeChecker {
                 })
             }
 
-            Expression::Block(statements) => {
+            Expression::Block(token, statements) => {
                 let mut typed_statements: Vec<TypedStatement> = vec![];
 
                 for s in statements {
@@ -508,7 +511,7 @@ impl TypeChecker {
 
                 let ty = typed_statements.last().map_or(Ty::Unit, |s| s.get_type());
 
-                Ok(TypedExpression::Block(typed_statements, ty))
+                Ok(TypedExpression::Block(token, typed_statements, ty))
             }
 
             Expression::TypeHint(ident, ty_ident) => {
@@ -517,7 +520,7 @@ impl TypeChecker {
                         Err(Self::make_err(
                             None,
                             TypeCheckerErrorKind::TypeNotFound,
-                            Some(ty_ident.token.clone()),
+                            ty_ident.token.clone(),
                         ))
                     },
                     |it| Ok(it.ty.get_type()),
@@ -614,7 +617,7 @@ impl TypeChecker {
                                 Err(TypeChecker::make_err(
                                     Some(&format!("unknown type: {}", &id.value)),
                                     TypeCheckerErrorKind::TypeNotFound,
-                                    Some(id.token.clone()),
+                                    id.token.clone(),
                                 ))
                             },
                             |it| Ok(it.ty.get_type()),
@@ -686,7 +689,7 @@ impl TypeChecker {
                             Err(TypeChecker::make_err(
                                 Some(&format!("unknown type: {}", &ret_ty_ident.value)),
                                 TypeCheckerErrorKind::TypeNotFound,
-                                Some(ret_ty_ident.token.clone()),
+                                ret_ty_ident.token.clone(),
                             ))
                         },
                         |it| Ok(it.ty.get_type()),
@@ -726,7 +729,7 @@ impl TypeChecker {
                         return Err(Self::make_err(
                             Some(&format!("not a type hint: {field}")),
                             TypeCheckerErrorKind::Other,
-                            None,
+                            field.token(),
                         ));
                     }
                     typed_fields.push(self.check_expr(*field)?);
@@ -744,7 +747,7 @@ impl TypeChecker {
                                 return Err(Self::make_err(
                                     Some(&format!("not a type hint: {field}")),
                                     TypeCheckerErrorKind::Other,
-                                    None,
+                                    field.token(),
                                 ));
                             }
                         }
@@ -781,7 +784,7 @@ impl TypeChecker {
                     return Err(Self::make_err(
                         Some(&format!("not a block: {block}")),
                         TypeCheckerErrorKind::Other,
-                        Some(block.token()),
+                        block.token(),
                     ));
                 };
 
@@ -792,7 +795,7 @@ impl TypeChecker {
                         return Err(Self::make_err(
                             Some(&format!("not a func decl: {stmt}")),
                             TypeCheckerErrorKind::Other,
-                            None,
+                            stmt.token(),
                         ));
                     }
 
@@ -813,7 +816,7 @@ impl TypeChecker {
                                 return Err(Self::make_err(
                                     Some(&format!("not a func decl: {func}")),
                                     TypeCheckerErrorKind::Other,
-                                    None,
+                                    func.token(),
                                 ));
                             }
                         }
@@ -874,7 +877,7 @@ impl TypeChecker {
                             return Err(Self::make_err(
                                 None,
                                 TypeCheckerErrorKind::TypeNotFound,
-                                Some(ty_ident.token.clone()),
+                                ty_ident.token.clone(),
                             ));
                         }
                     }
@@ -910,7 +913,7 @@ impl TypeChecker {
 
                 self.current_scope_mut()
                     .collect_return_types
-                    .push(rty.clone());
+                    .push((rty.clone(), typed_expr.token()));
 
                 Ok(TypedStatement::Return {
                     token,
@@ -974,7 +977,7 @@ impl TypeChecker {
     pub fn make_err(
         message: Option<&str>,
         kind: TypeCheckerErrorKind,
-        token: Option<Token>,
+        token: Token,
     ) -> TypeCheckerError {
         TypeCheckerError {
             kind,
