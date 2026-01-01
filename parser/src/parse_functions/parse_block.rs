@@ -4,6 +4,8 @@ use token::token_type::TokenType;
 use crate::{ParseResult, Parser};
 
 pub fn parse_block_expr(parser: &mut Parser) -> ParseResult<Expression> {
+    let token = parser.cur_token.clone();
+
     parser.expect_cur(TokenType::LBrace)?;
 
     parser.next_token(); // 离开左括号
@@ -21,7 +23,7 @@ pub fn parse_block_expr(parser: &mut Parser) -> ParseResult<Expression> {
 
     // WARNING: 有需要离开右括号的情况自行处理
 
-    Ok(Expression::Block(statements))
+    Ok(Expression::Block(token, statements))
 }
 
 pub fn parse_block_stmt(parser: &mut Parser) -> ParseResult<Statement> {

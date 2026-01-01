@@ -5,6 +5,8 @@ use token::token_type::TokenType;
 use crate::{ParseResult, Parser, error::ParserErrorKind};
 
 pub fn parse_build_struct(parser: &mut Parser) -> ParseResult<Expression> {
+    let token = parser.cur_token.clone();
+    
     parser.next_token(); // 离开 new 前进到 Ident
 
     parser.expect_cur(TokenType::Ident)?;
@@ -34,5 +36,5 @@ pub fn parse_build_struct(parser: &mut Parser) -> ParseResult<Expression> {
         new_fields.insert(name, *right);
     }
 
-    Ok(Expression::BuildStruct(ident, new_fields))
+    Ok(Expression::BuildStruct(token, ident, new_fields))
 }
