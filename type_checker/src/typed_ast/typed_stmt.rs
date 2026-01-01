@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use ast::node::GetToken;
 use token::token::Token;
 
 use crate::{
@@ -174,6 +175,22 @@ impl GetType for TypedStatement {
             Self::FuncDecl { ty, .. } => ty.clone(),
             Self::Trait { ty, .. } => ty.clone(),
             Self::While { .. } => Ty::Unit,
+        }
+    }
+}
+
+impl GetToken for TypedStatement {
+    fn token(&self) -> Token {
+        match self {
+            TypedStatement::ExpressionStatement(typed_expression) => typed_expression.token(),
+            TypedStatement::Return { token, .. } => token.clone(),
+            TypedStatement::Block { token, .. } => token.clone(),
+            TypedStatement::Let { token, .. } => token.clone(),
+            TypedStatement::While { token, .. } => token.clone(),
+            TypedStatement::Struct { token, .. } => token.clone(),
+            TypedStatement::Trait { token, .. } => token.clone(),
+            TypedStatement::Extern { token, .. } => token.clone(),
+            TypedStatement::FuncDecl { token, .. } => token.clone(),
         }
     }
 }
