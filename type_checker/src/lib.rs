@@ -5,7 +5,7 @@ pub mod test;
 pub mod ty;
 pub mod typed_ast;
 
-use std::{cell::RefCell, rc::Rc};
+use std::sync::{Arc, Mutex};
 
 use ast::{
     expr::Expression,
@@ -35,7 +35,7 @@ enum CompileAs {
 }
 
 pub struct TypeChecker {
-    table: Rc<RefCell<TypeTable>>,
+    table: Arc<Mutex<TypeTable>>,
 
     scopes: Vec<CheckScope>,
     scope_index: usize,
@@ -44,7 +44,7 @@ pub struct TypeChecker {
 }
 
 impl TypeChecker {
-    pub fn new(table: Rc<RefCell<TypeTable>>) -> Self {
+    pub fn new(table: Arc<Mutex<TypeTable>>) -> Self {
         let global_scope = CheckScope {
             kind: ScopeKind::Global,
             collect_return_types: vec![],
@@ -191,16 +191,21 @@ impl TypeChecker {
                     token: struct_name.token,
                 };
 
-                let struct_ty = self.table.borrow().get(&struct_name.value).map_or_else(
-                    || {
-                        Err(Self::make_err(
-                            Some(&format!("type not found: {}", &struct_name.value)),
-                            TypeCheckerErrorKind::VariableNotFound,
-                            struct_name.token.clone(),
-                        ))
-                    },
-                    |it| Ok(it.ty.get_type()),
-                )?;
+                let struct_ty = self
+                    .table
+                    .lock()
+                    .unwrap()
+                    .get(&struct_name.value)
+                    .map_or_else(
+                        || {
+                            Err(Self::make_err(
+                                Some(&format!("type not found: {}", &struct_name.value)),
+                                TypeCheckerErrorKind::VariableNotFound,
+                                struct_name.token.clone(),
+                            ))
+                        },
+                        |it| Ok(it.ty.get_type()),
+                    )?;
 
                 let mut typed_fields = IndexMap::new();
 
@@ -249,7 +254,7 @@ impl TypeChecker {
             Expression::Ident(it) => {
                 let ident_name = &it.value;
 
-                match self.table.borrow().get(&ident_name) {
+                match self.table.lock().unwrap().get(&ident_name) {
                     Some(symbol) => Ok(TypedExpression::Ident(
                         Ident {
                             token: it.token,
@@ -344,7 +349,8 @@ impl TypeChecker {
                     };
 
                     self.table
-                        .borrow_mut()
+                        .lock()
+                        .unwrap()
                         .define_var(&it.value, Ty::Generic(it.value.clone(), vec![]));
                 }
 
@@ -369,7 +375,8 @@ impl TypeChecker {
                         || None,
                         |it| {
                             self.table
-                                .borrow()
+                                .lock()
+                                .unwrap()
                                 .get(&it.value)
                                 .map_or(None, |it| Some(it.ty.get_type()))
                         },
@@ -384,7 +391,8 @@ impl TypeChecker {
 
                 if let Some(name) = &name {
                     self.table
-                        .borrow_mut()
+                        .lock()
+                        .unwrap()
                         .define_var(&name.value, func_ty.clone());
                 }
 
@@ -394,7 +402,10 @@ impl TypeChecker {
 
                         for typed_param in &typed_params {
                             if let TypedExpression::TypeHint(name, _, ty) = &**typed_param {
-                                self.table.borrow_mut().define_var(&name.value, ty.clone());
+                                self.table
+                                    .lock()
+                                    .unwrap()
+                                    .define_var(&name.value, ty.clone());
                             }
                         }
 
@@ -428,7 +439,7 @@ impl TypeChecker {
                 let ty = Ty::Function {
                     params_type: typed_params.iter().map(|p| p.get_type()).collect(),
                     ret_type: Box::new(ret_ident.as_ref().map_or(Ok(Ty::Unit), |id| {
-                        self.table.borrow().get(&id.value).map_or_else(
+                        self.table.lock().unwrap().get(&id.value).map_or_else(
                             || {
                                 Err(TypeChecker::make_err(
                                     Some(&format!("unknown type: {}", &id.value)),
@@ -443,7 +454,10 @@ impl TypeChecker {
                 };
 
                 if let Some(name) = &name {
-                    self.table.borrow_mut().define_var(&name.value, ty.clone());
+                    self.table
+                        .lock()
+                        .unwrap()
+                        .define_var(&name.value, ty.clone());
                 }
 
                 let typed_generic_params = generics_params
@@ -464,7 +478,7 @@ impl TypeChecker {
                             unreachable!()
                         };
 
-                        self.table.borrow_mut().remove(&it.value);
+                        self.table.lock().unwrap().remove(&it.value);
                     });
 
                 Ok(TypedExpression::Function {
@@ -515,16 +529,21 @@ impl TypeChecker {
             }
 
             Expression::TypeHint(ident, ty_ident) => {
-                let ty = self.table.borrow().get(&ty_ident.value).map_or_else(
-                    || {
-                        Err(Self::make_err(
-                            None,
-                            TypeCheckerErrorKind::TypeNotFound,
-                            ty_ident.token.clone(),
-                        ))
-                    },
-                    |it| Ok(it.ty.get_type()),
-                )?;
+                let ty = self
+                    .table
+                    .lock()
+                    .unwrap()
+                    .get(&ty_ident.value)
+                    .map_or_else(
+                        || {
+                            Err(Self::make_err(
+                                None,
+                                TypeCheckerErrorKind::TypeNotFound,
+                                ty_ident.token.clone(),
+                            ))
+                        },
+                        |it| Ok(it.ty.get_type()),
+                    )?;
 
                 let new_ident = Ident {
                     token: ident.token,
@@ -562,7 +581,8 @@ impl TypeChecker {
                     };
 
                     self.table
-                        .borrow_mut()
+                        .lock()
+                        .unwrap()
                         .define_var(&it.value, Ty::Generic(it.value.clone(), vec![]));
                 }
 
@@ -587,7 +607,8 @@ impl TypeChecker {
                         || None,
                         |it| {
                             self.table
-                                .borrow()
+                                .lock()
+                                .unwrap()
                                 .get(&it.value)
                                 .map_or(None, |it| Some(it.ty.get_type()))
                         },
@@ -601,7 +622,8 @@ impl TypeChecker {
                 };
 
                 self.table
-                    .borrow_mut()
+                    .lock()
+                    .unwrap()
                     .define_var(&name.value, func_ty.clone());
 
                 let ret_ident = ret_ty_ident.map(|it| Ident {
@@ -612,7 +634,7 @@ impl TypeChecker {
                 let ty = Ty::Function {
                     params_type: typed_params.iter().map(|p| p.get_type()).collect(),
                     ret_type: Box::new(ret_ident.as_ref().map_or(Ok(Ty::Unit), |id| {
-                        self.table.borrow().get(&id.value).map_or_else(
+                        self.table.lock().unwrap().get(&id.value).map_or_else(
                             || {
                                 Err(TypeChecker::make_err(
                                     Some(&format!("unknown type: {}", &id.value)),
@@ -626,7 +648,10 @@ impl TypeChecker {
                     is_variadic: false,
                 };
 
-                self.table.borrow_mut().define_var(&name.value, ty.clone());
+                self.table
+                    .lock()
+                    .unwrap()
+                    .define_var(&name.value, ty.clone());
 
                 let typed_generic_params = generics_params
                     .clone()
@@ -646,7 +671,7 @@ impl TypeChecker {
                             unreachable!()
                         };
 
-                        self.table.borrow_mut().remove(&it.value);
+                        self.table.lock().unwrap().remove(&it.value);
                     });
 
                 Ok(TypedStatement::FuncDecl {
@@ -684,21 +709,28 @@ impl TypeChecker {
 
                 let func_ty = Ty::Function {
                     params_type,
-                    ret_type: Box::new(self.table.borrow().get(&ret_ty_ident.value).map_or_else(
-                        || {
-                            Err(TypeChecker::make_err(
-                                Some(&format!("unknown type: {}", &ret_ty_ident.value)),
-                                TypeCheckerErrorKind::TypeNotFound,
-                                ret_ty_ident.token.clone(),
-                            ))
-                        },
-                        |it| Ok(it.ty.get_type()),
-                    )?),
+                    ret_type: Box::new(
+                        self.table
+                            .lock()
+                            .unwrap()
+                            .get(&ret_ty_ident.value)
+                            .map_or_else(
+                                || {
+                                    Err(TypeChecker::make_err(
+                                        Some(&format!("unknown type: {}", &ret_ty_ident.value)),
+                                        TypeCheckerErrorKind::TypeNotFound,
+                                        ret_ty_ident.token.clone(),
+                                    ))
+                                },
+                                |it| Ok(it.ty.get_type()),
+                            )?,
+                    ),
                     is_variadic: true,
                 };
 
                 self.table
-                    .borrow_mut()
+                    .lock()
+                    .unwrap()
                     .define_var(&alias.value, func_ty.clone());
 
                 Ok(TypedStatement::Extern {
@@ -757,7 +789,8 @@ impl TypeChecker {
                 };
 
                 self.table
-                    .borrow_mut()
+                    .lock()
+                    .unwrap()
                     .define_var(&typed_name.value, ty.clone());
 
                 Ok(TypedStatement::Struct {
@@ -826,7 +859,8 @@ impl TypeChecker {
                 };
 
                 self.table
-                    .borrow_mut()
+                    .lock()
+                    .unwrap()
                     .define_var(&typed_name.value, ty.clone());
 
                 Ok(TypedStatement::Trait {
@@ -871,7 +905,7 @@ impl TypeChecker {
 
                 // 如果有类型标注尝试获取类型 否则直接获取表达式的值
                 let ty = if let Some(ref ty_ident) = var_type {
-                    match self.table.borrow().get(&ty_ident.value) {
+                    match self.table.lock().unwrap().get(&ty_ident.value) {
                         Some(it) => it.ty.get_type(),
                         None => {
                             return Err(Self::make_err(
@@ -885,7 +919,10 @@ impl TypeChecker {
                     typed_val.get_type()
                 };
 
-                self.table.borrow_mut().define_var(&name.value, ty.clone());
+                self.table
+                    .lock()
+                    .unwrap()
+                    .define_var(&name.value, ty.clone());
 
                 Ok(TypedStatement::Let {
                     token: token.clone(),
@@ -941,7 +978,7 @@ impl TypeChecker {
     }
 
     pub fn enter_scope(&mut self, kind: ScopeKind) {
-        self.table = Rc::new(RefCell::new(TypeTable::with_outer(self.table.clone())));
+        self.table = Arc::new(Mutex::new(TypeTable::with_outer(self.table.clone())));
 
         self.scope_index += 1;
 
@@ -962,7 +999,8 @@ impl TypeChecker {
     pub fn leave_scope(&mut self) -> CheckScope {
         let outer = self
             .table
-            .borrow()
+            .lock()
+            .unwrap()
             .outer
             .clone()
             .expect("expected an outer");

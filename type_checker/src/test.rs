@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc, sync::Arc};
+    use std::sync::{Arc, Mutex};
 
     use bigdecimal::BigDecimal;
     use token::{token::Token, token_type::TokenType};
@@ -11,8 +11,8 @@ mod tests {
         typed_ast::{GetType, typed_expr::TypedExpression, typed_stmt::TypedStatement},
     };
 
-    fn empty_table() -> Rc<RefCell<TypeTable>> {
-        Rc::new(RefCell::new(TypeTable::new().init()))
+    fn empty_table() -> Arc<Mutex<TypeTable>> {
+        Arc::new(Mutex::new(TypeTable::new().init()))
     }
 
     #[test]
@@ -21,7 +21,7 @@ mod tests {
 
         let table = empty_table();
 
-        table.borrow_mut().define_var("a", Ty::BigInt);
+        table.lock().unwrap().define_var("a", Ty::BigInt);
 
         let checker = &mut TypeChecker::new(table);
 
@@ -83,7 +83,7 @@ mod tests {
         assert!(ident.value == "a".into());
         assert!(ty == Ty::BigInt);
 
-        let get_symbol_result = table.borrow().get("a");
+        let get_symbol_result = table.lock().unwrap().get("a");
         let get_symbol_result_ref = get_symbol_result.as_ref();
 
         assert!(get_symbol_result.is_some());

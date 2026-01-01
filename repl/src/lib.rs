@@ -1,4 +1,4 @@
-use std::{cell::RefCell, io::Write, rc::Rc, sync::Arc};
+use std::{io::Write, sync::{Arc, Mutex}};
 
 use lexer::Lexer;
 use parser::{Parser, error::display_err};
@@ -7,8 +7,7 @@ use type_checker::{TypeChecker, table::TypeTable};
 pub fn repl() {
     let file: Arc<str> = "*repl".into();
 
-    let table = Rc::new(RefCell::new(TypeTable::new()));
-    table.borrow_mut().init_table();
+    let table = Arc::new(Mutex::new(TypeTable::new().init()));
 
     loop {
         print!(">>> ");

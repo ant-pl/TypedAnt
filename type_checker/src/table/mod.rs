@@ -1,6 +1,6 @@
 pub mod test;
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc, sync::{Arc, Mutex}};
 
 use crate::{Ty, ty::IntTy, typed_ast::GetType};
 
@@ -43,7 +43,7 @@ pub struct Symbol {
 }
 
 pub struct TypeTable {
-    pub outer: Option<Rc<RefCell<TypeTable>>>,
+    pub outer: Option<Arc<Mutex<TypeTable>>>,
 
     pub var_map: HashMap<Rc<str>, Symbol>,
 }
@@ -69,7 +69,7 @@ impl TypeTable {
         self
     }
 
-    pub fn with_outer(outer: Rc<RefCell<TypeTable>>) -> Self {
+    pub fn with_outer(outer: Arc<Mutex<TypeTable>>) -> Self {
         Self {
             outer: Some(outer),
             var_map: HashMap::new(),
@@ -91,7 +91,7 @@ impl TypeTable {
         }
 
         if let Some(outer) = &self.outer {
-            return outer.borrow().get(name);
+            return outer.lock().unwrap().get(name);
         }
 
         None
