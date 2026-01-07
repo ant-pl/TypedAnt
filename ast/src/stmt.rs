@@ -36,6 +36,12 @@ pub enum Statement {
         name: Ident,
         block: Box<Statement>,
     },
+    Impl {
+        token: Token,
+        impl_: Ident,
+        for_: Option<Ident>,
+        block: Box<Statement>,
+    },
     Extern {
         token: Token,
         abi: Token,
@@ -70,13 +76,13 @@ impl Display for Statement {
                 if generics_params.is_empty() {
                     "".to_owned()
                 } else {
-                    "<".to_owned() + 
-                    &generics_params
-                        .iter()
-                        .map(|it| it.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ") + 
-                    ">"
+                    "<".to_owned()
+                        + &generics_params
+                            .iter()
+                            .map(|it| it.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                        + ">"
                 },
                 params
                     .iter()
@@ -121,7 +127,15 @@ impl Display for Statement {
                     )
                 }
             ),
-            Self::Trait { name, block, .. } => write!(f, "trait {name} {block}",),
+            Self::Trait { name, block, .. } => write!(f, "trait {name} {block}"),
+            Self::Impl {
+                impl_, block, for_, ..
+            } => write!(
+                f,
+                "impl {impl_}{} {block}",
+                for_.as_ref()
+                    .map_or_else(String::new, |it| format!(" for {}", it.value.clone()))
+            ),
             Self::While {
                 condition, block, ..
             } => write!(f, "while {condition} {block} "),
@@ -161,6 +175,7 @@ impl GetToken for Statement {
             Statement::Struct { token, .. } => token.clone(),
             Statement::Trait { token, .. } => token.clone(),
             Statement::Extern { token, .. } => token.clone(),
-        }
+            Statement::Impl { token, .. } => token.clone(),
+        } 
     }
 }
