@@ -63,6 +63,12 @@ pub enum TypedStatement {
         ret_ty: Option<Ident>,
         ty: Ty
     },
+    Impl {
+        token: Token,
+        impl_: Ident,
+        for_: Option<Ident>,
+        block: Box<TypedStatement>,
+    },
 }
 
 impl Display for TypedStatement {
@@ -159,6 +165,14 @@ impl Display for TypedStatement {
                     .collect::<Vec<String>>()
                     .join("\n")
             ),
+            Self::Impl {
+                impl_, block, for_, ..
+            } => write!(
+                f,
+                "impl {impl_}{} {block}",
+                for_.as_ref()
+                    .map_or_else(String::new, |it| format!(" for {}", it.value.clone()))
+            ),
         }
     }
 }
@@ -175,6 +189,7 @@ impl GetType for TypedStatement {
             Self::FuncDecl { ty, .. } => ty.clone(),
             Self::Trait { ty, .. } => ty.clone(),
             Self::While { .. } => Ty::Unit,
+            Self::Impl { .. } => Ty::Unit,
         }
     }
 }
@@ -191,6 +206,7 @@ impl GetToken for TypedStatement {
             TypedStatement::Trait { token, .. } => token.clone(),
             TypedStatement::Extern { token, .. } => token.clone(),
             TypedStatement::FuncDecl { token, .. } => token.clone(),
+            TypedStatement::Impl { token, .. } => token.clone(),
         }
     }
 }
