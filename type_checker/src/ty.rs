@@ -85,14 +85,15 @@ pub enum Ty {
         is_variadic: bool,
     },
     Struct {
-        name: Arc<str>, 
+        name: Arc<str>,
         fields: IndexMap<Arc<str>, Ty>,
+        impl_traits: IndexMap<Arc<str>, Ty>,
     },
     Trait {
-        name: Arc<str>, 
+        name: Arc<str>,
         functions: IndexMap<Arc<str>, Ty>,
     },
-    Generic(Arc<str>, Vec<Ty>), // T, K, V ... 
+    Generic(Arc<str>, Vec<Ty>), // T, K, V ...
     IntTy(IntTy),
     Bool,
     Unit,
@@ -145,7 +146,7 @@ pub fn str_to_ty(ty_str: &str) -> Option<Ty> {
         "isize" => Some(Ty::IntTy(crate::ty::IntTy::ISize)),
         "BigInt" => Some(Ty::BigInt),
 
-        _ => None
+        _ => None,
     }
 }
 
@@ -176,7 +177,14 @@ mod tests {
             (Ty::IntTy(IntTy::USize), "usize"),
             (Ty::IntTy(IntTy::ISize), "isize"),
             (Ty::BigInt, "BigInt"),
-            (Ty::Struct { name: "CialloInfo".into(), fields: IndexMap::new() }, "CialloInfo"),
+            (
+                Ty::Struct {
+                    name: "CialloInfo".into(),
+                    fields: IndexMap::new(),
+                    impl_traits: IndexMap::new(),
+                },
+                "CialloInfo",
+            ),
         ];
 
         for (ty, expected) in cases {
