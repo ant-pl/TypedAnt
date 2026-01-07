@@ -158,6 +158,7 @@ impl TypeChecker {
                 let Ty::Struct {
                     name: struct_name,
                     fields,
+                    impl_traits: _impl_traits,
                 } = typed_struct_expr.get_type()
                 else {
                     Err(Self::make_err(
@@ -565,6 +566,51 @@ impl TypeChecker {
 
     pub fn check_statement(&mut self, stmt: Statement) -> CheckResult<TypedStatement> {
         match stmt {
+            Statement::Impl {
+                token,
+                impl_,
+                for_,
+                block,
+            } => {
+                let new_impl_ = Ident {
+                    token: impl_.token,
+                    value: impl_.value,
+                };
+
+                if self.table.lock().unwrap().get(&new_impl_.value).is_none() {
+                    return Err(Self::make_err(
+                        Some(&format!("cannot find type '{new_impl_}' in this scope")),
+                        TypeCheckerErrorKind::TypeNotFound,
+                        new_impl_.token,
+                    ));
+                }
+
+                let new_for_ = for_.map_or(None, |it| {
+                    Some(Ident {
+                        token: it.token,
+                        value: it.value,
+                    })
+                });
+
+                if let Some(ref new_for_) = new_for_
+                    && self.table.lock().unwrap().get(&new_for_.value).is_none()
+                {
+                    return Err(Self::make_err(
+                        Some(&format!("cannot find type '{new_for_}' in this scope")),
+                        TypeCheckerErrorKind::TypeNotFound,
+                        new_for_.token.clone(),
+                    ));
+                }
+
+                let typed_block = self.check_statement(*block)?;
+
+                Ok(TypedStatement::Impl {
+                    token,
+                    impl_: new_impl_,
+                    for_: new_for_,
+                    block: Box::new(typed_block),
+                })
+            }
             Statement::FuncDecl {
                 token,
                 name,
@@ -786,6 +832,7 @@ impl TypeChecker {
 
                         m
                     },
+                    impl_traits: IndexMap::new(),
                 };
 
                 self.table
