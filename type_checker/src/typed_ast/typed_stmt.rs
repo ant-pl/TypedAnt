@@ -61,7 +61,7 @@ pub enum TypedStatement {
         params: Vec<Box<TypedExpression>>,
         generics_params: Vec<Box<TypedExpression>>,
         ret_ty: Option<Ident>,
-        ty: Ty
+        ty: Ty,
     },
     Impl {
         token: Token,
@@ -87,13 +87,13 @@ impl Display for TypedStatement {
                 if generics_params.is_empty() {
                     "".to_owned()
                 } else {
-                    "<".to_owned() + 
-                    &generics_params
-                        .iter()
-                        .map(|it| it.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ") + 
-                    ">"
+                    "<".to_owned()
+                        + &generics_params
+                            .iter()
+                            .map(|it| it.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                        + ">"
                 },
                 params
                     .iter()
@@ -113,14 +113,14 @@ impl Display for TypedStatement {
                 vararg,
                 ..
             } => write!(
-                f, "extern \"{abi}\" {extern_func_name}({}{}) -> {ret_ty} as {alias}",
+                f,
+                "extern \"{abi}\" {extern_func_name}({}{}) -> {ret_ty} as {alias}",
                 params
                     .iter()
                     .map(|it| it.to_string())
                     .collect::<Vec<String>>()
                     .join(", "),
                 if *vararg { ", ..." } else { "" }
-                
             ),
             Self::Struct { name, fields, .. } => write!(
                 f,
@@ -138,10 +138,7 @@ impl Display for TypedStatement {
                     )
                 }
             ),
-            Self::Trait { name, block, .. } => write!(
-                f,
-                "trait {name} {block}",
-            ),
+            Self::Trait { name, block, .. } => write!(f, "trait {name} {block}",),
             Self::While {
                 condition, block, ..
             } => write!(f, "while {condition} {block} "),
@@ -158,10 +155,15 @@ impl Display for TypedStatement {
             },
             Self::Block { statements, .. } => write!(
                 f,
-                "{{{}}}",
+                "{{\n{}\n}}",
                 statements
                     .iter()
-                    .map(|it| it.to_string())
+                    .map(|it| it
+                        .to_string()
+                        .split("\n")
+                        .map(|it| "\t".to_owned() + it)
+                        .collect::<Vec<String>>()
+                        .join("\n"))
                     .collect::<Vec<String>>()
                     .join("\n")
             ),
