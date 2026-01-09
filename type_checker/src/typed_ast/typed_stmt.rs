@@ -1,6 +1,7 @@
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
 use ast::node::GetToken;
+use indexmap::IndexMap;
 use token::token::Token;
 
 use crate::{
@@ -68,6 +69,7 @@ pub enum TypedStatement {
         impl_: Ident,
         for_: Option<Ident>,
         block: Box<TypedStatement>,
+        new_fields: IndexMap<Arc<str>, Ty>
     },
 }
 

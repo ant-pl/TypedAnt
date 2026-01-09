@@ -608,6 +608,8 @@ impl TypeChecker {
 
                 let table = self.leave_scope().1;
 
+                let mut new_fields = IndexMap::new();
+
                 for (_, sym) in &mut self.table.lock().unwrap().var_map {
                     let SymbolType::Variable(Ty::Struct {
                         name: struct_name,
@@ -618,15 +620,13 @@ impl TypeChecker {
                         continue;
                     };
 
-                    let mut index_varmap = IndexMap::new();
-
                     table.lock().unwrap().var_map.iter().for_each(|(k, v)| {
-                        index_varmap.insert(k.clone(), v.clone().ty.get_type());
+                        new_fields.insert(k.clone(), v.clone().ty.get_type());
                     });
 
                     // impl XXXX {}
                     if new_for_.is_none() && new_impl_.value == *struct_name {
-                        fields.append(&mut index_varmap);
+                        fields.append(&mut new_fields);
                     }
 
                     continue;
@@ -634,6 +634,7 @@ impl TypeChecker {
 
                 Ok(TypedStatement::Impl {
                     token,
+                    new_fields,
                     impl_: new_impl_,
                     for_: new_for_,
                     block: Box::new(typed_block),
