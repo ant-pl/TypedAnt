@@ -117,7 +117,12 @@ impl Display for TypedExpression {
                 f,
                 "{{\n{}\n}}",
                 it.iter()
-                    .map(|it| "\t".to_owned() + &it.to_string())
+                    .map(|it| it
+                        .to_string()
+                        .split("\n")
+                        .map(|it| "\t".to_owned() + it)
+                        .collect::<Vec<String>>()
+                        .join("\n"))
                     .collect::<Vec<String>>()
                     .join("\n")
             ),
@@ -137,13 +142,13 @@ impl Display for TypedExpression {
                 if generics_params.is_empty() {
                     "".to_owned()
                 } else {
-                    "<".to_owned() + 
-                    &generics_params
-                        .iter()
-                        .map(|it| it.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ") + 
-                    ">"
+                    "<".to_owned()
+                        + &generics_params
+                            .iter()
+                            .map(|it| it.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                        + ">"
                 },
                 params
                     .iter()
@@ -190,8 +195,8 @@ impl GetToken for TypedExpression {
     fn token(&self) -> Token {
         match self {
             TypedExpression::BigInt { token, .. } => token.clone(),
-            TypedExpression::Bool { token, ..  } => token.clone(),
-            TypedExpression::Int { token,  .. } => token.clone(),
+            TypedExpression::Bool { token, .. } => token.clone(),
+            TypedExpression::Int { token, .. } => token.clone(),
             TypedExpression::Ident(ident, ..) => ident.token.clone(),
             TypedExpression::Block(token, ..) => token.clone(),
             TypedExpression::TypeHint(ident, ..) => ident.token.clone(),
