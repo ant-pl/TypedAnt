@@ -18,7 +18,7 @@ use token::token::Token;
 use crate::{
     error::{TypeCheckerError, TypeCheckerErrorKind},
     scope::{CheckScope, ScopeKind},
-    table::TypeTable,
+    table::{SymbolType, TypeTable},
     ty::Ty,
     typed_ast::{
         GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident,
@@ -88,7 +88,7 @@ impl TypeChecker {
             self.current_scope_mut()
                 .collect_return_types
                 .push((Ty::Unit, Token::eof("unknown".into(), 0, 0)));
-            return Ok((typed_statements, self.leave_scope()));
+            return Ok((typed_statements, self.leave_scope().0));
         }
 
         let statement_count = statements.len() - 1;
@@ -111,7 +111,7 @@ impl TypeChecker {
             );
         }
 
-        Ok((typed_statements, self.leave_scope()))
+        Ok((typed_statements, self.leave_scope().0))
     }
 
     pub fn check_expr_as_val(&mut self, expr: Expression) -> CheckResult<TypedExpression> {
@@ -602,7 +602,35 @@ impl TypeChecker {
                     ));
                 }
 
+                self.enter_scope(ScopeKind::Class);
+
                 let typed_block = self.check_statement(*block)?;
+
+                let table = self.leave_scope().1;
+
+                for (_, sym) in &mut self.table.lock().unwrap().var_map {
+                    let SymbolType::Variable(Ty::Struct {
+                        name: struct_name,
+                        fields,
+                        ..
+                    }) = &mut sym.ty
+                    else {
+                        continue;
+                    };
+
+                    let mut index_varmap = IndexMap::new();
+
+                    table.lock().unwrap().var_map.iter().for_each(|(k, v)| {
+                        index_varmap.insert(k.clone(), v.clone().ty.get_type());
+                    });
+
+                    // impl XXXX {}
+                    if new_for_.is_none() && new_impl_.value == *struct_name {
+                        fields.append(&mut index_varmap);
+                    }
+
+                    continue;
+                }
 
                 Ok(TypedStatement::Impl {
                     token,
@@ -1043,8 +1071,8 @@ impl TypeChecker {
         &mut self.scopes[self.scope_index]
     }
 
-    pub fn leave_scope(&mut self) -> CheckScope {
-        let outer = self
+    pub fn leave_scope(&mut self) -> (CheckScope, Arc<Mutex<TypeTable>>) {
+        let before_enter_scope_table = self
             .table
             .lock()
             .unwrap()
@@ -1052,11 +1080,13 @@ impl TypeChecker {
             .clone()
             .expect("expected an outer");
 
-        self.table = outer;
+        let cur_scope_table = self.table.clone();
+
+        self.table = before_enter_scope_table;
 
         self.scope_index -= 1;
 
-        self.scopes.pop().unwrap()
+        (self.scopes.pop().unwrap(), cur_scope_table)
     }
 
     pub fn make_err(
