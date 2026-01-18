@@ -1058,7 +1058,7 @@ impl TypeChecker {
                     .unwrap()
                     .define_var(&name.value, ty.clone());
 
-                Ok(TypedStatement::Let {
+                Ok(TypedStatement::Const {
                     token: token.clone(),
                     name: Ident {
                         token,
