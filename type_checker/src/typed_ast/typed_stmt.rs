@@ -29,6 +29,13 @@ pub enum TypedStatement {
         value: TypedExpression,
         ty: Ty,
     },
+    Const {
+        token: Token,
+        name: Ident,
+        var_type: Option<Ident>,
+        value: TypedExpression,
+        ty: Ty,
+    },
     While {
         token: Token,
         condition: TypedExpression,
@@ -155,6 +162,15 @@ impl Display for TypedStatement {
                 Some(ty) => write!(f, "let {name}: {ty} = {value}",),
                 None => write!(f, "let {name} = {value}"),
             },
+            Self::Const {
+                name,
+                var_type,
+                value,
+                ..
+            } => match var_type {
+                Some(ty) => write!(f, "const {name}: {ty} = {value}",),
+                None => write!(f, "const {name} = {value}"),
+            },
             Self::Block { statements, .. } => write!(
                 f,
                 "{{\n{}\n}}",
@@ -189,6 +205,7 @@ impl GetType for TypedStatement {
             Self::ExpressionStatement(expr) => expr.get_type(),
             Self::Return { ty, .. } => ty.clone(),
             Self::Let { ty, .. } => ty.clone(),
+            Self::Const { ty, .. } => ty.clone(),
             Self::Struct { ty, .. } => ty.clone(),
             Self::FuncDecl { ty, .. } => ty.clone(),
             Self::Trait { ty, .. } => ty.clone(),
@@ -205,6 +222,7 @@ impl GetToken for TypedStatement {
             TypedStatement::Return { token, .. } => token.clone(),
             TypedStatement::Block { token, .. } => token.clone(),
             TypedStatement::Let { token, .. } => token.clone(),
+            TypedStatement::Const { token, .. } => token.clone(),
             TypedStatement::While { token, .. } => token.clone(),
             TypedStatement::Struct { token, .. } => token.clone(),
             TypedStatement::Trait { token, .. } => token.clone(),
