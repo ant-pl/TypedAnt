@@ -19,3 +19,4 @@ pub mod parse_extern;
 pub mod parse_return;
 pub mod parse_trait;
 pub mod parse_impl;
+pub mod parse_const;
