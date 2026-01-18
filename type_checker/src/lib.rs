@@ -1019,6 +1019,64 @@ impl TypeChecker {
                 })
             }
 
+            Statement::Const {
+                token,
+                name,
+                var_type,
+                value,
+            } => {
+                // 检查表达式是否为字面量
+                if !value.is_literal() {
+                    return Err(Self::make_err(
+                        Some(&format!("expression `{value}` is not a constant")),
+                        TypeCheckerErrorKind::NotAConstant,
+                        value.token(),
+                    ))
+                }
+
+                // 检查表达式的类型
+                let typed_val = self.check_expr_as_val(value)?;
+
+                // 如果有类型标注尝试获取类型 否则直接获取表达式的值
+                let ty = if let Some(ref ty_ident) = var_type {
+                    match self.table.lock().unwrap().get(&ty_ident.value) {
+                        Some(it) => it.ty.get_type(),
+                        None => {
+                            return Err(Self::make_err(
+                                None,
+                                TypeCheckerErrorKind::TypeNotFound,
+                                ty_ident.token.clone(),
+                            ));
+                        }
+                    }
+                } else {
+                    typed_val.get_type()
+                };
+
+                self.table
+                    .lock()
+                    .unwrap()
+                    .define_var(&name.value, ty.clone());
+
+                Ok(TypedStatement::Let {
+                    token: token.clone(),
+                    name: Ident {
+                        token,
+                        value: name.value,
+                    },
+                    var_type: match var_type {
+                        Some(it) => Some(Ident {
+                            token: it.token,
+                            value: it.value,
+                        }),
+
+                        None => None,
+                    },
+                    ty,
+                    value: typed_val,
+                })
+            }
+
             Statement::Return { token, expr } => {
                 let typed_expr = self.check_expr(expr)?;
 
