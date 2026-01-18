@@ -26,6 +26,12 @@ pub enum Statement {
         var_type: Option<Ident>,
         value: Expression,
     },
+    Const {
+        token: Token,
+        name: Ident,
+        var_type: Option<Ident>,
+        value: Expression,
+    },
     Struct {
         token: Token,
         name: Ident,
@@ -150,6 +156,15 @@ impl Display for Statement {
                 Some(ty) => write!(f, "let {name}: {ty} = {value}",),
                 None => write!(f, "let {name} = {value}"),
             },
+            Self::Const {
+                name,
+                var_type,
+                value,
+                ..
+            } => match var_type {
+                Some(ty) => write!(f, "const {name}: {ty} = {value}",),
+                None => write!(f, "const {name} = {value}"),
+            },
             Self::Block { statements, .. } => write!(
                 f,
                 "{{\n{}\n}}",
@@ -172,6 +187,7 @@ impl GetToken for Statement {
             Statement::Block { token, .. } => token.clone(),
             Statement::While { token, .. } => token.clone(),
             Statement::Let { token, .. } => token.clone(),
+            Statement::Const { token, .. } => token.clone(),
             Statement::Struct { token, .. } => token.clone(),
             Statement::Trait { token, .. } => token.clone(),
             Statement::Extern { token, .. } => token.clone(),
