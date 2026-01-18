@@ -226,3 +226,12 @@ impl GetToken for Expression {
         }
     }
 }
+
+impl Expression {
+    pub fn is_literal(&self) -> bool {
+        matches!(
+            self,
+            Self::Bool { .. } | Self::Int { .. } | Self::StrLiteral { .. }
+        )
+    }
+}
