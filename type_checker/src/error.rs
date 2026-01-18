@@ -6,6 +6,7 @@ use token::token::Token;
 pub enum TypeCheckerErrorKind {
     VariableNotFound,
     TypeNotFound,
+    NotAConstant,
     TypeMismatch,
     Other,
 }
@@ -16,6 +17,7 @@ impl Display for TypeCheckerErrorKind {
             TypeCheckerErrorKind::VariableNotFound => "variable not found",
             TypeCheckerErrorKind::TypeNotFound => "type not found",
             TypeCheckerErrorKind::TypeMismatch => "type mismatch",
+            TypeCheckerErrorKind::NotAConstant => "not a constant",
             TypeCheckerErrorKind::Other => "other",
         };
 
