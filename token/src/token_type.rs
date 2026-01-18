@@ -64,6 +64,7 @@ pub enum TokenType {
     New,
     Import,
     From,
+    Const,
     Let,
     TwoColon,
     Comment,
@@ -84,6 +85,7 @@ impl TokenType {
     pub fn to_string(&self) -> &'static str {
         match self {
             TokenType::Struct => "struct",
+            TokenType::Const => "const",
             TokenType::Impl => "impl",
             TokenType::Trait => "trait",
             TokenType::Extern => "extern",
@@ -180,6 +182,7 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     "!" => TokenType::Bang,
     "NOT" => TokenType::BoolNot,
     "IMPL" => TokenType::Impl,
+    "CONST" => TokenType::Const,
     "VAR" => TokenType::Var,
     "TRAIT" => TokenType::Trait,
     "<" => TokenType::Lt,
