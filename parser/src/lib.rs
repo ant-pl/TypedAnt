@@ -8,10 +8,30 @@ use token::{token::Token, token_type::TokenType};
 use crate::{
     error::{ParserError, ParserErrorKind},
     parse_functions::{
-        parse_assign::parse_assign, parse_block::parse_block_expr, parse_bool::parse_bool, parse_bool_and_or::{parse_bool_and, parse_bool_or}, parse_build_struct::parse_build_struct, parse_call::parse_call, parse_const::parse_const, parse_extern::parse_extern, parse_field_access::parse_field_access, parse_func::parse_func, parse_ident::parse_ident, parse_if::parse_if, parse_impl::parse_impl, parse_infix::parse_infix, parse_let::parse_let, parse_num::{
+        parse_assign::parse_assign,
+        parse_block::parse_block_expr,
+        parse_bool::parse_bool,
+        parse_bool_and_or::{parse_bool_and, parse_bool_or},
+        parse_build_struct::parse_build_struct,
+        parse_call::parse_call,
+        parse_const::parse_const,
+        parse_extern::parse_extern,
+        parse_field_access::parse_field_access,
+        parse_func::parse_func,
+        parse_ident::parse_ident,
+        parse_if::parse_if,
+        parse_impl::parse_impl,
+        parse_infix::parse_infix,
+        parse_let::parse_let,
+        parse_num::{
             parse_i8, parse_i16, parse_i32, parse_i64, parse_isize, parse_u8, parse_u16, parse_u32,
             parse_u64, parse_usize,
-        }, parse_return::parse_return, parse_str::parse_str, parse_struct::parse_struct, parse_trait::parse_trait, parse_while::parse_while
+        },
+        parse_return::parse_return,
+        parse_str::parse_str,
+        parse_struct::parse_struct,
+        parse_trait::parse_trait,
+        parse_while::parse_while,
     },
     precedence::{Precedence, get_token_precedence},
 };
