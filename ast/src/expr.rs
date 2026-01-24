@@ -111,6 +111,16 @@ pub enum Expression {
         token: Token,
         value: Arc<str>,
     },
+    BoolAnd {
+        token: Token,
+        left: Box<Expression>,
+        right: Box<Expression>,
+    },
+    BoolOr {
+        token: Token,
+        left: Box<Expression>,
+        right: Box<Expression>,
+    },
     ThreeDot(Token),
 }
 
@@ -180,13 +190,13 @@ impl Display for Expression {
                 if generics_params.is_empty() {
                     "".to_owned()
                 } else {
-                    "<".to_owned() + 
-                    &generics_params
-                        .iter()
-                        .map(|it| it.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ") + 
-                    ">"
+                    "<".to_owned()
+                        + &generics_params
+                            .iter()
+                            .map(|it| it.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                        + ">"
                 },
                 params
                     .iter()
@@ -200,7 +210,9 @@ impl Display for Expression {
             ),
             Self::Infix {
                 op, left, right, ..
-            } => write!(f, "({}{}{})", left, op, right),
+            } => write!(f, "({left}{op}{right})"),
+            Self::BoolAnd { left, right, .. } => write!(f, "({left} and {right})",),
+            Self::BoolOr { left, right, .. } => write!(f, "({left} or {right})",),
         }
     }
 }
@@ -222,6 +234,8 @@ impl GetToken for Expression {
             Expression::Call { token, .. } => token.clone(),
             Expression::Assign { token, .. } => token.clone(),
             Expression::StrLiteral { token, .. } => token.clone(),
+            Expression::BoolAnd { token, .. } => token.clone(),
+            Expression::BoolOr { token, .. } => token.clone(),
             Expression::ThreeDot(token) => token.clone(),
         }
     }
