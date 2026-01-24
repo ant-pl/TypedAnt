@@ -301,6 +301,76 @@ impl TypeChecker {
                 })
             }
 
+            Expression::BoolAnd {
+                token,
+                left,
+                right,
+                ..
+            } => {
+                let left_t = self.check_expr(*left)?;
+                let right_t = self.check_expr(*right)?;
+
+                let lty = left_t.get_type();
+                let rty = right_t.get_type();
+
+                if lty != Ty::Bool {
+                    return Err(Self::make_err(
+                        Some(&format!("expected `bool` got {lty}")),
+                        TypeCheckerErrorKind::TypeMismatch,
+                        token,
+                    ));
+                }
+
+                if rty != Ty::Bool {
+                    return Err(Self::make_err(
+                        Some(&format!("expected `bool` got {rty}")),
+                        TypeCheckerErrorKind::TypeMismatch,
+                        token,
+                    ));
+                }
+
+                Ok(TypedExpression::BoolAnd {
+                    token,
+                    left: Box::new(left_t),
+                    right: Box::new(right_t),
+                })
+            }
+
+            Expression::BoolOr {
+                token,
+                left,
+                right,
+                ..
+            } => {
+                let left_t = self.check_expr(*left)?;
+                let right_t = self.check_expr(*right)?;
+
+                let lty = left_t.get_type();
+                let rty = right_t.get_type();
+
+                if lty != Ty::Bool {
+                    return Err(Self::make_err(
+                        Some(&format!("expected `bool` got {lty}")),
+                        TypeCheckerErrorKind::TypeMismatch,
+                        token,
+                    ));
+                }
+
+                if rty != Ty::Bool {
+                    return Err(Self::make_err(
+                        Some(&format!("expected `bool` got {rty}")),
+                        TypeCheckerErrorKind::TypeMismatch,
+                        token,
+                    ));
+                }
+
+                Ok(TypedExpression::BoolOr {
+                    token,
+                    left: Box::new(left_t),
+                    right: Box::new(right_t),
+                })
+            }
+
             Expression::If {
                 token,
                 condition,
