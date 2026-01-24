@@ -70,6 +70,16 @@ pub enum TypedExpression {
         value: Arc<str>,
         ty: Ty,
     },
+    BoolAnd {
+        token: Token,
+        left: Box<TypedExpression>,
+        right: Box<TypedExpression>,
+    },
+    BoolOr {
+        token: Token,
+        left: Box<TypedExpression>,
+        right: Box<TypedExpression>,
+    },
 }
 
 impl Display for TypedExpression {
@@ -163,6 +173,8 @@ impl Display for TypedExpression {
             Self::Infix {
                 op, left, right, ..
             } => write!(f, "({}{}{})", left, op, right),
+            Self::BoolAnd { left, right, .. } => write!(f, "({left} and {right})",),
+            Self::BoolOr { left, right, .. } => write!(f, "({left} or {right})",),
         }
     }
 }
@@ -187,6 +199,8 @@ impl GetType for TypedExpression {
                 _ => unreachable!(),
             },
             Self::Assign { right, .. } => right.get_type(),
+            Self::BoolAnd { .. } => Ty::Bool,
+            Self::BoolOr { .. } => Ty::Bool,
         }
     }
 }
@@ -208,6 +222,8 @@ impl GetToken for TypedExpression {
             TypedExpression::If { token, .. } => token.clone(),
             TypedExpression::Assign { token, .. } => token.clone(),
             TypedExpression::StrLiteral { token, .. } => token.clone(),
+            TypedExpression::BoolAnd { token, .. } => token.clone(),
+            TypedExpression::BoolOr { token, .. } => token.clone(),
         }
     }
 }
