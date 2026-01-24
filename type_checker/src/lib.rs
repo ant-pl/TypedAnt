@@ -294,10 +294,14 @@ impl TypeChecker {
 
                 Ok(TypedExpression::Infix {
                     token,
+                    ty: if op.as_ref() == "==" || op.as_ref() == "!=" {
+                        Ty::Bool
+                    } else {
+                        lty
+                    },
                     left: Box::new(left_t),
                     right: Box::new(right_t),
                     op,
-                    ty: lty,
                 })
             }
 
