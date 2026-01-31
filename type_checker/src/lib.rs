@@ -306,10 +306,7 @@ impl TypeChecker {
             }
 
             Expression::BoolAnd {
-                token,
-                left,
-                right,
-                ..
+                token, left, right, ..
             } => {
                 let left_t = self.check_expr(*left)?;
                 let right_t = self.check_expr(*right)?;
@@ -341,10 +338,7 @@ impl TypeChecker {
             }
 
             Expression::BoolOr {
-                token,
-                left,
-                right,
-                ..
+                token, left, right, ..
             } => {
                 let left_t = self.check_expr(*left)?;
                 let right_t = self.check_expr(*right)?;
@@ -897,11 +891,26 @@ impl TypeChecker {
                 token,
                 name,
                 fields,
+                generics,
             } => {
                 let typed_name = Ident {
                     token: name.token,
                     value: name.value.clone(),
                 };
+
+                for generic in generics
+                    .iter()
+                    .filter(|it| matches!(&***it, Expression::Ident(_)))
+                {
+                    let Expression::Ident(it) = &**generic else {
+                        unreachable!()
+                    };
+
+                    self.table
+                        .lock()
+                        .unwrap()
+                        .define_var(&it.value, Ty::Generic(it.value.clone(), vec![]));
+                }
 
                 let mut typed_fields = vec![];
 
@@ -943,11 +952,33 @@ impl TypeChecker {
                     .unwrap()
                     .define_var(&typed_name.value, ty.clone());
 
+                let typed_generics = generics
+                    .clone()
+                    .into_iter()
+                    .map(|it| self.check_expr(*it))
+                    .collect::<CheckResult<Vec<TypedExpression>>>()?
+                    .into_iter()
+                    .map(Box::new)
+                    .collect();
+
+                // 移除之前定义的泛型避免污染全局空间
+                generics
+                    .iter()
+                    .filter(|it| matches!(&***it, Expression::Ident(_)))
+                    .for_each(|it| {
+                        let Expression::Ident(it) = &**it else {
+                            unreachable!()
+                        };
+
+                        self.table.lock().unwrap().remove(&it.value);
+                    });
+
                 Ok(TypedStatement::Struct {
                     ty,
                     token,
                     name: typed_name,
                     fields: typed_fields,
+                    generics: typed_generics
                 })
             }
             Statement::Trait { token, name, block } => {
@@ -1105,7 +1136,7 @@ impl TypeChecker {
                         Some(&format!("expression `{value}` is not a constant")),
                         TypeCheckerErrorKind::NotAConstant,
                         value.token(),
-                    ))
+                    ));
                 }
 
                 // 检查表达式的类型
