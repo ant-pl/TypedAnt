@@ -46,6 +46,7 @@ pub enum TypedStatement {
         name: Ident,
         fields: Vec<TypedExpression>,
         ty: Ty,
+        generics: Vec<Box<TypedExpression>>,
     },
     Trait {
         token: Token,
@@ -76,7 +77,7 @@ pub enum TypedStatement {
         impl_: Ident,
         for_: Option<Ident>,
         block: Box<TypedStatement>,
-        new_fields: IndexMap<Arc<str>, Ty>
+        new_fields: IndexMap<Arc<str>, Ty>,
     },
 }
 
@@ -131,9 +132,25 @@ impl Display for TypedStatement {
                     .join(", "),
                 if *vararg { ", ..." } else { "" }
             ),
-            Self::Struct { name, fields, .. } => write!(
+            Self::Struct {
+                name,
+                fields,
+                generics,
+                ..
+            } => write!(
                 f,
-                "struct {name} {}",
+                "struct {name}{} {}",
+                if generics.is_empty() {
+                    "".to_string()
+                } else {
+                    "<".to_owned()
+                        + &generics
+                            .iter()
+                            .map(|it| it.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                        + ">"
+                },
                 if fields.is_empty() {
                     "{}".to_string()
                 } else {
