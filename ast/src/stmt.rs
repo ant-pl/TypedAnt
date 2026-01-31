@@ -36,6 +36,7 @@ pub enum Statement {
         token: Token,
         name: Ident,
         fields: Vec<Box<Expression>>,
+        generics: Vec<Box<Expression>>,
     },
     Trait {
         token: Token,
@@ -117,9 +118,23 @@ impl Display for Statement {
                     .join(", "),
                 if *vararg { ", ..." } else { "" }
             ),
-            Self::Struct { name, fields, .. } => write!(
+            Self::Struct {
+                name,
+                fields,
+                generics,
+                ..
+            } => write!(
                 f,
-                "struct {name} {}",
+                "struct {name}{} {}",
+                if generics.is_empty() {
+                    "".to_string()
+                } else {
+                    "<".to_owned() + &generics
+                        .iter()
+                        .map(|it| it.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ") + ">"
+                },
                 if fields.is_empty() {
                     "{}".to_string()
                 } else {
@@ -192,6 +207,6 @@ impl GetToken for Statement {
             Statement::Trait { token, .. } => token.clone(),
             Statement::Extern { token, .. } => token.clone(),
             Statement::Impl { token, .. } => token.clone(),
-        } 
+        }
     }
 }
