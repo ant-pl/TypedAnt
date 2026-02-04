@@ -5,7 +5,7 @@ mod ant_arg;
 fn main() {
     let arg = ant_arg::Args::parse();
 
-    if let Some(file) = arg.file {
+    if let Some(_file) = arg.file {
         unimplemented!()
     }
 
