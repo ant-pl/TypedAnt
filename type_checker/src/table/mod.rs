@@ -1,8 +1,13 @@
 pub mod test;
 
-use std::{collections::HashMap, sync::{Arc, Mutex}};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
-use crate::{Ty, ty::IntTy, typed_ast::GetType};
+use crate::{
+    Ty, ty::{IntTy, TyId}, ty_context::TypeContext, typed_ast::GetType
+};
 
 pub enum SymbolScope {
     Global,
@@ -11,27 +16,15 @@ pub enum SymbolScope {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SymbolType {
-    Variable(Ty),
-    Function {
-        params_type: Vec<Ty>,
-        ret_type: Ty,
-        is_variadic: bool,
-    },
+    Variable(TyId),
+    Function(TyId),
 }
 
 impl GetType for SymbolType {
-    fn get_type(&self) -> Ty {
+    fn get_type(&self) -> TyId {
         match self {
-            Self::Variable(ty) => ty.clone(),
-            Self::Function {
-                params_type,
-                ret_type,
-                is_variadic,
-            } => Ty::Function {
-                params_type: params_type.clone(),
-                ret_type: Box::new(ret_type.clone()),
-                is_variadic: *is_variadic
-            },
+            Self::Variable(ty) => *ty,
+            Self::Function(ty) => *ty,
         }
     }
 }
@@ -42,6 +35,7 @@ pub struct Symbol {
     pub ty: SymbolType,
 }
 
+#[derive(Debug, Clone)]
 pub struct TypeTable {
     pub outer: Option<Arc<Mutex<TypeTable>>>,
 
@@ -49,23 +43,29 @@ pub struct TypeTable {
 }
 
 impl TypeTable {
-    pub fn init_table(&mut self) {
-        self.define_var("str", Ty::Str);
-        self.define_var("i64", Ty::IntTy(IntTy::I64));
-        self.define_var("i32", Ty::IntTy(IntTy::I32));
-        self.define_var("i16", Ty::IntTy(IntTy::I16));
-        self.define_var("i8", Ty::IntTy(IntTy::I8));
-        self.define_var("u64", Ty::IntTy(IntTy::U64));
-        self.define_var("u32", Ty::IntTy(IntTy::U32));
-        self.define_var("u16", Ty::IntTy(IntTy::U16));
-        self.define_var("u8", Ty::IntTy(IntTy::U8));
-        self.define_var("usize", Ty::IntTy(IntTy::USize));
-        self.define_var("isize", Ty::IntTy(IntTy::ISize));
-        self.define_var("BigInt", Ty::BigInt);
+    pub fn init_table(&mut self, tcx: &mut TypeContext) {
+        self.define_var("str", tcx.alloc(Ty::Str));
+        self.define_var("BigInt", tcx.alloc(Ty::BigInt));
+        self.define_var("bool", tcx.alloc(Ty::Bool));
+        self.define_var("unit", tcx.alloc(Ty::Unit));
+
+        // signed
+        self.define_var("i64", tcx.alloc(Ty::IntTy(IntTy::I64)));
+        self.define_var("i32", tcx.alloc(Ty::IntTy(IntTy::I32)));
+        self.define_var("i16", tcx.alloc(Ty::IntTy(IntTy::I16)));
+        self.define_var("i8", tcx.alloc(Ty::IntTy(IntTy::I8)));
+        self.define_var("isize", tcx.alloc(Ty::IntTy(IntTy::ISize)));
+
+        // unsigned
+        self.define_var("u64", tcx.alloc(Ty::IntTy(IntTy::U64)));
+        self.define_var("u32", tcx.alloc(Ty::IntTy(IntTy::U32)));
+        self.define_var("u16", tcx.alloc(Ty::IntTy(IntTy::U16)));
+        self.define_var("u8", tcx.alloc(Ty::IntTy(IntTy::U8)));
+        self.define_var("usize", tcx.alloc(Ty::IntTy(IntTy::USize)));
     }
 
-    pub fn init(mut self) -> Self {
-        self.init_table();
+    pub fn init(mut self, tcx: &mut TypeContext) -> Self {
+        self.init_table(tcx);
         self
     }
 
@@ -101,7 +101,7 @@ impl TypeTable {
         self.var_map.insert(symbol.name.clone(), symbol);
     }
 
-    pub fn define_var(&mut self, name: &str, var_ty: Ty) -> Symbol {
+    pub fn define_var(&mut self, name: &str, var_ty: TyId) -> Symbol {
         let sym = Symbol {
             name: name.into(),
             ty: SymbolType::Variable(var_ty),
