@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 use token::token::Token;
 
 use crate::{
-    Ty,
+    ty::TyId,
     typed_ast::{GetType, typed_expressions::ident::Ident, typed_stmt::TypedStatement},
 };
 
@@ -15,29 +15,29 @@ pub enum TypedExpression {
     BigInt {
         token: Token,
         value: BigDecimal,
-        ty: Ty,
+        ty: TyId,
     },
     Bool {
         token: Token,
         value: bool,
-        ty: Ty,
+        ty: TyId,
     },
     Int {
         token: Token,
         value: IntValue,
-        ty: Ty,
+        ty: TyId,
     },
-    Ident(Ident, Ty),
-    Block(Token, Vec<TypedStatement>, Ty),
-    TypeHint(Ident, Ident, Ty),
-    BuildStruct(Token, Ident, IndexMap<Ident, TypedExpression>, Ty),
-    FieldAccess(Box<TypedExpression>, Ident, Ty),
+    Ident(Ident, TyId),
+    Block(Token, Vec<TypedStatement>, TyId),
+    TypeHint(Ident, Ident, TyId),
+    BuildStruct(Token, Ident, IndexMap<Ident, TypedExpression>, TyId),
+    FieldAccess(Box<TypedExpression>, Ident, TyId),
     Infix {
         token: Token,
         op: Arc<str>,
         left: Box<TypedExpression>,
         right: Box<TypedExpression>,
-        ty: Ty,
+        ty: TyId,
     },
     Function {
         token: Token,
@@ -46,13 +46,14 @@ pub enum TypedExpression {
         generics_params: Vec<Box<TypedExpression>>,
         block: Box<TypedExpression>,
         ret_ty: Option<Ident>,
-        ty: Ty,
+        ty: TyId,
     },
     Call {
         token: Token,
         func: Box<TypedExpression>,
         args: Vec<Box<TypedExpression>>,
-        func_ty: Ty,
+        func_ty: TyId,
+        ret_ty: TyId,
     },
     If {
         token: Token,
@@ -68,17 +69,19 @@ pub enum TypedExpression {
     StrLiteral {
         token: Token,
         value: Arc<str>,
-        ty: Ty,
+        ty: TyId,
     },
     BoolAnd {
         token: Token,
         left: Box<TypedExpression>,
         right: Box<TypedExpression>,
+        ty: TyId,
     },
     BoolOr {
         token: Token,
         left: Box<TypedExpression>,
         right: Box<TypedExpression>,
+        ty: TyId,
     },
 }
 
@@ -180,27 +183,24 @@ impl Display for TypedExpression {
 }
 
 impl GetType for TypedExpression {
-    fn get_type(&self) -> Ty {
+    fn get_type(&self) -> TyId {
         match self {
             Self::FieldAccess(_, _, field_ty) => field_ty.clone(),
-            Self::StrLiteral { ty, .. } => ty.clone(),
-            Self::BigInt { ty, .. } => ty.clone(),
-            Self::Int { ty, .. } => ty.clone(),
-            Self::Bool { ty, .. } => ty.clone(),
-            Self::Ident(_, ty) => ty.clone(),
-            Self::Block(_, _, ty) => ty.clone(),
-            Self::Function { ty, .. } => ty.clone(),
-            Self::Infix { ty, .. } => ty.clone(),
-            Self::TypeHint(_, _, ty) => ty.clone(),
+            Self::StrLiteral { ty, .. } => *ty,
+            Self::BigInt { ty, .. } => *ty,
+            Self::Int { ty, .. } => *ty,
+            Self::Bool { ty, .. } => *ty,
+            Self::Ident(_, ty) => *ty,
+            Self::Block(_, _, ty) => *ty,
+            Self::Function { ty, .. } => *ty,
+            Self::Infix { ty, .. } => *ty,
+            Self::TypeHint(_, _, ty) => *ty,
             Self::If { consequence, .. } => consequence.get_type(),
-            Self::BuildStruct(_, _, _, ty) => ty.clone(),
-            Self::Call { func_ty, .. } => match func_ty {
-                Ty::Function { ret_type, .. } => *ret_type.clone(),
-                _ => unreachable!(),
-            },
+            Self::BuildStruct(_, _, _, ty) => *ty,
+            Self::Call { ret_ty, .. } => *ret_ty,
             Self::Assign { right, .. } => right.get_type(),
-            Self::BoolAnd { .. } => Ty::Bool,
-            Self::BoolOr { .. } => Ty::Bool,
+            Self::BoolAnd { ty, .. } => *ty,
+            Self::BoolOr { ty, .. } => *ty,
         }
     }
 }

@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use token::token::Token;
 
 use crate::{
-    Ty,
+    ty::TyId,
     typed_ast::{GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident},
 };
 
@@ -15,44 +15,45 @@ pub enum TypedStatement {
     Return {
         token: Token,
         expr: TypedExpression,
-        ty: Ty,
+        ty: TyId,
     },
     Block {
         token: Token,
         statements: Vec<TypedStatement>,
-        ty: Ty,
+        ty: TyId,
     },
     Let {
         token: Token,
         name: Ident,
         var_type: Option<Ident>,
         value: TypedExpression,
-        ty: Ty,
+        ty: TyId,
     },
     Const {
         token: Token,
         name: Ident,
         var_type: Option<Ident>,
         value: TypedExpression,
-        ty: Ty,
+        ty: TyId,
     },
     While {
         token: Token,
         condition: TypedExpression,
         block: Box<TypedStatement>,
+        ty: TyId,
     },
     Struct {
         token: Token,
         name: Ident,
         fields: Vec<TypedExpression>,
-        ty: Ty,
+        ty: TyId,
         generics: Vec<Box<TypedExpression>>,
     },
     Trait {
         token: Token,
         name: Ident,
         block: Box<TypedStatement>,
-        ty: Ty,
+        ty: TyId,
     },
     Extern {
         token: Token,
@@ -61,7 +62,7 @@ pub enum TypedStatement {
         alias: Token,
         params: Vec<Box<TypedExpression>>,
         ret_ty: Ident,
-        ty: Ty,
+        ty: TyId,
         vararg: bool,
     },
     FuncDecl {
@@ -70,14 +71,15 @@ pub enum TypedStatement {
         params: Vec<Box<TypedExpression>>,
         generics_params: Vec<Box<TypedExpression>>,
         ret_ty: Option<Ident>,
-        ty: Ty,
+        ty: TyId,
     },
     Impl {
         token: Token,
         impl_: Ident,
         for_: Option<Ident>,
         block: Box<TypedStatement>,
-        new_fields: IndexMap<Arc<str>, Ty>,
+        new_fields: IndexMap<Arc<str>, TyId>,
+        ty: TyId,
     },
 }
 
@@ -215,19 +217,19 @@ impl Display for TypedStatement {
 }
 
 impl GetType for TypedStatement {
-    fn get_type(&self) -> Ty {
+    fn get_type(&self) -> TyId {
         match self {
-            Self::Extern { ty, .. } => ty.clone(),
-            Self::Block { ty, .. } => ty.clone(),
+            Self::Extern { ty, .. } => *ty,
+            Self::Block { ty, .. } => *ty,
             Self::ExpressionStatement(expr) => expr.get_type(),
-            Self::Return { ty, .. } => ty.clone(),
-            Self::Let { ty, .. } => ty.clone(),
-            Self::Const { ty, .. } => ty.clone(),
-            Self::Struct { ty, .. } => ty.clone(),
-            Self::FuncDecl { ty, .. } => ty.clone(),
-            Self::Trait { ty, .. } => ty.clone(),
-            Self::While { .. } => Ty::Unit,
-            Self::Impl { .. } => Ty::Unit,
+            Self::Return { ty, .. } => *ty,
+            Self::Let { ty, .. } => *ty,
+            Self::Const { ty, .. } => *ty,
+            Self::Struct { ty, .. } => *ty,
+            Self::FuncDecl { ty, .. } => *ty,
+            Self::Trait { ty, .. } => *ty,
+            Self::While { ty, .. } => *ty,
+            Self::Impl { ty, .. } => *ty
         }
     }
 }
