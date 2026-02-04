@@ -1,4 +1,4 @@
-use crate::Ty;
+use crate::ty::TyId;
 
 pub mod typed_expressions;
 pub mod typed_expr;
@@ -6,5 +6,5 @@ pub mod typed_stmt;
 pub mod typed_node;
 
 pub trait GetType {
-    fn get_type(&self) -> Ty;
+    fn get_type(&self) -> TyId;
 }
