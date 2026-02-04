@@ -14,6 +14,8 @@ fn get_platform_width() -> usize {
     return 16;
 }
 
+pub type TyId = usize;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IntTy {
     ISize,
@@ -80,20 +82,20 @@ impl From<IntValue> for IntTy {
 pub enum Ty {
     BigInt,
     Function {
-        params_type: Vec<Ty>,
-        ret_type: Box<Ty>,
+        params_type: Vec<TyId>,
+        ret_type: TyId,
         is_variadic: bool,
     },
     Struct {
         name: Arc<str>,
-        fields: IndexMap<Arc<str>, Ty>,
-        impl_traits: IndexMap<Arc<str>, Ty>,
+        fields: IndexMap<Arc<str>, TyId>,
+        impl_traits: IndexMap<Arc<str>, TyId>,
     },
     Trait {
         name: Arc<str>,
-        functions: IndexMap<Arc<str>, Ty>,
+        functions: IndexMap<Arc<str>, TyId>,
     },
-    Generic(Arc<str>, Vec<Ty>), // T, K, V ...
+    Generic(Arc<str>, Vec<TyId>), // T, K, V ...
     IntTy(IntTy),
     Bool,
     Unit,
