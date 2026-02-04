@@ -1,30 +1,26 @@
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
 
     use bigdecimal::BigDecimal;
     use token::{token::Token, token_type::TokenType};
 
     use crate::{
         TypeChecker,
-        table::TypeTable,
         ty::Ty,
         ty_context::TypeContext,
         typed_ast::{GetType, typed_expr::TypedExpression, typed_stmt::TypedStatement},
     };
-
-    fn empty_table() -> Arc<Mutex<TypeTable>> {
-        Arc::new(Mutex::new(TypeTable::new().init(&mut TypeContext::new())))
-    }
 
     #[test]
     fn test_checker_var_get() {
         let file: Arc<str> = "__test_checker_var_get__".into();
 
         let mut tcx = TypeContext::new();
-        let table = empty_table();
 
-        table.lock().unwrap().define_var("a", tcx.alloc(Ty::BigInt));
+        let bigint_id = tcx.alloc(Ty::BigInt);
+
+        tcx.table.lock().unwrap().define_var("a", bigint_id);
 
         let checker = &mut TypeChecker::new(&mut tcx);
 
