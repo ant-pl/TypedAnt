@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::table::{Symbol, SymbolType, TypeTable};
+    use crate::{table::{Symbol, SymbolType, TypeTable}, ty_context::TypeContext};
 
     fn expected_symbol(expected: &Symbol, got: &Symbol) {
         if expected != got {
@@ -13,26 +13,30 @@ mod tests {
 
     #[test]
     fn test_define() {
+        let mut tcx = TypeContext::new();
+
         let expected = Symbol {
             name: "a".into(),
-            ty: SymbolType::Variable(crate::Ty::BigInt)
+            ty: SymbolType::Variable(tcx.alloc(crate::Ty::BigInt))
         };
 
         let mut table = TypeTable::new();
 
-        expected_symbol(&expected, &table.define_var("a", crate::Ty::BigInt));
+        expected_symbol(&expected, &table.define_var("a", tcx.alloc(crate::Ty::BigInt)));
     }
 
     #[test]
     fn test_table_get() {
+        let mut tcx = TypeContext::new();
+        
         let expected = Symbol {
             name: "a".into(),
-            ty: SymbolType::Variable(crate::Ty::BigInt)
+            ty: SymbolType::Variable(tcx.alloc(crate::Ty::BigInt))
         };
 
         let mut table = TypeTable::new();
 
-        table.define_var("a", crate::Ty::BigInt);
+        table.define_var("a", tcx.alloc(crate::Ty::BigInt));
 
         let got = table.get("a");
 
