@@ -1,13 +1,13 @@
-use std::{io::Write, sync::{Arc, Mutex}};
+use std::{io::Write, sync::Arc};
 
 use lexer::Lexer;
 use parser::{Parser, error::display_err};
-use type_checker::{TypeChecker, table::TypeTable};
+use type_checker::{TypeChecker, ty_context::TypeContext};
 
 pub fn repl() {
     let file: Arc<str> = "*repl".into();
 
-    let table = Arc::new(Mutex::new(TypeTable::new().init()));
+    let mut ty_ctx = TypeContext::new();
 
     loop {
         print!(">>> ");
@@ -39,7 +39,7 @@ pub fn repl() {
             Err(err) => { display_err(&err); continue; },
         };
 
-        let mut checker = TypeChecker::new(table.clone());
+        let mut checker = TypeChecker::new(&mut ty_ctx);
 
         match checker.check_node(node) {
             Ok(it) => println!("typed_ast: {it}"),
