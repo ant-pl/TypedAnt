@@ -6,24 +6,27 @@ mod tests {
     use token::{token::Token, token_type::TokenType};
 
     use crate::{
-        ty::Ty, TypeChecker,
+        TypeChecker,
         table::TypeTable,
+        ty::Ty,
+        ty_context::TypeContext,
         typed_ast::{GetType, typed_expr::TypedExpression, typed_stmt::TypedStatement},
     };
 
     fn empty_table() -> Arc<Mutex<TypeTable>> {
-        Arc::new(Mutex::new(TypeTable::new().init()))
+        Arc::new(Mutex::new(TypeTable::new().init(&mut TypeContext::new())))
     }
 
     #[test]
     fn test_checker_var_get() {
         let file: Arc<str> = "__test_checker_var_get__".into();
 
+        let mut tcx = TypeContext::new();
         let table = empty_table();
 
-        table.lock().unwrap().define_var("a", Ty::BigInt);
+        table.lock().unwrap().define_var("a", tcx.alloc(Ty::BigInt));
 
-        let checker = &mut TypeChecker::new(table);
+        let checker = &mut TypeChecker::new(&mut tcx);
 
         let ident_raw = ast::expressions::ident::Ident {
             token: Token::new("a".into(), TokenType::Ident, file.clone(), 1, 1),
@@ -42,7 +45,7 @@ mod tests {
         };
 
         assert!(ident.value == "a".into());
-        assert!(ty == Ty::BigInt);
+        assert!(tcx.get(ty) == &Ty::BigInt);
 
         println!("ok! ident.value: {}, ty: {ty:#?}", ident.value)
     }
@@ -51,9 +54,9 @@ mod tests {
     fn test_checker_var_def() {
         let file: Arc<str> = "__test_checker_var_def__".into();
 
-        let table = empty_table();
+        let mut tcx = TypeContext::new();
 
-        let checker = &mut TypeChecker::new(table.clone());
+        let checker = &mut TypeChecker::new(&mut tcx);
 
         let let_stmt_raw = ast::stmt::Statement::Let {
             name: ast::expressions::ident::Ident {
@@ -81,18 +84,19 @@ mod tests {
         };
 
         assert!(ident.value == "a".into());
-        assert!(ty == Ty::BigInt);
+        assert!(tcx.get(ty) == &Ty::BigInt);
 
-        let get_symbol_result = table.lock().unwrap().get("a");
+        let get_symbol_result = tcx.table.lock().unwrap().get("a");
         let get_symbol_result_ref = get_symbol_result.as_ref();
 
         assert!(get_symbol_result.is_some());
         assert!(unsafe { get_symbol_result_ref.unwrap_unchecked() }.name == "a".into());
         assert!(
-            unsafe { get_symbol_result_ref.unwrap_unchecked() }
-                .ty
-                .get_type()
-                == Ty::BigInt
+            tcx.get(
+                unsafe { get_symbol_result_ref.unwrap_unchecked() }
+                    .ty
+                    .get_type()
+            ) == &Ty::BigInt
         );
 
         println!(
