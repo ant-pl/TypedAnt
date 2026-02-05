@@ -20,6 +20,15 @@ pub fn repl() {
             .read_line(&mut code)
             .expect("read line failed");
 
+        let dbg = code.starts_with("~debug:");
+        let show_tcx = code.starts_with("~tcx");
+
+        if dbg {
+            code.drain(0..=7);
+        } else if show_tcx {
+            code.drain(0..=4);
+        }
+
         let mut lexer = Lexer::new(code, file.clone());
 
         let tokens = lexer.get_tokens();
@@ -29,21 +38,43 @@ pub fn repl() {
             continue;
         }
 
-        #[cfg(debug_assertions)]
-        println!("tokens: {tokens:#?}");
+        if dbg {
+            println!("tokens: {tokens:#?}");
+        }
 
         let mut parser = Parser::new(tokens);
 
         let node = match parser.parse_program() {
-            Ok(it) => { println!("ast: {it}"); it },
-            Err(err) => { display_err(&err); continue; },
+            Ok(it) => {
+                if dbg {
+                    println!("~debug ast: {it:#?}")
+                }
+                println!("ast: {it}");
+                it
+            }
+            Err(err) => {
+                display_err(&err);
+                continue;
+            }
         };
 
         let mut checker = TypeChecker::new(&mut ty_ctx);
 
         match checker.check_node(node) {
-            Ok(it) => println!("typed_ast: {it}"),
-            Err(err) => println!("{err:#?}")
+            Ok(it) => {
+                if dbg {
+                    println!("~debug typed_ast: {it:#?}")
+                }
+                println!("typed_ast: {it}");
+            }
+            Err(err) => {
+                println!("{err:#?}");
+                continue;
+            },
+        }
+
+        if show_tcx {
+            println!("~tcx: {ty_ctx:#?}")
         }
     }
 }
