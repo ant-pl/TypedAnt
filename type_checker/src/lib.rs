@@ -6,7 +6,10 @@ pub mod ty;
 pub mod ty_context;
 pub mod typed_ast;
 
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use ast::{
     expr::Expression,
@@ -158,37 +161,85 @@ impl<'tcx> TypeChecker<'tcx> {
                 };
 
                 let typed_struct_expr = Box::new(self.check_expr(*struct_expr)?);
+                let struct_ty = self.tcx.get(typed_struct_expr.get_type()).clone();
 
-                let Ty::Struct {
-                    name: struct_name,
-                    fields,
-                    impl_traits: _impl_traits,
-                    ..
-                } = self.tcx.get(typed_struct_expr.get_type())
-                else {
-                    Err(Self::make_err(
-                        Some("not a struct: {typed_struct_expr}"),
+                match struct_ty {
+                    // 普通结构体（无泛型）
+                    Ty::Struct { fields, name, .. } => {
+                        let Some(field_ty) = fields.get(&new_field.value) else {
+                            Err(Self::make_err(
+                                Some(&format!(
+                                    "field `{}` of struct {name} not found",
+                                    &new_field.value
+                                )),
+                                TypeCheckerErrorKind::VariableNotFound,
+                                new_field.token.clone(),
+                            ))?
+                        };
+
+                        Ok(TypedExpression::FieldAccess(
+                            typed_struct_expr,
+                            new_field,
+                            *field_ty,
+                        ))
+                    }
+
+                    // 泛型实例
+                    Ty::AppliedGeneric(base, args) => {
+                        // 找回原始 Struct 定义
+                        let base_ty = self
+                            .tcx
+                            .table
+                            .lock()
+                            .unwrap()
+                            .get(&base)
+                            .unwrap()
+                            .ty
+                            .get_type();
+
+                        let Ty::Struct {
+                            generics, fields, ..
+                        } = self.tcx.get(base_ty).clone()
+                        else {
+                            unreachable!()
+                        };
+
+                        let mut generic_map = HashMap::new();
+
+                        for (i, g) in generics.iter().enumerate() {
+                            generic_map.insert(g.clone(), args[i]);
+                        }
+
+                        let Some(field_ty) = fields.get(&new_field.value) else {
+                            Err(Self::make_err(
+                                Some(&format!("field `{}` not found", &new_field.value)),
+                                TypeCheckerErrorKind::VariableNotFound,
+                                new_field.token.clone(),
+                            ))?
+                        };
+
+                        let mut concrete = *field_ty;
+
+                        // 如果字段是泛型参数：用 args 替换
+                        if let Ty::Generic(name, _) = self.tcx.get(*field_ty) {
+                            if let Some(real) = generic_map.get(name) {
+                                concrete = *real;
+                            }
+                        }
+
+                        Ok(TypedExpression::FieldAccess(
+                            typed_struct_expr,
+                            new_field,
+                            concrete,
+                        ))
+                    }
+
+                    _ => Err(Self::make_err(
+                        Some(&format!("not a struct: {typed_struct_expr}")),
                         TypeCheckerErrorKind::TypeMismatch,
                         typed_struct_expr.token(),
-                    ))?
-                };
-
-                let Some(field_ty) = fields.get(&new_field.value) else {
-                    Err(Self::make_err(
-                        Some(&format!(
-                            "field `{}` of struct {struct_name} not found",
-                            &new_field.value
-                        )),
-                        TypeCheckerErrorKind::VariableNotFound,
-                        new_field.token.clone(),
-                    ))?
-                };
-
-                Ok(TypedExpression::FieldAccess(
-                    typed_struct_expr,
-                    new_field,
-                    field_ty.clone(),
-                ))
+                    ))?,
+                }
             }
 
             Expression::BuildStruct(token, name, fields) => {
