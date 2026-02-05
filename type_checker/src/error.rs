@@ -18,7 +18,7 @@ impl Display for TypeCheckerErrorKind {
             TypeCheckerErrorKind::TypeNotFound => "type not found",
             TypeCheckerErrorKind::TypeMismatch => "type mismatch",
             TypeCheckerErrorKind::NotAConstant => "not a constant",
-            TypeCheckerErrorKind::Other => "other",
+            TypeCheckerErrorKind::Other => "other error",
         };
 
         write!(f, "{s}")
