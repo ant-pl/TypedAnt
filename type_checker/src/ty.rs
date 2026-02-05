@@ -88,6 +88,7 @@ pub enum Ty {
     },
     Struct {
         name: Arc<str>,
+        generics: Vec<Arc<str>>,
         fields: IndexMap<Arc<str>, TyId>,
         impl_traits: IndexMap<Arc<str>, TyId>,
     },
@@ -95,7 +96,12 @@ pub enum Ty {
         name: Arc<str>,
         functions: IndexMap<Arc<str>, TyId>,
     },
-    Generic(Arc<str>, Vec<TyId>), // T, K, V ...
+
+    // T, K: Eq, V: Eq + Clone ...
+    Generic(Arc<str>, Vec<TyId>), 
+
+    /// StructName<AppliedType>
+    AppliedGeneric(Arc<str>, Vec<TyId>),
     IntTy(IntTy),
     Bool,
     Unit,
@@ -108,6 +114,7 @@ impl Display for Ty {
         match self {
             Self::Unknown => write!(f, "unknown"),
             Self::Generic(it, _) => write!(f, "{it}"),
+            Self::AppliedGeneric(it, _) => write!(f, "{it}"),
             Self::BigInt => write!(f, "BigInt"),
             Self::Str => write!(f, "str"),
             Self::IntTy(it) => write!(f, "{it}"),
@@ -182,6 +189,7 @@ mod tests {
             (
                 Ty::Struct {
                     name: "CialloInfo".into(),
+                    generics: Vec::new(),
                     fields: IndexMap::new(),
                     impl_traits: IndexMap::new(),
                 },
