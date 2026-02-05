@@ -176,7 +176,7 @@ impl<'tcx> TypeChecker<'tcx> {
                 let Some(field_ty) = fields.get(&new_field.value) else {
                     Err(Self::make_err(
                         Some(&format!(
-                            "field {} of struct {struct_name} not found",
+                            "field `{}` of struct {struct_name} not found",
                             &new_field.value
                         )),
                         TypeCheckerErrorKind::VariableNotFound,
@@ -217,11 +217,13 @@ impl<'tcx> TypeChecker<'tcx> {
                     Ty::Struct {
                         generics, fields, ..
                     } => (generics, fields),
-                    it => return Err(Self::make_err(
-                        Some(&format!("expected a struct, got: {it}")),
-                        TypeCheckerErrorKind::TypeMismatch,
-                        name.token.clone(),
-                    ))
+                    it => {
+                        return Err(Self::make_err(
+                            Some(&format!("expected a struct, got: {it}")),
+                            TypeCheckerErrorKind::TypeMismatch,
+                            name.token.clone(),
+                        ));
+                    }
                 };
 
                 // typecheck 每个字段
@@ -244,10 +246,19 @@ impl<'tcx> TypeChecker<'tcx> {
                 for (field_name, field_expr) in &typed_fields {
                     let expr_ty = field_expr.get_type();
 
-                    let def_ty = def_fields.get(&field_name.value).expect("字段不存在");
+                    let def_ty = def_fields.get(&field_name.value).map_or_else(
+                        || {
+                            Err(Self::make_err(
+                                Some(&format!("field `{}` not found", &field_name.value)),
+                                TypeCheckerErrorKind::VariableNotFound,
+                                field_name.token.clone(),
+                            ))
+                        },
+                        |it| Ok(*it),
+                    )?;
 
                     // 如果字段类型是泛型，绑定
-                    if let Ty::Generic(gen_name, _) = self.tcx.get(*def_ty) {
+                    if let Ty::Generic(gen_name, _) = self.tcx.get(def_ty) {
                         generic_map.insert(gen_name.clone(), expr_ty);
                     }
                 }
@@ -256,9 +267,15 @@ impl<'tcx> TypeChecker<'tcx> {
                 let mut args = vec![];
 
                 for g in def_generics {
-                    let concrete = generic_map.get(&g).expect("无法推导泛型参数");
+                    let concrete = generic_map
+                        .get(&g)
+                        .map_or_else(
+                            || Err(format!("cannot derivation generic type: {g}")),
+                            |it| Ok(*it),
+                        )
+                        .unwrap(); // 没有 Token 可抛出只能 unwarp
 
-                    args.push(*concrete);
+                    args.push(concrete);
                 }
 
                 // 构造 AppliedGeneric A<str>
@@ -281,14 +298,13 @@ impl<'tcx> TypeChecker<'tcx> {
                 let typed_left = self.check_expr(*left)?;
                 let typed_right = self.check_expr(*right)?;
 
-                if typed_left.get_type() != typed_right.get_type() {
+                let left_t = self.tcx.get(typed_left.get_type());
+                let right_t = self.tcx.get(typed_right.get_type());
+
+                if left_t != right_t {
                     // 赋值给变量的类型不符合
                     return Err(Self::make_err(
-                        Some(&format!(
-                            "expected: {}, got: {}",
-                            typed_left.get_type(),
-                            typed_right.get_type()
-                        )),
+                        Some(&format!("expected: {left_t}, got: {right_t}",)),
                         TypeCheckerErrorKind::TypeMismatch,
                         typed_right.token(),
                     ));
@@ -540,6 +556,9 @@ impl<'tcx> TypeChecker<'tcx> {
                             if cur_ret_ty == &ret_ty {
                                 continue;
                             }
+
+                            let ret_ty = self.tcx.get(ret_ty);
+                            let cur_ret_ty = self.tcx.get(*cur_ret_ty);
 
                             return Err(Self::make_err(
                                 Some(&format!("expected: {ret_ty}, got: {cur_ret_ty}",)),
