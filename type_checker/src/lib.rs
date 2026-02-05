@@ -20,7 +20,7 @@ use crate::{
     error::{TypeCheckerError, TypeCheckerErrorKind},
     scope::{CheckScope, ScopeKind},
     table::TypeTable,
-    ty::Ty,
+    ty::{Ty, TyId},
     ty_context::TypeContext,
     typed_ast::{
         GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident,
@@ -163,6 +163,7 @@ impl<'tcx> TypeChecker<'tcx> {
                     name: struct_name,
                     fields,
                     impl_traits: _impl_traits,
+                    ..
                 } = self.tcx.get(typed_struct_expr.get_type())
                 else {
                     Err(Self::make_err(
@@ -190,46 +191,89 @@ impl<'tcx> TypeChecker<'tcx> {
                 ))
             }
 
-            Expression::BuildStruct(token, struct_name, fields) => {
-                let struct_name = Ident {
-                    value: struct_name.value,
-                    token: struct_name.token,
-                };
-
-                let struct_ty_id = self
+            Expression::BuildStruct(token, name, fields) => {
+                // 查 struct 类型
+                let struct_sym = self
                     .tcx
                     .table
                     .lock()
                     .unwrap()
-                    .get(&struct_name.value)
+                    .get(&name.value)
                     .map_or_else(
                         || {
                             Err(Self::make_err(
-                                Some(&format!("type not found: {}", &struct_name.value)),
+                                Some(&format!("type not found: {}", &name.value)),
                                 TypeCheckerErrorKind::VariableNotFound,
-                                struct_name.token.clone(),
+                                name.token.clone(),
                             ))
                         },
-                        |it| Ok(it.ty.get_type()),
+                        |it| Ok(it),
                     )?;
 
+                let struct_ty_id = struct_sym.ty.get_type();
+
+                // 取出 struct 的泛型参数和字段定义
+                let (def_generics, def_fields) = match self.tcx.get(struct_ty_id).clone() {
+                    Ty::Struct {
+                        generics, fields, ..
+                    } => (generics, fields),
+                    it => return Err(Self::make_err(
+                        Some(&format!("expected a struct, got: {it}")),
+                        TypeCheckerErrorKind::TypeMismatch,
+                        name.token.clone(),
+                    ))
+                };
+
+                // typecheck 每个字段
                 let mut typed_fields = IndexMap::new();
 
-                for (field_name, field_val) in fields {
+                for (k, v) in fields {
+                    let tv = self.check_expr(v)?;
                     typed_fields.insert(
                         Ident {
-                            value: field_name.value.clone(),
-                            token: field_name.token,
+                            token: k.token,
+                            value: k.value,
                         },
-                        self.check_expr(field_val)?,
+                        tv,
                     );
                 }
 
+                // 泛型绑定表： T -> 实际类型
+                let mut generic_map = IndexMap::<Arc<str>, TyId>::new();
+
+                for (field_name, field_expr) in &typed_fields {
+                    let expr_ty = field_expr.get_type();
+
+                    let def_ty = def_fields.get(&field_name.value).expect("字段不存在");
+
+                    // 如果字段类型是泛型，绑定
+                    if let Ty::Generic(gen_name, _) = self.tcx.get(*def_ty) {
+                        generic_map.insert(gen_name.clone(), expr_ty);
+                    }
+                }
+
+                // 按 struct 声明顺序生成 A<str> 里的 str
+                let mut args = vec![];
+
+                for g in def_generics {
+                    let concrete = generic_map.get(&g).expect("无法推导泛型参数");
+
+                    args.push(*concrete);
+                }
+
+                // 构造 AppliedGeneric A<str>
+                let applied_ty = self
+                    .tcx
+                    .alloc(Ty::AppliedGeneric(name.value.clone().into(), args));
+
                 Ok(TypedExpression::BuildStruct(
                     token,
-                    struct_name,
+                    Ident {
+                        token: name.token,
+                        value: name.value,
+                    },
                     typed_fields,
-                    struct_ty_id,
+                    applied_ty,
                 ))
             }
 
@@ -763,10 +807,7 @@ impl<'tcx> TypeChecker<'tcx> {
 
                     let ty_id = self.tcx.alloc(Ty::Generic(it.value.clone(), vec![]));
 
-                    self.tcx.table.lock().unwrap().define_var(
-                        &it.value,
-                        ty_id,
-                    );
+                    self.tcx.table.lock().unwrap().define_var(&it.value, ty_id);
                 }
 
                 let mut typed_params: Vec<Box<TypedExpression>> = vec![];
@@ -976,8 +1017,17 @@ impl<'tcx> TypeChecker<'tcx> {
                     typed_fields.push(self.check_expr(*field)?);
                 }
 
+                let generic_names = generics
+                    .iter()
+                    .map(|g| match &**g {
+                        Expression::Ident(ident) => ident.value.clone(),
+                        _ => todo!("generic param must be ident"),
+                    })
+                    .collect::<Vec<_>>();
+
                 let ty = Ty::Struct {
                     name: name.value.clone(),
+                    generics: generic_names,
                     fields: {
                         let mut m = IndexMap::new();
 
