@@ -6,10 +6,7 @@ mod tests {
     use token::{token::Token, token_type::TokenType};
 
     use crate::{
-        TypeChecker,
-        ty::Ty,
-        ty_context::TypeContext,
-        typed_ast::{GetType, typed_expr::TypedExpression, typed_stmt::TypedStatement},
+        TypeChecker, ty::Ty, ty_context::TypeContext, type_infer::{TypeInfer, infer_context::InferContext}, typed_ast::{GetType, typed_expr::TypedExpression, typed_stmt::TypedStatement}
     };
 
     #[test]
@@ -32,6 +29,13 @@ mod tests {
         let result = checker
             .check_expr(ast::expr::Expression::Ident(ident_raw))
             .unwrap();
+
+        let constraints = checker.get_constraints().to_vec();
+
+        let mut infer_ctx = InferContext::new(&mut tcx);
+
+        let mut type_infer = TypeInfer::new(&mut infer_ctx);
+        type_infer.unify_all(constraints).unwrap();
 
         assert!(matches!(result, TypedExpression::Ident(..)));
 
@@ -71,6 +75,13 @@ mod tests {
         };
 
         let result = checker.check_statement(let_stmt_raw).unwrap();
+
+        let constraints = checker.get_constraints().to_vec();
+
+        let mut infer_ctx = InferContext::new(&mut tcx);
+
+        let mut type_infer = TypeInfer::new(&mut infer_ctx);
+        type_infer.unify_all(constraints).unwrap();
 
         assert!(matches!(result, TypedStatement::Let { .. }));
 
