@@ -102,6 +102,8 @@ pub enum Ty {
 
     /// StructName<AppliedType>
     AppliedGeneric(Arc<str>, Vec<TyId>),
+
+    Infer(usize),
     IntTy(IntTy),
     Bool,
     Unit,
@@ -113,6 +115,7 @@ impl Display for Ty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unknown => write!(f, "unknown"),
+            Self::Infer(it) => write!(f, "Infer({it})"),
             Self::Generic(it, _) => write!(f, "{it}"),
             Self::AppliedGeneric(it, _) => write!(f, "{it}"),
             Self::BigInt => write!(f, "BigInt"),
