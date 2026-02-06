@@ -1,3 +1,4 @@
+pub mod type_infer;
 pub mod error;
 pub mod scope;
 pub mod table;
@@ -20,18 +21,13 @@ use indexmap::IndexMap;
 use token::token::Token;
 
 use crate::{
-    error::{TypeCheckerError, TypeCheckerErrorKind},
-    scope::{CheckScope, ScopeKind},
-    table::TypeTable,
-    ty::{Ty, TyId},
-    ty_context::TypeContext,
-    typed_ast::{
+    error::{TypeCheckerError, TypeCheckerErrorKind}, scope::{CheckScope, ScopeKind}, table::TypeTable, ty::{Ty, TyId}, ty_context::TypeContext, type_infer::constraint::Constraint, typed_ast::{
         GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident,
         typed_node::TypedNode, typed_stmt::TypedStatement,
-    },
+    }
 };
 
-type CheckResult<T> = Result<T, TypeCheckerError>;
+pub type CheckResult<T> = Result<T, TypeCheckerError>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CompileAs {
@@ -41,6 +37,8 @@ enum CompileAs {
 
 pub struct TypeChecker<'tcx> {
     tcx: &'tcx mut TypeContext,
+
+    constraints: Vec<Constraint>,
 
     scopes: Vec<CheckScope>,
     scope_index: usize,
@@ -57,6 +55,8 @@ impl<'tcx> TypeChecker<'tcx> {
 
         Self {
             tcx,
+
+            constraints: vec![],
 
             compile_as: CompileAs::AsNone,
 
@@ -349,17 +349,10 @@ impl<'tcx> TypeChecker<'tcx> {
                 let typed_left = self.check_expr(*left)?;
                 let typed_right = self.check_expr(*right)?;
 
-                let left_t = self.tcx.get(typed_left.get_type());
-                let right_t = self.tcx.get(typed_right.get_type());
+                let left_t = typed_left.get_type();
+                let right_t = typed_left.get_type();
 
-                if left_t != right_t {
-                    // 赋值给变量的类型不符合
-                    return Err(Self::make_err(
-                        Some(&format!("expected: {left_t}, got: {right_t}",)),
-                        TypeCheckerErrorKind::TypeMismatch,
-                        typed_right.token(),
-                    ));
-                }
+                self.require_eq(left_t, right_t, token.clone());
 
                 Ok(TypedExpression::Assign {
                     token,
@@ -400,13 +393,7 @@ impl<'tcx> TypeChecker<'tcx> {
                 let lty = left_t.get_type();
                 let rty = right_t.get_type();
 
-                if lty != rty {
-                    return Err(Self::make_err(
-                        None,
-                        TypeCheckerErrorKind::TypeMismatch,
-                        token,
-                    ));
-                }
+                self.require_eq(lty, rty, token.clone());
 
                 Ok(TypedExpression::Infix {
                     token,
@@ -424,32 +411,21 @@ impl<'tcx> TypeChecker<'tcx> {
             Expression::BoolAnd {
                 token, left, right, ..
             } => {
-                let left_t = self.check_expr(*left)?;
-                let right_t = self.check_expr(*right)?;
+                let left_expr = self.check_expr(*left)?;
+                let right_expr = self.check_expr(*right)?;
 
-                let lty = self.tcx.get(left_t.get_type());
-                let rty = self.tcx.get(right_t.get_type());
+                let lty = left_expr.get_type();
+                let rty = right_expr.get_type();
 
-                if lty != &Ty::Bool {
-                    return Err(Self::make_err(
-                        Some(&format!("expected `bool` got {lty}")),
-                        TypeCheckerErrorKind::TypeMismatch,
-                        token,
-                    ));
-                }
+                let bool_t = self.tcx.alloc(Ty::Bool);
 
-                if rty != &Ty::Bool {
-                    return Err(Self::make_err(
-                        Some(&format!("expected `bool` got {rty}")),
-                        TypeCheckerErrorKind::TypeMismatch,
-                        token,
-                    ));
-                }
+                self.require_eq(bool_t, lty, token.clone());
+                self.require_eq(bool_t, rty, token.clone());
 
                 Ok(TypedExpression::BoolAnd {
                     token,
-                    left: Box::new(left_t),
-                    right: Box::new(right_t),
+                    left: Box::new(left_expr),
+                    right: Box::new(right_expr),
                     ty: self.tcx.alloc(Ty::Bool),
                 })
             }
@@ -457,32 +433,21 @@ impl<'tcx> TypeChecker<'tcx> {
             Expression::BoolOr {
                 token, left, right, ..
             } => {
-                let left_t = self.check_expr(*left)?;
-                let right_t = self.check_expr(*right)?;
+                let left_expr = self.check_expr(*left)?;
+                let right_expr = self.check_expr(*right)?;
 
-                let lty = self.tcx.get(left_t.get_type());
-                let rty = self.tcx.get(right_t.get_type());
+                let lty = left_expr.get_type();
+                let rty = right_expr.get_type();
 
-                if lty != &Ty::Bool {
-                    return Err(Self::make_err(
-                        Some(&format!("expected `bool` got {lty}")),
-                        TypeCheckerErrorKind::TypeMismatch,
-                        token,
-                    ));
-                }
+                let bool_t = self.tcx.alloc(Ty::Bool);
 
-                if rty != &Ty::Bool {
-                    return Err(Self::make_err(
-                        Some(&format!("expected `bool` got {rty}")),
-                        TypeCheckerErrorKind::TypeMismatch,
-                        token,
-                    ));
-                }
+                self.require_eq(bool_t, lty, token.clone());
+                self.require_eq(bool_t, rty, token.clone());
 
                 Ok(TypedExpression::BoolOr {
                     token,
-                    left: Box::new(left_t),
-                    right: Box::new(right_t),
+                    left: Box::new(left_expr),
+                    right: Box::new(right_expr),
                     ty: self.tcx.alloc(Ty::Bool),
                 })
             }
@@ -604,18 +569,7 @@ impl<'tcx> TypeChecker<'tcx> {
                             self.check_statements(statements, ScopeKind::Function)?;
 
                         for (cur_ret_ty, token) in &scope.collect_return_types {
-                            if cur_ret_ty == &ret_ty {
-                                continue;
-                            }
-
-                            let ret_ty = self.tcx.get(ret_ty);
-                            let cur_ret_ty = self.tcx.get(*cur_ret_ty);
-
-                            return Err(Self::make_err(
-                                Some(&format!("expected: {ret_ty}, got: {cur_ret_ty}",)),
-                                TypeCheckerErrorKind::TypeMismatch,
-                                token.clone(),
-                            ));
+                            self.require_eq(ret_ty, *cur_ret_ty, token.clone());
                         }
 
                         let ret_ty = ret_ty;
@@ -1278,6 +1232,8 @@ impl<'tcx> TypeChecker<'tcx> {
                     typed_val.get_type()
                 };
 
+                self.require_eq(ty, typed_val.get_type(), typed_val.token());
+
                 self.tcx
                     .table
                     .lock()
@@ -1398,6 +1354,10 @@ impl<'tcx> TypeChecker<'tcx> {
         }
     }
 
+    fn require_eq(&mut self, expected: TyId, got: TyId, token: Token) {
+        self.constraints.push(Constraint::new(expected, got, token));
+    }
+
     pub fn enter_scope(&mut self, kind: ScopeKind) {
         self.tcx.table = Arc::new(Mutex::new(TypeTable::with_outer(self.tcx.table.clone())));
 
@@ -1450,8 +1410,11 @@ impl<'tcx> TypeChecker<'tcx> {
 }
 
 impl TypeChecker<'_> {
-    #[allow(dead_code)]
-    fn get_type_context(&self) -> TypeContext {
-        (*self.tcx).clone()
+    pub fn get_type_context(&self) -> &TypeContext {
+        self.tcx
+    }
+
+    pub fn get_constraints(&self) -> &Vec<Constraint> {
+        &self.constraints
     }
 }
