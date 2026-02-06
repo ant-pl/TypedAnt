@@ -30,6 +30,9 @@ impl<'a> TypeInfer<'a> {
         for c in constraints {
             self.unify(c.expected, c.got, c.token)?;
         }
+
+        self.finalize();
+
         Ok(())
     }
 
@@ -125,5 +128,44 @@ impl<'a> TypeInfer<'a> {
             }
         }
         id
+    }
+
+    /// 核心：把一个可能是 Infer 的 TyId 彻底转正
+    pub fn resolve_real_ty(&self, id: TyId) -> TyId {
+        let real_id = self.follow(id);
+        // 如果 real_id 指向的依然是 Ty::Infer，说明这个变量到最后也没推导出来（报错点）
+        real_id
+    }
+}
+
+impl<'a> TypeInfer<'a> {
+    /// 将最终结果注入 TypeContext，彻底抹除占位符
+    pub fn finalize(&mut self) {
+        // 拿一波新类型和原类型表
+        let subs = &self.infer_ctx.substitutions;
+        let tcx = &mut self.infer_ctx.tcx;
+
+        for i in 0..tcx.types.len() {
+            let mut current_id = i;
+            
+            // 追踪这个坑位最终指向谁
+            // 这里复用 follow 逻辑 (为这里单独写个不依赖 self 的函数不值得也没必要)
+            while let Ty::Infer(infer_id) = &tcx.types[current_id] {
+                if let Some(target_id) = subs.get(infer_id) {
+                    current_id = *target_id;
+                } else {
+                    break;
+                }
+            }
+
+            // 3. 如果发现最终指向的不是自己，说明这是一个推导出来的变量
+            if current_id != i {
+                // 强制暴力修改
+                tcx.types[i] = tcx.types[current_id].clone();
+            }
+        }
+        
+        // 执行到这里，tcx.types 里大部分的 Ty::Infer 余孽只要九族有记录，
+        // 就全都被杀完了 (成了具体的类型 (如 i64, bool 等))
     }
 }
