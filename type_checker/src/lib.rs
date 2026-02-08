@@ -291,6 +291,18 @@ impl<'tcx> TypeChecker<'tcx> {
                     );
                 }
 
+                if def_generics.is_empty() {
+                    return Ok(TypedExpression::BuildStruct(
+                        token,
+                        Ident {
+                            token: name.token,
+                            value: name.value,
+                        },
+                        typed_fields,
+                        struct_ty_id,
+                    ));
+                }
+
                 // 泛型绑定表： T -> 实际类型
                 let mut generic_map = IndexMap::<Arc<str>, TyId>::new();
 
@@ -314,7 +326,7 @@ impl<'tcx> TypeChecker<'tcx> {
                     }
                 }
 
-                // 按 struct 声明顺序生成 A<str> 里的 str
+                // 按 struct 声明顺序生成
                 let mut args = vec![];
 
                 for g in def_generics {
