@@ -58,6 +58,7 @@ pub enum TokenType {
     Public,
     Private,
     Readonly,
+    Sizeof,
     For,
     In,
     While,
@@ -85,6 +86,7 @@ impl TokenType {
     pub fn to_string(&self) -> &'static str {
         match self {
             TokenType::Struct => "struct",
+            TokenType::Sizeof => "sizeof",
             TokenType::Const => "const",
             TokenType::Impl => "impl",
             TokenType::Trait => "trait",
@@ -196,6 +198,7 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     ")" => TokenType::RParen,
     "IF" => TokenType::If,
     "AS" => TokenType::As,
+    "SIZEOF" => TokenType::Sizeof,
     "AND" => TokenType::BoolAnd,
     "OR" => TokenType::BoolOr,
     "THEN" => TokenType::Then,
