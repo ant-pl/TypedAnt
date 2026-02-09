@@ -21,3 +21,4 @@ pub mod parse_trait;
 pub mod parse_impl;
 pub mod parse_const;
 pub mod parse_bool_and_or;
+pub mod parse_sizeof;

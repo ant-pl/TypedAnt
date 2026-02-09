@@ -28,6 +28,7 @@ use crate::{
             parse_u64, parse_usize,
         },
         parse_return::parse_return,
+        parse_sizeof::parse_sizeof,
         parse_str::parse_str,
         parse_struct::parse_struct,
         parse_trait::parse_trait,
@@ -81,6 +82,7 @@ impl Parser {
         m.insert(TokenType::If, parse_if);
         m.insert(TokenType::Func, parse_func);
         m.insert(TokenType::New, parse_build_struct);
+        m.insert(TokenType::Sizeof, parse_sizeof);
     }
 
     fn init_infix_parse_fn_map(m: &mut HashMap<TokenType, InfixParseFn>) {
