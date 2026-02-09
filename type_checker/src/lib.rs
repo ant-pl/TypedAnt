@@ -154,6 +154,12 @@ impl<'tcx> TypeChecker<'tcx> {
                 ty: self.tcx.alloc(Ty::Str),
             }),
 
+            Expression::SizeOf(token, expr) => Ok(TypedExpression::SizeOf(
+                token,
+                Box::new(self.check_expr(*expr)?),
+                self.tcx.alloc(Ty::IntTy(ty::IntTy::USize)),
+            )),
+
             Expression::FieldAccess(struct_expr, field) => {
                 let new_field = Ident {
                     value: field.value,
