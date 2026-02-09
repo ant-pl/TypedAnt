@@ -30,6 +30,7 @@ pub enum TypedExpression {
     Ident(Ident, TyId),
     Block(Token, Vec<TypedStatement>, TyId),
     TypeHint(Ident, Ident, TyId),
+    SizeOf(Token, Box<TypedExpression>, TyId),
     BuildStruct(Token, Ident, IndexMap<Ident, TypedExpression>, TyId),
     FieldAccess(Box<TypedExpression>, Ident, TyId),
     Infix {
@@ -88,6 +89,7 @@ pub enum TypedExpression {
 impl Display for TypedExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::SizeOf(_, expr, ..) => write!(f, "sizeof {expr}"),
             Self::BuildStruct(_, struct_name, block, _) => write!(
                 f,
                 "{struct_name} {{\n{}\n}}",
@@ -201,6 +203,7 @@ impl GetType for TypedExpression {
             Self::Assign { right, .. } => right.get_type(),
             Self::BoolAnd { ty, .. } => *ty,
             Self::BoolOr { ty, .. } => *ty,
+            Self::SizeOf(_, _, ty) => *ty,
         }
     }
 }
@@ -215,6 +218,7 @@ impl GetToken for TypedExpression {
             TypedExpression::Block(token, ..) => token.clone(),
             TypedExpression::TypeHint(ident, ..) => ident.token.clone(),
             TypedExpression::BuildStruct(token, ..) => token.clone(),
+            TypedExpression::SizeOf(token, ..) => token.clone(),
             TypedExpression::FieldAccess(typed_expression, ..) => typed_expression.token(),
             TypedExpression::Infix { token, .. } => token.clone(),
             TypedExpression::Function { token, .. } => token.clone(),
