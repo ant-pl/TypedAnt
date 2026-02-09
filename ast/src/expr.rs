@@ -77,6 +77,7 @@ pub enum Expression {
     Block(Token, Vec<Statement>),
     BuildStruct(Token, Ident, IndexMap<Ident, Expression>),
     FieldAccess(Box<Expression>, Ident),
+    SizeOf(Token, Box<Expression>),
     Infix {
         token: Token,
         op: Arc<str>,
@@ -127,6 +128,7 @@ pub enum Expression {
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::SizeOf(_, expr) => write!(f, "sizeof {expr}"),
             Self::ThreeDot(token) => write!(f, "{}", token.value),
             Self::BuildStruct(_, struct_name, block) => write!(
                 f,
@@ -237,6 +239,7 @@ impl GetToken for Expression {
             Expression::BoolAnd { token, .. } => token.clone(),
             Expression::BoolOr { token, .. } => token.clone(),
             Expression::ThreeDot(token) => token.clone(),
+            Expression::SizeOf(token, _) => token.clone(),
         }
     }
 }
