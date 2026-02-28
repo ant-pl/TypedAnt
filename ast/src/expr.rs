@@ -76,7 +76,7 @@ pub enum Expression {
     TypeHint(Ident, Ident),
     Block(Token, Vec<Statement>),
     BuildStruct(Token, Ident, IndexMap<Ident, Expression>),
-    FieldAccess(Box<Expression>, Ident),
+    FieldAccess(Token, Box<Expression>, Ident),
     SizeOf(Token, Box<Expression>),
     Infix {
         token: Token,
@@ -139,7 +139,7 @@ impl Display for Expression {
                     .collect::<Vec<String>>()
                     .join("\n")
             ),
-            Self::FieldAccess(obj, field) => write!(f, "{obj}.{field}"),
+            Self::FieldAccess(_, obj, field) => write!(f, "{obj}.{field}"),
             Self::StrLiteral { value, .. } => write!(f, "\"{value}\""),
             Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
@@ -229,7 +229,7 @@ impl GetToken for Expression {
             Expression::TypeHint(ident, ..) => ident.token.clone(),
             Expression::Block(token, _) => token.clone(),
             Expression::BuildStruct(token, ..) => token.clone(),
-            Expression::FieldAccess(expr, ..) => expr.token(),
+            Expression::FieldAccess(token, ..) => token.clone(),
             Expression::Infix { token, .. } => token.clone(),
             Expression::Function { token, .. } => token.clone(),
             Expression::If { token, .. } => token.clone(),

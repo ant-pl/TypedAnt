@@ -4,6 +4,8 @@ use token::token_type::TokenType;
 use crate::{ParseResult, Parser};
 
 pub fn parse_field_access(parser: &mut Parser, left: Expression) -> ParseResult<Expression> {
+    let token = parser.cur_token.clone();
+
     parser.expect_peek(TokenType::Ident)?;
     parser.next_token(); // 前进到标识符
 
@@ -12,5 +14,5 @@ pub fn parse_field_access(parser: &mut Parser, left: Expression) -> ParseResult<
         token: parser.cur_token.clone()
     };
 
-    Ok(Expression::FieldAccess(Box::new(left), ident))
+    Ok(Expression::FieldAccess(token, Box::new(left), ident))
 }

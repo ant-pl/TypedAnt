@@ -6,7 +6,12 @@ mod tests {
     use token::{token::Token, token_type::TokenType};
 
     use crate::{
-        TypeChecker, ty::Ty, ty_context::TypeContext, type_infer::{TypeInfer, infer_context::InferContext}, typed_ast::{GetType, typed_expr::TypedExpression, typed_stmt::TypedStatement}
+        TypeChecker,
+        module::TypedModule,
+        ty::Ty,
+        ty_context::TypeContext,
+        type_infer::{TypeInfer, infer_context::InferContext},
+        typed_ast::{GetType, typed_expr::TypedExpression, typed_stmt::TypedStatement},
     };
 
     #[test]
@@ -14,12 +19,13 @@ mod tests {
         let file: Arc<str> = "__test_checker_var_get__".into();
 
         let mut tcx = TypeContext::new();
-
+        
         let bigint_id = tcx.alloc(Ty::BigInt);
-
+        
         tcx.table.lock().unwrap().define_var("a", bigint_id);
-
-        let checker = &mut TypeChecker::new(&mut tcx);
+        
+        let mut module = TypedModule::new(&mut tcx);
+        let checker = &mut TypeChecker::new(&mut module);
 
         let ident_raw = ast::expressions::ident::Ident {
             token: Token::new("a".into(), TokenType::Ident, file.clone(), 1, 1),
@@ -32,10 +38,11 @@ mod tests {
 
         let constraints = checker.get_constraints().to_vec();
 
-        let mut infer_ctx = InferContext::new(&mut tcx);
+        let mut infer_ctx = InferContext::new(&mut module);
 
         let mut type_infer = TypeInfer::new(&mut infer_ctx);
         type_infer.unify_all(constraints).unwrap();
+        type_infer.infer().unwrap();
 
         assert!(matches!(result, TypedExpression::Ident(..)));
 
@@ -55,8 +62,9 @@ mod tests {
         let file: Arc<str> = "__test_checker_var_def__".into();
 
         let mut tcx = TypeContext::new();
+        let mut module = TypedModule::new(&mut tcx);
 
-        let checker = &mut TypeChecker::new(&mut tcx);
+        let checker = &mut TypeChecker::new(&mut module);
 
         let let_stmt_raw = ast::stmt::Statement::Let {
             name: ast::expressions::ident::Ident {
@@ -78,10 +86,11 @@ mod tests {
 
         let constraints = checker.get_constraints().to_vec();
 
-        let mut infer_ctx = InferContext::new(&mut tcx);
+        let mut infer_ctx = InferContext::new(&mut module);
 
         let mut type_infer = TypeInfer::new(&mut infer_ctx);
         type_infer.unify_all(constraints).unwrap();
+        type_infer.infer().unwrap();
 
         assert!(matches!(result, TypedStatement::Let { .. }));
 

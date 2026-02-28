@@ -102,9 +102,9 @@ fn display_source_code(err: &ParserError) {
     let code = try_get_content(&err.token.file);
 
     if code.is_none() {
-        println!("    {}", err.token.value.red());
+        eprintln!("    {}", err.token.value.red());
 
-        println!(
+        eprintln!(
             "    {}",
             "^".repeat(err.token.value.chars().count()).purple()
         );
@@ -126,20 +126,20 @@ fn display_source_code(err: &ParserError) {
 
     let last_char = line[err_token.column - 1].red();
 
-    print!("    {}", line[..err_token.column - 1].join(""));
-    print!("{}", last_char);
-    println!("{}", line[err_token.column..].join(""));
+    eprintln!("    {}", line[..err_token.column - 1].join(""));
+    eprintln!("{}", last_char);
+    eprintln!("{}", line[err_token.column..].join(""));
 
-    print!("{}", " ".repeat(3 + err_token.column));
-    println!("{}", "^".purple());
+    eprintln!("{}", " ".repeat(3 + err_token.column));
+    eprintln!("{}", "^".purple());
 }
 
 pub fn display_err(err: &ParserError) {
     use colored::Colorize;
 
-    println!("{err} \n{}: {{", "code".purple());
+    eprintln!("{err} \n{}: {{", "code".purple());
 
     display_source_code(err);
 
-    println!("}}")
+    eprintln!("}}")
 }
