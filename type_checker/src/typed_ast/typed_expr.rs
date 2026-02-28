@@ -1,13 +1,13 @@
-use std::{fmt::Display, sync::Arc};
+use std::sync::Arc;
 
-use ast::{expr::IntValue, node::GetToken};
+use ast::{ExprId, StmtId, expr::IntValue, node::GetToken};
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use token::token::Token;
 
 use crate::{
     ty::TyId,
-    typed_ast::{GetType, typed_expressions::ident::Ident, typed_stmt::TypedStatement},
+    typed_ast::{GetType, SetType, typed_expressions::ident::Ident},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -28,44 +28,46 @@ pub enum TypedExpression {
         ty: TyId,
     },
     Ident(Ident, TyId),
-    Block(Token, Vec<TypedStatement>, TyId),
+    Block(Token, Vec<StmtId>, TyId),
     TypeHint(Ident, Ident, TyId),
-    SizeOf(Token, Box<TypedExpression>, TyId),
-    BuildStruct(Token, Ident, IndexMap<Ident, TypedExpression>, TyId),
-    FieldAccess(Box<TypedExpression>, Ident, TyId),
+    SizeOf(Token, ExprId, TyId),
+    BuildStruct(Token, Ident, IndexMap<Ident, ExprId>, TyId),
+    FieldAccess(Token, ExprId, Ident, TyId),
     Infix {
         token: Token,
         op: Arc<str>,
-        left: Box<TypedExpression>,
-        right: Box<TypedExpression>,
+        left: ExprId,
+        right: ExprId,
         ty: TyId,
     },
     Function {
         token: Token,
         name: Option<Token>,
-        params: Vec<Box<TypedExpression>>,
-        generics_params: Vec<Box<TypedExpression>>,
-        block: Box<TypedExpression>,
+        params: Vec<ExprId>,
+        generics_params: Vec<ExprId>,
+        block: ExprId,
         ret_ty: Option<Ident>,
         ty: TyId,
     },
     Call {
         token: Token,
-        func: Box<TypedExpression>,
-        args: Vec<Box<TypedExpression>>,
+        func: ExprId,
+        args: Vec<ExprId>,
         func_ty: TyId,
         ret_ty: TyId,
     },
     If {
         token: Token,
-        condition: Box<TypedExpression>,
-        consequence: Box<TypedExpression>,
-        else_block: Option<Box<TypedExpression>>,
+        condition: ExprId,
+        consequence: ExprId,
+        else_block: Option<ExprId>,
+        ty: TyId
     },
     Assign {
         token: Token,
-        left: Box<TypedExpression>,
-        right: Box<TypedExpression>,
+        left: ExprId,
+        right: ExprId,
+        ty: TyId
     },
     StrLiteral {
         token: Token,
@@ -74,120 +76,22 @@ pub enum TypedExpression {
     },
     BoolAnd {
         token: Token,
-        left: Box<TypedExpression>,
-        right: Box<TypedExpression>,
+        left: ExprId,
+        right: ExprId,
         ty: TyId,
     },
     BoolOr {
         token: Token,
-        left: Box<TypedExpression>,
-        right: Box<TypedExpression>,
+        left: ExprId,
+        right: ExprId,
         ty: TyId,
     },
-}
-
-impl Display for TypedExpression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::SizeOf(_, expr, ..) => write!(f, "sizeof {expr}"),
-            Self::BuildStruct(_, struct_name, block, _) => write!(
-                f,
-                "{struct_name} {{\n{}\n}}",
-                block
-                    .iter()
-                    .map(|(name, val_expr)| format!("\t{name} = {val_expr}"))
-                    .collect::<Vec<String>>()
-                    .join("\n")
-            ),
-            Self::FieldAccess(obj, field, _) => write!(f, "{obj}.{field}"),
-            Self::StrLiteral { value, .. } => write!(f, "\"{value}\""),
-            Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
-            Self::Call { func, args, .. } => write!(
-                f,
-                "{func}({})",
-                args.iter()
-                    .map(|it| it.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            ),
-            Self::If {
-                condition,
-                consequence,
-                else_block,
-                ..
-            } => write!(
-                f,
-                "if {condition} {consequence}{}",
-                if let Some(it) = else_block {
-                    format!(" else {it}")
-                } else {
-                    "".to_string()
-                }
-            ),
-            Self::BigInt { value, .. } => write!(f, "{}", value),
-            Self::Bool { value, .. } => write!(f, "{}", value),
-            Self::Int { value, .. } => write!(f, "{}", value),
-            Self::Ident(ident, _) => write!(f, "{}", ident),
-            Self::Block(_, it, _) => write!(
-                f,
-                "{{\n{}\n}}",
-                it.iter()
-                    .map(|it| it
-                        .to_string()
-                        .split("\n")
-                        .map(|it| "\t".to_owned() + it)
-                        .collect::<Vec<String>>()
-                        .join("\n"))
-                    .collect::<Vec<String>>()
-                    .join("\n")
-            ),
-            Self::TypeHint(ident, ty, _) => write!(f, "{}: {}", ident, ty),
-            Self::Function {
-                params,
-                name,
-                block,
-                ret_ty,
-                generics_params,
-                ..
-            } => write!(
-                f,
-                "func {}{}({}){}{}",
-                name.as_ref()
-                    .map_or_else(|| "".into(), |it| it.value.clone()),
-                if generics_params.is_empty() {
-                    "".to_owned()
-                } else {
-                    "<".to_owned()
-                        + &generics_params
-                            .iter()
-                            .map(|it| it.to_string())
-                            .collect::<Vec<String>>()
-                            .join(", ")
-                        + ">"
-                },
-                params
-                    .iter()
-                    .map(|it| it.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-                ret_ty
-                    .as_ref()
-                    .map_or_else(|| " ".into(), |it| format!(" -> {it} ")),
-                block.to_string()
-            ),
-            Self::Infix {
-                op, left, right, ..
-            } => write!(f, "({}{}{})", left, op, right),
-            Self::BoolAnd { left, right, .. } => write!(f, "({left} and {right})",),
-            Self::BoolOr { left, right, .. } => write!(f, "({left} or {right})",),
-        }
-    }
 }
 
 impl GetType for TypedExpression {
     fn get_type(&self) -> TyId {
         match self {
-            Self::FieldAccess(_, _, field_ty) => field_ty.clone(),
+            Self::FieldAccess(_, _, _, field_ty) => field_ty.clone(),
             Self::StrLiteral { ty, .. } => *ty,
             Self::BigInt { ty, .. } => *ty,
             Self::Int { ty, .. } => *ty,
@@ -197,13 +101,37 @@ impl GetType for TypedExpression {
             Self::Function { ty, .. } => *ty,
             Self::Infix { ty, .. } => *ty,
             Self::TypeHint(_, _, ty) => *ty,
-            Self::If { consequence, .. } => consequence.get_type(),
+            Self::If { ty, .. } => *ty,
             Self::BuildStruct(_, _, _, ty) => *ty,
             Self::Call { ret_ty, .. } => *ret_ty,
-            Self::Assign { right, .. } => right.get_type(),
+            Self::Assign { ty, .. } => *ty,
             Self::BoolAnd { ty, .. } => *ty,
             Self::BoolOr { ty, .. } => *ty,
             Self::SizeOf(_, _, ty) => *ty,
+        }
+    }
+}
+
+impl SetType for TypedExpression {
+    fn set_type(&mut self, new_ty: TyId) {
+        match self {
+            Self::FieldAccess(_, _, _, field_ty) => *field_ty = new_ty,
+            Self::StrLiteral { ty, .. } => *ty = new_ty,
+            Self::BigInt { ty, .. } => *ty = new_ty,
+            Self::Int { ty, .. } => *ty = new_ty,
+            Self::Bool { ty, .. } => *ty = new_ty,
+            Self::Ident(_, ty) => *ty = new_ty,
+            Self::Block(_, _, ty) => *ty = new_ty,
+            Self::Function { ty, .. } => *ty = new_ty,
+            Self::Infix { ty, .. } => *ty = new_ty,
+            Self::TypeHint(_, _, ty) => *ty = new_ty,
+            Self::If { ty, .. } => *ty = new_ty,
+            Self::BuildStruct(_, _, _, ty) => *ty = new_ty,
+            Self::Call { ret_ty, .. } => *ret_ty = new_ty,
+            Self::Assign { ty, .. } => *ty = new_ty,
+            Self::BoolAnd { ty, .. } => *ty = new_ty,
+            Self::BoolOr { ty, .. } => *ty = new_ty,
+            Self::SizeOf(_, _, ty) => *ty = new_ty,
         }
     }
 }
@@ -219,7 +147,7 @@ impl GetToken for TypedExpression {
             TypedExpression::TypeHint(ident, ..) => ident.token.clone(),
             TypedExpression::BuildStruct(token, ..) => token.clone(),
             TypedExpression::SizeOf(token, ..) => token.clone(),
-            TypedExpression::FieldAccess(typed_expression, ..) => typed_expression.token(),
+            TypedExpression::FieldAccess(token, ..) => token.clone(),
             TypedExpression::Infix { token, .. } => token.clone(),
             TypedExpression::Function { token, .. } => token.clone(),
             TypedExpression::Call { token, .. } => token.clone(),
