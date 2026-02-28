@@ -1,6 +1,7 @@
 pub mod constraint;
 pub mod infer_context;
 
+use std::cmp::min;
 use std::collections::HashMap;
 
 use ast::node::GetToken;
@@ -333,14 +334,25 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 Ty::Function {
                     params_type: p1,
                     ret_type: r1,
+                    is_variadic: v1,
                     ..
                 },
                 Ty::Function {
                     params_type: p2,
                     ret_type: r2,
+                    is_variadic: v2,
                     ..
                 },
             ) => {
+                if v1 || v2 {
+                    let min_len = min(p1.len(), p2.len());
+                    for i in 0..min_len {
+                        self.unify(p1[i], p2[i], token.clone())?;
+                    }
+
+                    return Ok(())
+                }
+
                 if p1.len() != p2.len() {
                     return Err(self.make_mismatch_error(t1, t2, token));
                 }
