@@ -66,9 +66,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         let stmt = self.module_ref().typed_stmts[stmt_id.0].clone();
 
         let ty = match stmt {
-            TypedStatement::ExpressionStatement(_, id, _) => {
-                Some(self.infer_expr(id)?)
-            }
+            TypedStatement::ExpressionStatement(_, id, _) => Some(self.infer_expr(id)?),
 
             TypedStatement::Let { value: id, ty, .. } => {
                 let expr = self.module_ref().get_expr(id).unwrap().clone();
@@ -78,9 +76,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 Some(self.infer_expr(id)?)
             }
 
-            TypedStatement::Return { expr: id, .. } => {
-                Some(self.infer_expr(id)?)
-            }
+            TypedStatement::Return { expr: id, .. } => Some(self.infer_expr(id)?),
 
             _ => None,
         };
@@ -225,10 +221,12 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
 
             TypedExpression::Call { func, args, .. } => {
-                let callee_ty =
-                    self.infer_expr(func)?;
+                let callee_ty = self.infer_expr(func)?;
 
-                let arg_types = args.iter().map(|it| self.get_expr_tyid(*it)).collect();
+                let arg_types = args
+                    .iter()
+                    .map(|it| self.infer_expr(*it))
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 let new_ret_ty = self.infer_ctx.alloc_infer_ty();
 
@@ -350,7 +348,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                         self.unify(p1[i], p2[i], token.clone())?;
                     }
 
-                    return Ok(())
+                    return Ok(());
                 }
 
                 if p1.len() != p2.len() {
