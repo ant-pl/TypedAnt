@@ -2,7 +2,13 @@ use std::{io::Write, sync::Arc};
 
 use lexer::Lexer;
 use parser::{Parser, error::display_err};
-use type_checker::{TypeChecker, ty_context::TypeContext, type_infer::{TypeInfer, infer_context::InferContext}};
+use type_checker::{
+    TypeChecker,
+    module::TypedModule,
+    ty_context::TypeContext,
+    type_infer::{TypeInfer, infer_context::InferContext},
+    typed_ast::{typed_node::TypedNode, typed_stmt::TypedStatement},
+};
 
 pub fn repl() {
     let file: Arc<str> = "*repl".into();
@@ -58,38 +64,55 @@ pub fn repl() {
             }
         };
 
-        let mut checker = TypeChecker::new(&mut ty_ctx);
+        let mut module = TypedModule::new(&mut ty_ctx);
+
+        let mut checker = TypeChecker::new(&mut module);
 
         // 不知道为什么明明有情况能使用到 rust analyzer 死活分析不出来
         #[allow(unused_assignments)]
         let mut typed_node = None;
 
         match checker.check_node(node) {
-            Ok(it) => {
-                typed_node = Some(it)
-            }
+            Ok(it) => typed_node = Some(it),
             Err(err) => {
-                println!("{err:#?}");
+                eprintln!("{err:#?}");
                 continue;
-            },
+            }
         }
 
-        let constraints = checker.get_constraints().to_vec();
+        let constraints = checker.get_constraints().clone();
 
-        let mut infer_ctx = InferContext::new(&mut ty_ctx);
+        let mut infer_ctx = InferContext::new(&mut module);
 
         let mut type_infer = TypeInfer::new(&mut infer_ctx);
 
         match type_infer.unify_all(constraints) {
-            Ok(_) => if let Some(it) = typed_node {
-                println!("typed_ast: {it}")
-            } else if dbg {
-                println!("no typed ast here.")
-            },
+            Ok(_) => (),
             Err(err) => {
-                println!("{err:#?}");
+                eprintln!("{err:#?}");
                 continue;
-            },
+            }
+        }
+
+        match type_infer.infer() {
+            Ok(_) => (),
+            Err(err) => {
+                eprintln!("{err:#?}");
+                continue;
+            }
+        }
+
+        if let Some(TypedNode::Program { statements, .. }) = typed_node {
+            let module_cloned = module.cloned();
+            println!(
+                "typed statements:\n{:#?}",
+                statements
+                    .iter()
+                    .map(|it| module_cloned.get_stmt(*it).unwrap().clone())
+                    .collect::<Vec<TypedStatement>>()
+            )
+        } else {
+            println!("no typed ast here.")
         }
 
         if show_tcx {
