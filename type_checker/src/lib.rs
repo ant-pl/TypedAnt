@@ -438,6 +438,42 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 })
             }
 
+            Expression::Prefix { token, op, right } => {
+                let right_t = self.check_expr(*right)?;
+
+                Ok(TypedExpression::Prefix {
+                    ty: if op.as_ref() == "!" {
+                        self.tcx().alloc(Ty::Bool)
+                    } else if op.as_ref() == "-" || op.as_ref() == "+" {
+                        right_t.get_type()
+                    } else if op.as_ref() == "&" {
+                        self.tcx().alloc(Ty::Ptr(right_t.get_type()))
+                    } else if op.as_ref() == "*" {
+                        let Ty::Ptr(inner_tyid) = self.tcx().get(right_t.get_type()) else {
+                            return Err(Self::make_err(
+                                Some(&format!(
+                                    "type `{}` cannot be dereferenced",
+                                    self.tcx().get(right_t.get_type())
+                                )),
+                                TypeCheckerErrorKind::TypeMismatch,
+                                right_t.token(),
+                            ));
+                        };
+
+                        *inner_tyid
+                    } else {
+                        return Err(Self::make_err(
+                            Some(&format!("unknown operator `{}`", &token.value)),
+                            TypeCheckerErrorKind::Other,
+                            token,
+                        ));
+                    },
+                    token,
+                    right: self.module.alloc_expr(right_t),
+                    op,
+                })
+            }
+
             Expression::BoolAnd {
                 token, left, right, ..
             } => {

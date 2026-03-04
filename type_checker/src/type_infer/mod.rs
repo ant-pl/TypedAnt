@@ -129,6 +129,51 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 ty
             }
 
+            TypedExpression::Prefix {
+                right, ty, token, ..
+            } => {
+                let op = token.value.clone();
+
+                let right_ty = self.get_expr_tyid(right);
+                let right_token = self.module_ref().get_expr(right).unwrap().token();
+
+                if op.as_ref() == "!" {
+                    let bool_ty = self.tcx().alloc(Ty::Bool);
+                    self.unify(bool_ty, right_ty, right_token.clone())?;
+                } else if op.as_ref() == "-" || op.as_ref() == "+" {
+                    if !matches!(self.tcx_ref().get(right_ty), Ty::IntTy(_)) {
+                        return Err(TypeCheckerError {
+                            kind: TypeCheckerErrorKind::TypeMismatch,
+                            token,
+                            message: Some(
+                                format!(
+                                    "expected `integer`, got {}",
+                                    self.tcx_ref().get(right_ty)
+                                )
+                                .into(),
+                            ),
+                        });
+                    }
+                } else if op.as_ref() == "*" {
+                    if !matches!(self.tcx_ref().get(right_ty), Ty::Ptr(_)) {
+                        return Err(TypeCheckerError {
+                            kind: TypeCheckerErrorKind::TypeMismatch,
+                            token,
+                            message: Some(
+                                format!(
+                                    "type `{}` cannot be dereferenced",
+                                    self.tcx_ref().get(right_ty)
+                                )
+                                .into(),
+                            ),
+                        });
+                    }
+                }
+
+                self.infer_expr(right)?;
+                ty
+            }
+
             TypedExpression::SizeOf(_, val, ty) => {
                 self.infer_expr(val)?;
 
@@ -316,6 +361,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 Ok(())
             }
 
+            (Ty::Ptr(id1), Ty::Ptr(id2)) => self.unify(id1, id2, token),
+
             // 泛型结构体的递归统一
             (Ty::AppliedGeneric(name1, args1), Ty::AppliedGeneric(name2, args2)) => {
                 if name1 != name2 || args1.len() != args2.len() {
@@ -419,6 +466,12 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
         match ty {
             Ty::Generic(name, _) => mapping.get(name.as_ref()).copied().unwrap_or(ty_id),
+
+            Ty::Ptr(inner) => {
+                let new_inner = self.substitute(inner, mapping);
+                self.tcx().alloc(Ty::Ptr(new_inner))
+            }
+
             Ty::Function {
                 params_type,
                 ret_type,
