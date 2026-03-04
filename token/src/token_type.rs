@@ -78,6 +78,7 @@ pub enum TokenType {
     Trait,
     Impl,
     As,
+    AddrOf,
     Eof,
 }
 
@@ -100,6 +101,7 @@ impl TokenType {
             TokenType::LBrace => "{",
             TokenType::RBrace => "}",
             TokenType::Plus => "+",
+            TokenType::AddrOf => "&",
             TokenType::Minus => "-",
             TokenType::Asterisk => "*",
             TokenType::Slash => "/",
@@ -174,6 +176,7 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     "{" => TokenType::LBrace,
     "}" => TokenType::RBrace,
     "+" => TokenType::Plus,
+    "&" => TokenType::AddrOf,
     "-" => TokenType::Minus,
     "*" => TokenType::Asterisk,
     "/" => TokenType::Slash,
