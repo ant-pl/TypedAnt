@@ -84,6 +84,11 @@ pub enum Expression {
         left: Box<Expression>,
         right: Box<Expression>,
     },
+    Prefix {
+        token: Token,
+        op: Arc<str>,
+        right: Box<Expression>,
+    },
     Function {
         token: Token,
         name: Option<Token>,
@@ -213,6 +218,9 @@ impl Display for Expression {
             Self::Infix {
                 op, left, right, ..
             } => write!(f, "({left}{op}{right})"),
+            Self::Prefix {
+                op, right, ..
+            } => write!(f, "{op}{right}"),
             Self::BoolAnd { left, right, .. } => write!(f, "({left} and {right})",),
             Self::BoolOr { left, right, .. } => write!(f, "({left} or {right})",),
         }
@@ -231,6 +239,7 @@ impl GetToken for Expression {
             Expression::BuildStruct(token, ..) => token.clone(),
             Expression::FieldAccess(token, ..) => token.clone(),
             Expression::Infix { token, .. } => token.clone(),
+            Expression::Prefix { token, .. } => token.clone(),
             Expression::Function { token, .. } => token.clone(),
             Expression::If { token, .. } => token.clone(),
             Expression::Call { token, .. } => token.clone(),
