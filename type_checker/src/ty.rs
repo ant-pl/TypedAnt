@@ -105,6 +105,7 @@ pub enum Ty {
 
     Infer(usize),
     IntTy(IntTy),
+    Ptr(TyId),
     Bool,
     Unit,
     Str,
@@ -115,6 +116,7 @@ impl Display for Ty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unknown => write!(f, "unknown"),
+            Self::Ptr(it) => write!(f, "*{it}"),
             Self::Infer(it) => write!(f, "Infer({it})"),
             Self::Generic(it, _) => write!(f, "{it}"),
             Self::AppliedGeneric(it, _) => write!(f, "{it}"),
