@@ -56,7 +56,7 @@ pub enum Statement {
         extern_func_name: Token,
         alias: Token,
         params: Vec<Box<Expression>>,
-        ret_ty: Ident,
+        ret_ty: Box<Expression>,
     },
     FuncDecl {
         token: Token,
