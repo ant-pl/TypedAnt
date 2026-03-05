@@ -29,7 +29,7 @@ pub enum TypedExpression {
     },
     Ident(Ident, TyId),
     Block(Token, Vec<StmtId>, TyId),
-    TypeHint(Ident, Ident, TyId),
+    TypeHint(Ident, ExprId, TyId),
     SizeOf(Token, ExprId, TyId),
     BuildStruct(Token, Ident, IndexMap<Ident, ExprId>, TyId),
     FieldAccess(Token, ExprId, Ident, TyId),
