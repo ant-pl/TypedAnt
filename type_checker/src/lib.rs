@@ -758,39 +758,88 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 Ok(TypedExpression::Block(token, stmt_ids, ty))
             }
 
-            Expression::TypeHint(ident, ty_ident) => {
-                let ty = self
-                    .tcx()
-                    .table
-                    .lock()
-                    .unwrap()
-                    .get(&ty_ident.value)
-                    .map_or_else(
-                        || {
-                            Err(Self::make_err(
-                                None,
-                                TypeCheckerErrorKind::TypeNotFound,
-                                ty_ident.token.clone(),
-                            ))
-                        },
-                        |it| Ok(it.ty.get_type()),
-                    )?;
-
+            Expression::TypeHint(ident, ty_expr) => {
                 let new_ident = Ident {
                     token: ident.token,
                     value: ident.value,
                 };
 
-                let new_ty_ident = Ident {
-                    token: ty_ident.token,
-                    value: ty_ident.value,
-                };
+                let new_ty_expr = self.check_type_expr(*ty_expr)?;
 
-                Ok(TypedExpression::TypeHint(new_ident, new_ty_ident, ty))
+                let ty = new_ty_expr.get_type();
+
+                Ok(TypedExpression::TypeHint(
+                    new_ident,
+                    self.module.alloc_expr(new_ty_expr),
+                    ty,
+                ))
             }
 
             // 如果出现此表达式请考虑parser是否损坏
             Expression::ThreeDot(_) => unreachable!(),
+        }
+    }
+
+    /// 仅支持以下表达式以解析类型
+    /// Ident, Prefix (*), TypeHint
+    pub fn check_type_expr(&mut self, expr: Expression) -> CheckResult<TypedExpression> {
+        match expr {
+            Expression::Ident(it) => {
+                let ident_name = &it.value;
+
+                match self.tcx().table.lock().unwrap().get(&ident_name) {
+                    Some(symbol) => Ok(TypedExpression::Ident(
+                        Ident {
+                            token: it.token,
+                            value: it.value,
+                        },
+                        symbol.ty.get_type(),
+                    )),
+                    None => Err(Self::make_err(
+                        None,
+                        TypeCheckerErrorKind::VariableNotFound,
+                        it.token,
+                    )),
+                }
+            }
+
+            Expression::Prefix { token, op, right } => {
+                let right_t = self.check_expr(*right)?;
+
+                Ok(TypedExpression::Prefix {
+                    ty: if op.as_ref() == "*" {
+                        self.tcx().alloc(Ty::Ptr(right_t.get_type()))
+                    } else {
+                        return Err(Self::make_err(
+                            Some(&format!("unknown operator `{}`", &token.value)),
+                            TypeCheckerErrorKind::Other,
+                            token,
+                        ));
+                    },
+                    token,
+                    right: self.module.alloc_expr(right_t),
+                    op,
+                })
+            }
+
+            Expression::TypeHint(ident, ty_expr) => {
+                let new_ident = Ident {
+                    token: ident.token,
+                    value: ident.value,
+                };
+
+                let new_ty_expr = self.check_type_expr(*ty_expr)?;
+
+                let ty = new_ty_expr.get_type();
+
+                Ok(TypedExpression::TypeHint(
+                    new_ident,
+                    self.module.alloc_expr(new_ty_expr),
+                    ty,
+                ))
+            }
+
+            _ => panic!("not a type expr"),
         }
     }
 
@@ -1040,29 +1089,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     typed_param_ids.push(self.module.alloc_expr(typed_param));
                 }
 
-                let ret_ty_ident = Ident {
-                    value: ret_ty.value,
-                    token: ret_ty.token,
-                };
+                let ret_ty_expr_typed = self.check_type_expr(*ret_ty)?;
 
                 let func_ty = Ty::Function {
                     params_type,
-                    ret_type: self
-                        .tcx()
-                        .table
-                        .lock()
-                        .unwrap()
-                        .get(&ret_ty_ident.value)
-                        .map_or_else(
-                            || {
-                                Err(TypeChecker::make_err(
-                                    Some(&format!("unknown type: {}", &ret_ty_ident.value)),
-                                    TypeCheckerErrorKind::TypeNotFound,
-                                    ret_ty_ident.token.clone(),
-                                ))
-                            },
-                            |it| Ok(it.ty.get_type()),
-                        )?,
+                    ret_type: ret_ty_expr_typed.get_type(),
                     is_variadic: true,
                 };
 
@@ -1081,7 +1112,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     alias,
                     extern_func_name,
                     params: typed_param_ids,
-                    ret_ty: ret_ty_ident,
+                    ret_ty: self.module.alloc_expr(ret_ty_expr_typed),
                     vararg,
                 })
             }
