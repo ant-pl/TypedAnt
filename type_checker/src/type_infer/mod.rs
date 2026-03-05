@@ -130,11 +130,11 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
 
             TypedExpression::Prefix {
-                right, ty, token, ..
+                right, ty: result_ty, token, ..
             } => {
                 let op = token.value.clone();
 
-                let right_ty = self.get_expr_tyid(right);
+                let right_ty = self.infer_expr(right)?;
                 let right_token = self.module_ref().get_expr(right).unwrap().token();
 
                 if op.as_ref() == "!" {
@@ -146,32 +146,18 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                             kind: TypeCheckerErrorKind::TypeMismatch,
                             token,
                             message: Some(
-                                format!(
-                                    "expected `integer`, got {}",
-                                    self.tcx_ref().get(right_ty)
-                                )
-                                .into(),
+                                format!("expected `integer`, got {}", self.tcx_ref().get(right_ty))
+                                    .into(),
                             ),
                         });
                     }
                 } else if op.as_ref() == "*" {
-                    if !matches!(self.tcx_ref().get(right_ty), Ty::Ptr(_)) {
-                        return Err(TypeCheckerError {
-                            kind: TypeCheckerErrorKind::TypeMismatch,
-                            token,
-                            message: Some(
-                                format!(
-                                    "type `{}` cannot be dereferenced",
-                                    self.tcx_ref().get(right_ty)
-                                )
-                                .into(),
-                            ),
-                        });
-                    }
+                    let expected_ptr_ty = self.tcx().alloc(Ty::Ptr(result_ty));
+
+                    self.unify(expected_ptr_ty, right_ty, right_token)?;
                 }
 
-                self.infer_expr(right)?;
-                ty
+                right_ty
             }
 
             TypedExpression::SizeOf(_, val, ty) => {
