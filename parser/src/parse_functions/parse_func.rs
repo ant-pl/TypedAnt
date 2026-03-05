@@ -2,9 +2,7 @@ use ast::{expr::Expression, expressions::ident::Ident};
 use token::token_type::TokenType;
 
 use crate::{
-    ParseResult, Parser,
-    parse_functions::{parse_ident::parse_ident, parse_type_hint::parse_type_hint},
-    precedence::Precedence,
+    ParseResult, Parser, parse_functions::parse_type_hint::parse_type_hint, precedence::Precedence,
 };
 
 pub fn parse_func(parser: &mut Parser) -> ParseResult<Expression> {
@@ -34,15 +32,13 @@ pub fn parse_func(parser: &mut Parser) -> ParseResult<Expression> {
 
     // 注入 TypeHint 解析函数
     parser
-        .prefix_parse_fn_map
-        .insert(TokenType::Ident, parse_type_hint);
+        .infix_parse_fn_map
+        .insert(TokenType::Colon, parse_type_hint);
 
     let params = parser.parse_expression_list(TokenType::RParen)?;
 
     // 移除 TypeHint 解析函数
-    parser
-        .prefix_parse_fn_map
-        .insert(TokenType::Ident, parse_ident);
+    parser.infix_parse_fn_map.remove(&TokenType::Colon);
 
     parser.next_token(); // 离开右括号 (正常应前进到左大括号 或者 '->' )
 

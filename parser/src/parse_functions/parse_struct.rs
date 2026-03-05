@@ -1,7 +1,7 @@
 use ast::{expressions::ident::Ident, stmt::Statement};
 use token::token_type::TokenType;
 
-use crate::{ParseResult, Parser, parse_functions::{parse_ident::parse_ident, parse_type_hint::parse_type_hint}};
+use crate::{ParseResult, Parser, parse_functions::parse_type_hint::parse_type_hint};
 
 pub fn parse_struct(parser: &mut Parser) -> ParseResult<Statement> {
     let mut generics = vec![];
@@ -30,12 +30,19 @@ pub fn parse_struct(parser: &mut Parser) -> ParseResult<Statement> {
     // WARNING: 非十足把握请勿模仿动态注入表达式解析表
 
     // 注入 TypeHint 解析函数
-    parser.prefix_parse_fn_map.insert(TokenType::Ident, parse_type_hint);
+    parser
+        .infix_parse_fn_map
+        .insert(TokenType::Colon, parse_type_hint);
 
     let fields = parser.parse_expression_list(TokenType::RBrace)?;
 
     // 移除 TypeHint 解析函数
-    parser.prefix_parse_fn_map.insert(TokenType::Ident, parse_ident);
+    parser.infix_parse_fn_map.remove(&TokenType::Colon);
 
-    Ok(Statement::Struct { token, name, fields, generics })
+    Ok(Statement::Struct {
+        token,
+        name,
+        fields,
+        generics,
+    })
 }

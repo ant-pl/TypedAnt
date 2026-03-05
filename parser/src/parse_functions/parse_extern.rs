@@ -1,13 +1,11 @@
-use ast::{expr::Expression, expressions::ident::Ident, node::GetToken, stmt::Statement};
+use ast::{expr::Expression, node::GetToken, stmt::Statement};
 use token::token_type::TokenType;
 
 use crate::{
     ParseResult, Parser,
     error::{ParserError, ParserErrorKind},
-    parse_functions::{
-        parse_ident::parse_ident, parse_three_dot::parse_three_dot,
-        parse_type_hint::parse_type_hint,
-    },
+    parse_functions::{parse_three_dot::parse_three_dot, parse_type_hint::parse_type_hint},
+    precedence::Precedence,
 };
 
 pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
@@ -35,8 +33,8 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
 
     // 注入 TypeHint 解析函数
     parser
-        .prefix_parse_fn_map
-        .insert(TokenType::Ident, parse_type_hint);
+        .infix_parse_fn_map
+        .insert(TokenType::Colon, parse_type_hint);
 
     // 注入 ThreeDot 解析函数
     parser
@@ -46,9 +44,7 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
     let params = parser.parse_expression_list(TokenType::RParen)?;
 
     // 移除 TypeHint 解析函数
-    parser
-        .prefix_parse_fn_map
-        .insert(TokenType::Ident, parse_ident);
+    parser.infix_parse_fn_map.remove(&TokenType::Colon);
 
     // 移除 ThreeDot 解析函数
     parser.prefix_parse_fn_map.remove(&TokenType::ThreeDot);
@@ -60,14 +56,9 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
 
     parser.next_token(); // 前进到 >
 
-    parser.expect_peek(TokenType::Ident)?;
+    parser.next_token(); // 前进到 类型表达式
 
-    parser.next_token(); // 前进到 Ident
-
-    let ret_type = Ident {
-        token: parser.cur_token.clone(),
-        value: parser.cur_token.value.clone(),
-    };
+    let ret_type = parser.parse_expression(Precedence::Lowest)?;
 
     let alias = if parser.peek_token_is(TokenType::As) {
         parser.next_token(); // 前进到 As
@@ -100,10 +91,10 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
                 .into_iter()
                 .filter(|it| !matches!(it.as_ref(), Expression::ThreeDot(_)))
                 .collect::<Vec<Box<Expression>>>(),
-            ret_ty: ret_type,
+            ret_ty: Box::new(ret_type),
             alias,
-            vararg: false
-        })
+            vararg: false,
+        });
     }
 
     if three_dots.len() > 1 {
@@ -130,8 +121,8 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
             .into_iter()
             .filter(|it| !matches!(it.as_ref(), Expression::ThreeDot(_)))
             .collect::<Vec<Box<Expression>>>(),
-        ret_ty: ret_type,
+        ret_ty: Box::new(ret_type),
         alias,
-        vararg: true
+        vararg: true,
     })
 }
