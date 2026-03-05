@@ -73,7 +73,7 @@ pub enum Expression {
         value: bool,
     },
     Ident(Ident),
-    TypeHint(Ident, Ident),
+    TypeHint(Ident, Box<Expression>),
     Block(Token, Vec<Statement>),
     BuildStruct(Token, Ident, IndexMap<Ident, Expression>),
     FieldAccess(Token, Box<Expression>, Ident),
