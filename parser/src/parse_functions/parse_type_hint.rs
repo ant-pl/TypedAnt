@@ -1,29 +1,22 @@
-use ast::{expr::Expression, expressions::ident::Ident};
+use ast::{expr::Expression, expressions::ident::Ident, node::GetToken};
 use token::token_type::TokenType;
 
-use crate::{ParseResult, Parser};
+use crate::{ParseResult, Parser, precedence::Precedence};
 
-pub fn parse_type_hint(parser: &mut Parser) -> ParseResult<Expression> {
-    let token = parser.cur_token.clone();
+pub fn parse_type_hint(parser: &mut Parser, left: Expression) -> ParseResult<Expression> {
+    if !matches!(left, Expression::Ident(..)) {
+        parser.unexpect_token_err(TokenType::Ident, left.token())?;
+    }
 
-    parser.expect_peek(TokenType::Colon)?;
+    let token = left.token();
 
-    parser.next_token(); // 前进到冒号
-
-    parser.expect_peek(TokenType::Ident)?;
-
-    parser.next_token(); // 前进到标识符
-
-    let ty_ident = parser.cur_token.clone();
+    parser.next_token(); // 前进到类型表达式
 
     Ok(Expression::TypeHint(
         Ident {
             value: token.value.clone(),
             token,
         },
-        Ident {
-            value: ty_ident.value.clone(),
-            token: ty_ident,
-        },
+        Box::new(parser.parse_expression(Precedence::Lowest)?),
     ))
 }
