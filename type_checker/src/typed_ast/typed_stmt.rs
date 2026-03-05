@@ -61,7 +61,7 @@ pub enum TypedStatement {
         extern_func_name: Token,
         alias: Token,
         params: Vec<ExprId>,
-        ret_ty: Ident,
+        ret_ty: ExprId,
         ty: TyId,
         vararg: bool,
     },
