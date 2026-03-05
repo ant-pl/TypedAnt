@@ -25,7 +25,7 @@ pub static TOKEN_PRECEDENCES: Lazy<HashMap<TokenType, Precedence>> = Lazy::new(|
     let mut m = HashMap::new();
 
     m.insert(TokenType::Eq, Precedence::Equals);
-    m.insert(TokenType::Colon, Precedence::Lowest);
+    m.insert(TokenType::Colon, Precedence::Assignment);
     m.insert(TokenType::NotEq, Precedence::Equals);
     m.insert(TokenType::Lt, Precedence::LessGreater);
     m.insert(TokenType::Gt, Precedence::LessGreater);
