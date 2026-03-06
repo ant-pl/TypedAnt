@@ -804,11 +804,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
 
             Expression::Prefix { token, op, right } => {
-                let right_t = self.check_expr(*right)?;
+                let inner_t = self.check_type_expr(*right)?; // 递归解析
 
                 Ok(TypedExpression::Prefix {
                     ty: if op.as_ref() == "*" {
-                        self.tcx().alloc(Ty::Ptr(right_t.get_type()))
+                        let inner_ty = inner_t.get_type();
+                        self.tcx().alloc(Ty::Ptr(inner_ty))
                     } else {
                         return Err(Self::make_err(
                             Some(&format!("unknown operator `{}`", &token.value)),
@@ -817,7 +818,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         ));
                     },
                     token,
-                    right: self.module.alloc_expr(right_t),
+                    right: self.module.alloc_expr(inner_t),
                     op,
                 })
             }
@@ -1083,7 +1084,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 let mut params_type = vec![];
 
                 for param in params {
-                    let typed_param = self.check_expr(*param)?;
+                    let typed_param = self.check_type_expr(*param)?;
 
                     params_type.push(typed_param.get_type());
                     typed_param_ids.push(self.module.alloc_expr(typed_param));
