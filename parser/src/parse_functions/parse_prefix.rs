@@ -7,7 +7,7 @@ pub fn parse_prefix(parser: &mut Parser) -> ParseResult<Expression> {
 
     parser.next_token(); // 离开 前缀运算符
 
-    let right = parser.parse_expression(Precedence::Lowest)?;
+    let right = parser.parse_expression(Precedence::Prefix)?;
 
     Ok(Expression::Prefix {
         op: token.value.clone(),
