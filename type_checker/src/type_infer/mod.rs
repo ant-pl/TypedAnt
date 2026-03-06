@@ -471,7 +471,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                         self.unify(p1[i], p2[i], token.clone())?;
                     }
 
-                    return Ok(());
+                    return self.unify(r1, r2, token);
                 }
 
                 if p1.len() != p2.len() {
