@@ -76,6 +76,16 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 Some(self.infer_expr(id)?)
             }
 
+            TypedStatement::Extern { params, ret_ty, .. } => {
+                for param in params {
+                    self.infer_type_expr(param)?;
+                }
+
+                self.infer_type_expr(ret_ty)?;
+
+                None
+            }
+
             TypedStatement::Return { expr: id, .. } => Some(self.infer_expr(id)?),
 
             _ => None,
@@ -86,6 +96,83 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         }
 
         Ok(())
+    }
+
+    fn infer_type_expr(&mut self, expr_id: ExprId) -> CheckResult<TyId> {
+        let expr = self.module_ref().get_expr(expr_id).cloned().unwrap();
+
+        let ty = match expr {
+            TypedExpression::TypeHint(_, _, ty) => ty,
+
+            TypedExpression::Prefix {
+                right,
+                token,
+                ..
+            } => {
+                let op = token.value.clone();
+
+                let right_ty = self.infer_expr(right)?;
+                let right_token = self.module_ref().get_expr(right).unwrap().token();
+
+                if op.as_ref() == "!" {
+                    let bool_ty = self.tcx().alloc(Ty::Bool);
+                    self.unify(bool_ty, right_ty, right_token.clone())?;
+                } else if op.as_ref() == "-" || op.as_ref() == "+" {
+                    if !matches!(self.tcx_ref().get(right_ty), Ty::IntTy(_)) {
+                        return Err(TypeCheckerError {
+                            kind: TypeCheckerErrorKind::TypeMismatch,
+                            token,
+                            message: Some(
+                                format!("expected `integer`, got {}", self.tcx_ref().get(right_ty))
+                                    .into(),
+                            ),
+                        });
+                    }
+                } else if op.as_ref() == "*" {
+                    return Ok(self.tcx().alloc(Ty::Ptr(right_ty)));
+                }
+
+                right_ty
+            }
+
+            TypedExpression::Ident(_, ty) => {
+                if let Ty::Function {
+                    params_type,
+                    ret_type,
+                    ..
+                } = self.tcx_ref().get(ty)
+                {
+                    let mut generic_params = params_type
+                        .iter()
+                        .map(|it| self.tcx_ref().get(*it))
+                        .filter(|it| matches!(it, Ty::Generic(..)))
+                        .cloned()
+                        .map(|it| {
+                            if let Ty::Generic(name, _impl_traits) = it {
+                                name.to_string()
+                            } else {
+                                unreachable!()
+                            }
+                        })
+                        .collect::<Vec<_>>();
+
+                    if let Ty::Generic(name, _impl_traits) = self.tcx_ref().get(*ret_type) {
+                        generic_params.push(name.to_string());
+                    }
+
+                    let new_ty = self.instantiate(ty, generic_params.as_slice());
+                    new_ty
+                } else {
+                    ty
+                }
+            }
+
+            _ => panic!("not a type expr")
+        };
+
+        self.infer_ctx.module.typed_exprs[expr_id.0].set_type(ty);
+
+        return Ok(ty);
     }
 
     fn infer_expr(&mut self, expr_id: ExprId) -> CheckResult<TyId> {
@@ -130,7 +217,10 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
 
             TypedExpression::Prefix {
-                right, ty: result_ty, token, ..
+                right,
+                ty: result_ty,
+                token,
+                ..
             } => {
                 let op = token.value.clone();
 
@@ -157,7 +247,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                     self.unify(expected_ptr_ty, right_ty, right_token)?;
                 }
 
-                right_ty
+                result_ty
             }
 
             TypedExpression::SizeOf(_, val, ty) => {
@@ -387,9 +477,11 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 if p1.len() != p2.len() {
                     return Err(self.make_mismatch_error(t1, t2, token));
                 }
+
                 for (a, b) in p1.iter().zip(p2.iter()) {
                     self.unify(*a, *b, token.clone())?;
                 }
+
                 self.unify(r1, r2, token)
             }
 
