@@ -12,7 +12,7 @@ use crate::CheckResult;
 use crate::constants::BOOL_INFIX_OPERATORS;
 use crate::error::{TypeCheckerError, TypeCheckerErrorKind};
 use crate::module::TypedModule;
-use crate::ty::{Ty, TyId};
+use crate::ty::{IntTy, Ty, TyId};
 use crate::ty_context::TypeContext;
 use crate::type_infer::constraint::Constraint;
 use crate::type_infer::infer_context::InferContext;
@@ -259,12 +259,26 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let left_t = self.infer_expr(left_id)?;
                 let right_t = self.infer_expr(right_id)?;
 
-                self.unify(left_t, right_t, right.token())?;
+                let ltyid = self.follow(left_t);
+                let rtyid = self.follow(right_t);
 
-                if !BOOL_INFIX_OPERATORS.contains(&op.as_ref()) {
-                    left_t
-                } else {
-                    ty
+                let lty = self.tcx_ref().get(self.follow(left_t));
+                let rty = self.tcx_ref().get(self.follow(right_t));
+
+                match (lty, rty, op.as_ref()) {
+                    (Ty::Ptr(_), Ty::IntTy(IntTy::USize), "+") => ltyid, // 指针加法，结果是左边的指针类型
+                    (Ty::IntTy(IntTy::USize), Ty::Ptr(_), "+") => rtyid, // 整数+指针，结果是右边的指针类型
+                    (Ty::Ptr(_), Ty::IntTy(IntTy::USize), "-") => ltyid, // 指针减法
+
+                    _ => {
+                        self.unify(left_t, right_t, right.token())?;
+
+                        if !BOOL_INFIX_OPERATORS.contains(&op.as_ref()) {
+                            left_t
+                        } else {
+                            ty
+                        }
+                    }
                 }
             }
 
