@@ -1,3 +1,4 @@
+pub mod constants;
 pub mod error;
 pub mod module;
 pub mod scope;
@@ -23,6 +24,7 @@ use indexmap::IndexMap;
 use token::token::Token;
 
 use crate::{
+    constants::BOOL_INFIX_OPERATORS,
     error::{TypeCheckerError, TypeCheckerErrorKind},
     module::TypedModule,
     scope::{CheckScope, ScopeKind},
@@ -427,7 +429,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 Ok(TypedExpression::Infix {
                     token,
-                    ty: if op.as_ref() == "==" || op.as_ref() == "!=" {
+                    ty: if BOOL_INFIX_OPERATORS.contains(&op.as_ref()) {
                         self.tcx().alloc(Ty::Bool)
                     } else {
                         lty
@@ -630,8 +632,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             }
                         }
 
-                        let (stmts, _) =
-                            self.check_statements(statements, ScopeKind::Function)?;
+                        let (stmts, _) = self.check_statements(statements, ScopeKind::Function)?;
 
                         let ret_ty = ret_ty;
 
