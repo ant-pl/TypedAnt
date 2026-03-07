@@ -9,6 +9,7 @@ use ast::{ExprId, StmtId};
 use token::token::Token;
 
 use crate::CheckResult;
+use crate::constants::BOOL_INFIX_OPERATORS;
 use crate::error::{TypeCheckerError, TypeCheckerErrorKind};
 use crate::module::TypedModule;
 use crate::ty::{Ty, TyId};
@@ -73,7 +74,11 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         let ty = match stmt {
             TypedStatement::ExpressionStatement(_, id, _) => Some(self.infer_expr(id)?),
 
-            TypedStatement::Let { value: id, var_type, .. } => {
+            TypedStatement::Let {
+                value: id,
+                var_type,
+                ..
+            } => {
                 let expr = self.module_ref().get_expr(id).unwrap().clone();
                 let expr_ty = self.infer_expr(id)?;
 
@@ -92,8 +97,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                     expr_ty
                 };
 
-
-                self.unify(expr_ty, ty, expr.token())?;
+                self.unify(ty, expr_ty, expr.token())?;
 
                 Some(ty)
             }
@@ -218,12 +222,26 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             TypedExpression::If {
                 consequence,
                 else_block,
+                condition,
                 ..
             } => {
+                let bool_ty = self.tcx().alloc(Ty::Bool);
+                let condition_ty = self.infer_expr(condition)?;
+                let condition_token = self.module_ref().get_expr(condition).unwrap().token();
+
+                self.unify(bool_ty, condition_ty, condition_token)?;
+
                 let then_block_ty = self.infer_expr(consequence)?;
 
-                if let Some(it) = else_block.and_then(|it| Some(self.infer_expr(it))) {
-                    return it;
+                if let Some(it) = else_block.and_then(|it| {
+                    Some((
+                        self.infer_expr(it),
+                        self.module_ref().get_expr(it).unwrap().token(),
+                    ))
+                }) {
+                    let else_block_ty = it.0?;
+                    let token = it.1;
+                    self.unify(then_block_ty, else_block_ty, token)?;
                 }
 
                 then_block_ty
@@ -233,16 +251,21 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 left: left_id,
                 right: right_id,
                 ty,
+                op,
                 ..
             } => {
                 let right = self.module_ref().get_expr(right_id).unwrap().clone();
-                
+
                 let left_t = self.infer_expr(left_id)?;
                 let right_t = self.infer_expr(right_id)?;
-                
+
                 self.unify(left_t, right_t, right.token())?;
 
-                ty
+                if !BOOL_INFIX_OPERATORS.contains(&op.as_ref()) {
+                    left_t
+                } else {
+                    ty
+                }
             }
 
             TypedExpression::Prefix {
@@ -314,10 +337,10 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 ..
             } => {
                 let right = self.module_ref().get_expr(right_id).unwrap().clone();
-                
+
                 let left_t = self.infer_expr(left_id)?;
                 let right_t = self.infer_expr(right_id)?;
-                
+
                 self.unify(left_t, right_t, right.token())?;
 
                 ty
@@ -337,8 +360,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let left_t = self.infer_expr(left_id)?;
                 let right_t = self.infer_expr(right_id)?;
 
-                self.unify(left_t, bool_ty, left.token())?;
-                self.unify(right_t, bool_ty, right.token())?;
+                self.unify(bool_ty, left_t, left.token())?;
+                self.unify(bool_ty, right_t, right.token())?;
 
                 ty
             }
@@ -357,8 +380,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let left_t = self.infer_expr(left_id)?;
                 let right_t = self.infer_expr(right_id)?;
 
-                self.unify(left_t, bool_ty, left.token())?;
-                self.unify(right_t, bool_ty, right.token())?;
+                self.unify(bool_ty, left_t, left.token())?;
+                self.unify(bool_ty, right_t, right.token())?;
 
                 ty
             }
