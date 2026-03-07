@@ -73,12 +73,29 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         let ty = match stmt {
             TypedStatement::ExpressionStatement(_, id, _) => Some(self.infer_expr(id)?),
 
-            TypedStatement::Let { value: id, ty, .. } => {
+            TypedStatement::Let { value: id, var_type, .. } => {
                 let expr = self.module_ref().get_expr(id).unwrap().clone();
+                let expr_ty = self.infer_expr(id)?;
 
-                self.unify(expr.get_type(), ty, expr.token())?;
+                let ty = if let Some(ref ty_ident) = var_type {
+                    match self.tcx().table.lock().unwrap().get(&ty_ident.value) {
+                        Some(it) => it.ty.get_type(),
+                        None => {
+                            return Err(Self::make_err(
+                                None,
+                                TypeCheckerErrorKind::TypeNotFound,
+                                ty_ident.token.clone(),
+                            ));
+                        }
+                    }
+                } else {
+                    expr_ty
+                };
 
-                Some(self.infer_expr(id)?)
+
+                self.unify(expr_ty, ty, expr.token())?;
+
+                Some(ty)
             }
 
             TypedStatement::Extern { params, ret_ty, .. } => {
@@ -532,6 +549,18 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 )
                 .into(),
             ),
+        }
+    }
+
+    pub fn make_err(
+        message: Option<&str>,
+        kind: TypeCheckerErrorKind,
+        token: Token,
+    ) -> TypeCheckerError {
+        TypeCheckerError {
+            kind,
+            token,
+            message: message.map_or_else(|| None, |it| Some(it.into())),
         }
     }
 

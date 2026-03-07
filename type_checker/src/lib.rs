@@ -1363,8 +1363,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     typed_val.get_type()
                 };
 
-                self.require_eq(ty, typed_val.get_type(), typed_val.token());
-
                 self.tcx()
                     .table
                     .lock()
@@ -1494,6 +1492,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         self.module.get_stmt(stmtid).unwrap().get_type()
     }
 
+    #[allow(unused)]
     fn require_eq(&mut self, expected: TyId, got: TyId, token: Token) {
         self.constraints.push(Constraint::new(expected, got, token));
     }
