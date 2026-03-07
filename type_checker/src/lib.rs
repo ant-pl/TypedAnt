@@ -630,12 +630,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             }
                         }
 
-                        let (stmts, scope) =
+                        let (stmts, _) =
                             self.check_statements(statements, ScopeKind::Function)?;
-
-                        for (cur_ret_ty, token) in &scope.collect_return_types {
-                            self.require_eq(ret_ty, *cur_ret_ty, token.clone());
-                        }
 
                         let ret_ty = ret_ty;
 

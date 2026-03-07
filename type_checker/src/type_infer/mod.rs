@@ -21,11 +21,16 @@ use crate::typed_ast::{GetType, SetType};
 
 pub struct TypeInfer<'a, 'b, 'c> {
     pub infer_ctx: &'a mut InferContext<'b, 'c>,
+
+    current_expected_ret_ty: Option<TyId>,
 }
 
 impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     pub fn new(infer_ctx: &'a mut InferContext<'b, 'c>) -> Self {
-        Self { infer_ctx }
+        Self {
+            infer_ctx,
+            current_expected_ret_ty: None,
+        }
     }
 
     #[inline(always)]
@@ -86,7 +91,19 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 None
             }
 
-            TypedStatement::Return { expr: id, .. } => Some(self.infer_expr(id)?),
+            TypedStatement::Return { expr: id, .. } => {
+                let ty = self.infer_expr(id)?;
+
+                if let Some(expected) = self.current_expected_ret_ty {
+                    self.unify(
+                        expected,
+                        ty,
+                        self.module_ref().get_expr(id).unwrap().token(),
+                    )?;
+                }
+
+                Some(ty)
+            }
 
             _ => None,
         };
@@ -104,11 +121,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         let ty = match expr {
             TypedExpression::TypeHint(_, _, ty) => ty,
 
-            TypedExpression::Prefix {
-                right,
-                token,
-                ..
-            } => {
+            TypedExpression::Prefix { right, token, .. } => {
                 let op = token.value.clone();
 
                 let right_ty = self.infer_expr(right)?;
@@ -167,7 +180,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 }
             }
 
-            _ => panic!("not a type expr")
+            _ => panic!("not a type expr"),
         };
 
         self.infer_ctx.module.typed_exprs[expr_id.0].set_type(ty);
@@ -336,7 +349,18 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
 
             TypedExpression::Function { block, ty, .. } => {
+                let expected_ret_ty = match self.tcx_ref().get(ty) {
+                    Ty::Function { ret_type, .. } => *ret_type,
+                    _ => unreachable!(),
+                };
+
+                // 保存旧的状态 (为了支持嵌套函数)
+                let old_ret_ty = self.current_expected_ret_ty;
+                self.current_expected_ret_ty = Some(expected_ret_ty);
+
                 self.infer_expr(block)?;
+
+                self.current_expected_ret_ty = old_ret_ty;
 
                 ty
             }
