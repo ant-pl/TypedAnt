@@ -235,13 +235,12 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 ty,
                 ..
             } => {
-                let left = self.module_ref().get_expr(left_id).unwrap().clone();
                 let right = self.module_ref().get_expr(right_id).unwrap().clone();
-
-                self.unify(left.get_type(), right.get_type(), right.token())?;
-
-                self.infer_expr(left_id)?;
-                self.infer_expr(right_id)?;
+                
+                let left_t = self.infer_expr(left_id)?;
+                let right_t = self.infer_expr(right_id)?;
+                
+                self.unify(left_t, right_t, right.token())?;
 
                 ty
             }
@@ -314,13 +313,12 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 ty,
                 ..
             } => {
-                let left = self.module_ref().get_expr(left_id).unwrap().clone();
                 let right = self.module_ref().get_expr(right_id).unwrap().clone();
-
-                self.unify(left.get_type(), right.get_type(), right.token())?;
-
-                self.infer_expr(left_id)?;
-                self.infer_expr(right_id)?;
+                
+                let left_t = self.infer_expr(left_id)?;
+                let right_t = self.infer_expr(right_id)?;
+                
+                self.unify(left_t, right_t, right.token())?;
 
                 ty
             }
@@ -336,11 +334,11 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                 let bool_ty = self.tcx().alloc(Ty::Bool);
 
-                self.unify(left.get_type(), bool_ty, left.token())?;
-                self.unify(right.get_type(), bool_ty, right.token())?;
+                let left_t = self.infer_expr(left_id)?;
+                let right_t = self.infer_expr(right_id)?;
 
-                self.infer_expr(left_id)?;
-                self.infer_expr(right_id)?;
+                self.unify(left_t, bool_ty, left.token())?;
+                self.unify(right_t, bool_ty, right.token())?;
 
                 ty
             }
@@ -356,11 +354,11 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                 let bool_ty = self.tcx().alloc(Ty::Bool);
 
-                self.unify(left.get_type(), bool_ty, left.token())?;
-                self.unify(right.get_type(), bool_ty, right.token())?;
+                let left_t = self.infer_expr(left_id)?;
+                let right_t = self.infer_expr(right_id)?;
 
-                self.infer_expr(left_id)?;
-                self.infer_expr(right_id)?;
+                self.unify(left_t, bool_ty, left.token())?;
+                self.unify(right_t, bool_ty, right.token())?;
 
                 ty
             }
