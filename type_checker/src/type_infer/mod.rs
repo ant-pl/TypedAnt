@@ -140,7 +140,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         let expr = self.module_ref().get_expr(expr_id).cloned().unwrap();
 
         let ty = match expr {
-            TypedExpression::TypeHint(_, _, ty) => ty,
+            TypedExpression::TypeHint(_, expr, _) => self.infer_expr(expr)?,
 
             TypedExpression::Prefix { right, token, .. } => {
                 let op = token.value.clone();
@@ -201,6 +201,26 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 }
             }
 
+            TypedExpression::TypePath {
+                left: name,
+                paths: path_ids,
+                ty,
+                ..
+            } => {
+                let path_types = path_ids
+                    .iter()
+                    .map(|it| self.infer_type_expr(*it))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let new_ty = self
+                    .tcx()
+                    .alloc(Ty::AppliedGeneric(name.value.clone(), path_types));
+
+                self.unify(new_ty, ty, name.token.clone())?;
+
+                new_ty
+            }
+
             _ => panic!("not a type expr"),
         };
 
@@ -217,7 +237,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             TypedExpression::StrLiteral { ty, .. } => ty,
             TypedExpression::Bool { ty, .. } => ty,
             TypedExpression::BigInt { ty, .. } => ty,
-            TypedExpression::TypeHint(_, _, ty) => ty,
+            TypedExpression::TypeHint(_, expr, _) => self.infer_expr(expr)?,
 
             TypedExpression::If {
                 consequence,
@@ -322,18 +342,126 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 ty
             }
 
-            TypedExpression::BuildStruct(_, _, fields, ty) => {
-                for (_, val) in fields {
-                    self.infer_expr(val)?;
+            TypedExpression::BuildStruct(_, ident, fields, ty) => {
+                // 拿到原始定义
+                let (def_generics, def_fields) = match self.tcx_ref().get(ty).clone() {
+                    Ty::Struct {
+                        generics, fields, ..
+                    } => (generics, fields),
+                    Ty::AppliedGeneric(name, _) => {
+                        let ty = self
+                            .tcx()
+                            .table
+                            .lock()
+                            .unwrap()
+                            .get(name.as_ref())
+                            .unwrap()
+                            .ty
+                            .get_type();
+
+                        match self.tcx_ref().get(ty).clone() {
+                            Ty::Struct {
+                                generics, fields, ..
+                            } => (generics, fields),
+                            it => {
+                                return Err(Self::make_err(
+                                    Some(&format!("expected struct, got {it:#?}")),
+                                    TypeCheckerErrorKind::TypeMismatch,
+                                    ident.token,
+                                ));
+                            }
+                        }
+                    }
+                    it => Err(Self::make_err(
+                        Some(&format!("expected struct, got {it:#?}")),
+                        TypeCheckerErrorKind::TypeMismatch,
+                        ident.token,
+                    ))?,
+                };
+
+                let mut mapping = HashMap::new();
+
+                // 在 TypeInfer 里分配 Infer 变量
+                let mut arg_infer_ids = vec![];
+                for gen_name in &def_generics {
+                    let infer_id = self.infer_ctx.alloc_infer_ty();
+
+                    mapping.insert(gen_name.to_string(), infer_id);
+
+                    arg_infer_ids.push(infer_id);
                 }
 
-                ty
+                // 构造这一次实例化的真正类型 (比如 Vec<?0>)
+                let instantiated_struct_ty = self.tcx().alloc(Ty::AppliedGeneric(
+                    ident.value.clone().into(),
+                    arg_infer_ids,
+                ));
+
+                // 递归推导并统一字段类型
+                for (field_ident, val_id) in fields {
+                    let val_ty = self.infer_expr(val_id)?; // 实际传入的类型
+
+                    // 字段声明时的类型
+                    let field_decl_ty = def_fields.get(&field_ident.value).unwrap();
+
+                    // 替换 (T -> mapping type)
+                    let expected_field_ty = self.substitute(*field_decl_ty, &mapping);
+
+                    // 统一
+                    self.unify(expected_field_ty, val_ty, field_ident.token.clone())?;
+                }
+
+                instantiated_struct_ty
             }
 
-            TypedExpression::FieldAccess(_, obj, _, ty) => {
-                self.infer_expr(obj)?;
+            TypedExpression::FieldAccess(_, obj, field_ident, ty) => {
+                let new_obj_ty = self.infer_expr(obj)?;
+                let obj_ty_followed = self.follow(new_obj_ty);
 
-                ty
+                match self.tcx_ref().get(obj_ty_followed).clone() {
+                    // 访问的是泛型实例
+                    Ty::AppliedGeneric(struct_name, args) => {
+                        // 找回原始 Struct 定义
+                        let base_id = self
+                            .tcx()
+                            .table
+                            .lock()
+                            .unwrap()
+                            .get(struct_name.as_ref())
+                            .unwrap()
+                            .ty
+                            .get_type();
+
+                        let (generics_defs, fields_defs) = match self.tcx_ref().get(base_id) {
+                            Ty::Struct {
+                                generics, fields, ..
+                            } => (generics, fields),
+                            _ => unreachable!(),
+                        };
+
+                        // 建立映射 T -> real_ty
+                        let mut mapping = HashMap::new();
+                        for (i, name) in generics_defs.iter().enumerate() {
+                            mapping.insert(name.to_string(), args[i]);
+                        }
+
+                        // 拿到字段, 并替换
+                        let field_ty = fields_defs.get(&field_ident.value).unwrap();
+                        self.substitute(*field_ty, &mapping)
+                    }
+
+                    // 普通结构体
+                    Ty::Struct { .. } => {
+                        // 使用原来的类型
+                        ty
+                    }
+
+                    _ => Err(Self::make_err(
+                        Some(&format!("not a struct")),
+                        TypeCheckerErrorKind::TypeMismatch,
+                        self.module_ref().get_expr(obj).unwrap().token(),
+                    ))?,
+                }
             }
 
             TypedExpression::Block(_, stmts, ty) => {
@@ -473,6 +601,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                     ty
                 }
             }
+
+            _ => todo!("todo expr"),
         };
 
         self.infer_ctx.module.typed_exprs[expr_id.0].set_type(ty);
@@ -636,6 +766,14 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             Ty::Ptr(inner) => {
                 let new_inner = self.substitute(inner, mapping);
                 self.tcx().alloc(Ty::Ptr(new_inner))
+            }
+
+            Ty::AppliedGeneric(name, args) => {
+                let new_args = args
+                    .iter()
+                    .map(|arg| self.substitute(*arg, mapping))
+                    .collect();
+                self.tcx().alloc(Ty::AppliedGeneric(name, new_args))
             }
 
             Ty::Function {

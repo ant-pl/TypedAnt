@@ -291,13 +291,13 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 let struct_ty_id = struct_sym.ty.get_type();
 
                 // 取出 struct 的泛型参数和字段定义
-                let (def_generics, def_fields) = match self.tcx().get(struct_ty_id).clone() {
+                let def_generics = match self.tcx().get(struct_ty_id).clone() {
                     Ty::Struct {
-                        generics, fields, ..
-                    } => (generics, fields),
+                        generics, ..
+                    } => generics,
                     it => {
                         return Err(Self::make_err(
-                            Some(&format!("expected a struct, got: {it}")),
+                            Some(&format!("expected struct, got {it}")),
                             TypeCheckerErrorKind::TypeMismatch,
                             name.token.clone(),
                         ));
@@ -330,49 +330,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     ));
                 }
 
-                // 泛型绑定表： T -> 实际类型
-                let mut generic_map = IndexMap::<Arc<str>, TyId>::new();
-
-                for (field_name, field_expr) in &typed_field_ids {
-                    let expr_ty = self.get_expr_tyid(*field_expr);
-
-                    let def_ty = def_fields.get(&field_name.value).map_or_else(
-                        || {
-                            Err(Self::make_err(
-                                Some(&format!("field `{}` not found", &field_name.value)),
-                                TypeCheckerErrorKind::VariableNotFound,
-                                field_name.token.clone(),
-                            ))
-                        },
-                        |it| Ok(*it),
-                    )?;
-
-                    // 如果字段类型是泛型，绑定
-                    if let Ty::Generic(gen_name, _) = self.tcx().get(def_ty) {
-                        generic_map.insert(gen_name.clone(), expr_ty);
-                    }
-                }
-
-                // 按 struct 声明顺序生成
-                let mut args = vec![];
-
-                for g in def_generics {
-                    let concrete = generic_map
-                        .get(&g)
-                        .map_or_else(
-                            || Err(format!("cannot derivation generic type: {g}")),
-                            |it| Ok(*it),
-                        )
-                        .unwrap(); // 没有 Token 可抛出只能 unwarp
-
-                    args.push(concrete);
-                }
-
-                // 构造 AppliedGeneric A<str>
-                let applied_ty = self
-                    .tcx()
-                    .alloc(Ty::AppliedGeneric(name.value.clone().into(), args));
-
                 Ok(TypedExpression::BuildStruct(
                     token,
                     Ident {
@@ -380,7 +337,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         value: name.value,
                     },
                     typed_field_ids,
-                    applied_ty,
+                    struct_ty_id,
                 ))
             }
 
@@ -545,7 +502,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 name,
                 params,
                 block,
-                ret_ty: ret_ty_ident,
+                ret_ty: ret_ty_expr,
                 generics_params,
             } => {
                 for generics_param in generics_params
@@ -584,20 +541,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
 
                 // 初步返回定义
-                let ret_ty = ret_ty_ident
+                let ret_ty = ret_ty_expr
                     .as_ref()
-                    .map_or_else(
-                        || None,
-                        |it| {
-                            self.tcx()
-                                .table
-                                .lock()
-                                .unwrap()
-                                .get(&it.value)
-                                .map_or(None, |it| Some(it.ty.get_type()))
-                        },
-                    )
-                    .map_or(self.tcx().alloc(Ty::Unit), |it| it);
+                    .map_or_else(|| None, |it| Some(self.check_type_expr(*it.clone())))
+                    .map_or(Ok(self.tcx().alloc(Ty::Unit)), |it| Ok(it?.get_type()))?;
 
                 let func_ty = Ty::Function {
                     params_type,
@@ -641,29 +588,17 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     other => self.check_expr(other)?,
                 };
 
-                let ret_ident = ret_ty_ident.map(|it| Ident {
-                    token: it.token,
-                    value: it.value,
-                });
+                let checked_ret_ty_expr = ret_ty_expr.map(|it| self.check_type_expr(*it));
 
                 let ty = Ty::Function {
                     params_type: typed_param_ids
                         .iter()
                         .map(|p| self.get_expr_tyid(*p))
                         .collect(),
-                    ret_type: ret_ident
+                    ret_type: checked_ret_ty_expr
                         .as_ref()
-                        .map_or(Ok(self.tcx().alloc(Ty::Unit)), |id| {
-                            self.tcx().table.lock().unwrap().get(&id.value).map_or_else(
-                                || {
-                                    Err(TypeChecker::make_err(
-                                        Some(&format!("unknown type: {}", &id.value)),
-                                        TypeCheckerErrorKind::TypeNotFound,
-                                        id.token.clone(),
-                                    ))
-                                },
-                                |it| Ok(it.ty.get_type()),
-                            )
+                        .map_or(Ok(self.tcx().alloc(Ty::Unit)), |ty_expr| {
+                            Ok(ty_expr.clone()?.get_type())
                         })?,
                     is_variadic: false,
                 };
@@ -704,7 +639,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     name,
                     params: typed_param_ids,
                     block: self.module.alloc_expr(typed_block),
-                    ret_ty: ret_ident,
+                    ret_ty: if let Some(it) = checked_ret_ty_expr {
+                        Some(self.module.alloc_expr(it?))
+                    } else {
+                        None
+                    },
                     ty: self.tcx().alloc(ty),
                     generics_params: typed_generic_params,
                 })
@@ -774,6 +713,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
             // 如果出现此表达式请考虑parser是否损坏
             Expression::ThreeDot(_) => unreachable!(),
+
+            it => todo!("todo expr: {it}")
         }
     }
 
@@ -835,6 +776,52 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     self.module.alloc_expr(new_ty_expr),
                     ty,
                 ))
+            }
+
+            Expression::TypePath {
+                token, left, paths, ..
+            } => {
+                let left = Ident {
+                    token: left.token,
+                    value: left.value,
+                };
+
+                if self
+                    .tcx()
+                    .table
+                    .lock()
+                    .unwrap()
+                    .get(left.value.as_ref())
+                    .is_none()
+                {
+                    return Err(Self::make_err(
+                        Some(&format!("type `{left}` not found")),
+                        TypeCheckerErrorKind::TypeNotFound,
+                        left.token,
+                    ));
+                }
+
+                let typed_path_exprs = paths
+                    .into_iter()
+                    .map(|it| self.check_expr(*it))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let paths_type = typed_path_exprs
+                    .iter()
+                    .map(|it| it.get_type())
+                    .collect::<Vec<_>>();
+
+                Ok(TypedExpression::TypePath {
+                    token,
+                    ty: self
+                        .tcx()
+                        .alloc(Ty::AppliedGeneric(left.value.clone(), paths_type)),
+                    left,
+                    paths: typed_path_exprs
+                        .into_iter()
+                        .map(|it| self.module.alloc_expr(it))
+                        .collect(),
+                })
             }
 
             _ => panic!("not a type expr"),
@@ -933,6 +920,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     ty: self.tcx().alloc(Ty::Unit),
                 })
             }
+
             Statement::FuncDecl {
                 token,
                 name,
@@ -1068,6 +1056,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     generics_params: typed_generic_params,
                 })
             }
+
             Statement::Extern {
                 token,
                 abi,
@@ -1114,6 +1103,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     vararg,
                 })
             }
+
             Statement::Struct {
                 token,
                 name,
@@ -1219,7 +1209,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     });
 
                 Ok(TypedStatement::Struct {
-                    ty: self.tcx().alloc(ty),
+                    ty: ty_id,
                     token,
                     name: typed_name,
                     fields: typed_field_ids,
