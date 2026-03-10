@@ -52,7 +52,7 @@ pub enum TypedExpression {
         params: Vec<ExprId>,
         generics_params: Vec<ExprId>,
         block: ExprId,
-        ret_ty: Option<Ident>,
+        ret_ty: Option<ExprId>,
         ty: TyId,
     },
     Call {
@@ -92,6 +92,12 @@ pub enum TypedExpression {
         right: ExprId,
         ty: TyId,
     },
+    TypePath {
+        token: Token,
+        left: Ident,
+        paths: Vec<ExprId>,
+        ty: TyId,
+    },
 }
 
 impl GetType for TypedExpression {
@@ -114,6 +120,7 @@ impl GetType for TypedExpression {
             Self::Assign { ty, .. } => *ty,
             Self::BoolAnd { ty, .. } => *ty,
             Self::BoolOr { ty, .. } => *ty,
+            Self::TypePath { ty, .. } => *ty,
             Self::SizeOf(_, _, ty) => *ty,
         }
     }
@@ -139,6 +146,7 @@ impl SetType for TypedExpression {
             Self::Assign { ty, .. } => *ty = new_ty,
             Self::BoolAnd { ty, .. } => *ty = new_ty,
             Self::BoolOr { ty, .. } => *ty = new_ty,
+            Self::TypePath { ty, .. } => *ty = new_ty,
             Self::SizeOf(_, _, ty) => *ty = new_ty,
         }
     }
@@ -165,6 +173,7 @@ impl GetToken for TypedExpression {
             TypedExpression::StrLiteral { token, .. } => token.clone(),
             TypedExpression::BoolAnd { token, .. } => token.clone(),
             TypedExpression::BoolOr { token, .. } => token.clone(),
+            TypedExpression::TypePath { token, .. } => token.clone(),
         }
     }
 }
