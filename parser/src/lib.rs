@@ -11,7 +11,7 @@ use crate::{
         parse_assign::parse_assign, parse_block::parse_block_expr, parse_bool::parse_bool, parse_bool_and_or::{parse_bool_and, parse_bool_or}, parse_build_struct::parse_build_struct, parse_call::parse_call, parse_const::parse_const, parse_extern::parse_extern, parse_field_access::parse_field_access, parse_func::parse_func, parse_grouped_expr::parse_grouped_expr, parse_ident::parse_ident, parse_if::parse_if, parse_impl::parse_impl, parse_infix::parse_infix, parse_let::parse_let, parse_num::{
             parse_i8, parse_i16, parse_i32, parse_i64, parse_isize, parse_u8, parse_u16, parse_u32,
             parse_u64, parse_usize,
-        }, parse_prefix::parse_prefix, parse_return::parse_return, parse_sizeof::parse_sizeof, parse_str::parse_str, parse_struct::parse_struct, parse_trait::parse_trait, parse_while::parse_while
+        }, parse_prefix::parse_prefix, parse_return::parse_return, parse_sizeof::parse_sizeof, parse_str::parse_str, parse_struct::parse_struct, parse_trait::parse_trait, parse_type_hint::parse_type_hint, parse_type_path::parse_type_path, parse_while::parse_while
     },
     precedence::{Precedence, get_token_precedence},
 };
@@ -250,6 +250,51 @@ impl Parser {
         }
 
         Ok(left)
+    }
+
+    pub fn parse_type_expression(&mut self, precedence: Precedence) -> ParseResult<Expression> {
+        // 注入 TypePath 解析函数
+        self.infix_parse_fn_map
+            .insert(TokenType::Lt, parse_type_path);
+
+        let r = self.parse_expression(precedence);
+
+        // 移除 TypePath 解析函数
+        self.infix_parse_fn_map
+            .insert(TokenType::Lt, parse_infix);
+
+        r
+    }
+
+    /// 使用本函数前请确保你已经到达到指定开始 Token  
+    ///   
+    /// 例如 在使用该函数解析左括号到右括号的表达式时 请先前进到左括号  
+    ///   
+    /// 函数执行完后不会自动离开指定 结束Token 若要离开 请自行调用 next_token 方法  
+    pub fn parse_type_expression_list(
+        &mut self,
+        end: TokenType,
+    ) -> Result<Vec<Box<Expression>>, ParserError> {
+        // WARNING: 非十足把握请勿模仿动态注入表达式解析表
+
+        // 注入 TypeHint 解析函数
+        self.infix_parse_fn_map
+            .insert(TokenType::Colon, parse_type_hint);
+
+        // 注入 TypePath 解析函数
+        self.infix_parse_fn_map
+            .insert(TokenType::Lt, parse_type_path);
+
+        let exprs = self.parse_expression_list(end)?;
+
+        // 移除 TypePath 解析函数
+        self.infix_parse_fn_map
+            .insert(TokenType::Lt, parse_infix);
+
+        // 移除 TypeHint 解析函数
+        self.infix_parse_fn_map.remove(&TokenType::Colon);
+
+        Ok(exprs)
     }
 
     /// 使用本函数前请确保你已经到达到指定开始 Token  
