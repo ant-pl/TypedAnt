@@ -4,7 +4,7 @@ use token::token_type::TokenType;
 use crate::{
     ParseResult, Parser,
     error::{ParserError, ParserErrorKind},
-    parse_functions::{parse_three_dot::parse_three_dot, parse_type_hint::parse_type_hint},
+    parse_functions::parse_three_dot::parse_three_dot,
     precedence::Precedence,
 };
 
@@ -31,20 +31,12 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
 
     // WARNING: 非十足把握请勿模仿动态注入表达式解析表
 
-    // 注入 TypeHint 解析函数
-    parser
-        .infix_parse_fn_map
-        .insert(TokenType::Colon, parse_type_hint);
-
     // 注入 ThreeDot 解析函数
     parser
         .prefix_parse_fn_map
         .insert(TokenType::ThreeDot, parse_three_dot);
 
-    let params = parser.parse_expression_list(TokenType::RParen)?;
-
-    // 移除 TypeHint 解析函数
-    parser.infix_parse_fn_map.remove(&TokenType::Colon);
+    let params = parser.parse_type_expression_list(TokenType::RParen)?;
 
     // 移除 ThreeDot 解析函数
     parser.prefix_parse_fn_map.remove(&TokenType::ThreeDot);
@@ -58,7 +50,7 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
 
     parser.next_token(); // 前进到 类型表达式
 
-    let ret_type = parser.parse_expression(Precedence::Lowest)?;
+    let ret_type = parser.parse_type_expression(Precedence::Lowest)?;
 
     let alias = if parser.peek_token_is(TokenType::As) {
         parser.next_token(); // 前进到 As

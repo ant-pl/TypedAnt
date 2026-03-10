@@ -17,6 +17,6 @@ pub fn parse_type_hint(parser: &mut Parser, left: Expression) -> ParseResult<Exp
             value: token.value.clone(),
             token,
         },
-        Box::new(parser.parse_expression(Precedence::Lowest)?),
+        Box::new(parser.parse_type_expression(Precedence::Lowest)?),
     ))
 }
