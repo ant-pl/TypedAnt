@@ -8,10 +8,35 @@ use token::{token::Token, token_type::TokenType};
 use crate::{
     error::{ParserError, ParserErrorKind},
     parse_functions::{
-        parse_assign::parse_assign, parse_block::parse_block_expr, parse_bool::parse_bool, parse_bool_and_or::{parse_bool_and, parse_bool_or}, parse_build_struct::parse_build_struct, parse_call::parse_call, parse_const::parse_const, parse_extern::parse_extern, parse_field_access::parse_field_access, parse_func::parse_func, parse_grouped_expr::parse_grouped_expr, parse_ident::parse_ident, parse_if::parse_if, parse_impl::parse_impl, parse_infix::parse_infix, parse_let::parse_let, parse_num::{
+        parse_assign::parse_assign,
+        parse_block::parse_block_expr,
+        parse_bool::parse_bool,
+        parse_bool_and_or::{parse_bool_and, parse_bool_or},
+        parse_build_struct::parse_build_struct,
+        parse_call::parse_call,
+        parse_const::parse_const,
+        parse_extern::parse_extern,
+        parse_field_access::parse_field_access,
+        parse_func::parse_func,
+        parse_grouped_expr::parse_grouped_expr,
+        parse_ident::parse_ident,
+        parse_if::parse_if,
+        parse_impl::parse_impl,
+        parse_infix::parse_infix,
+        parse_let::parse_let,
+        parse_num::{
             parse_i8, parse_i16, parse_i32, parse_i64, parse_isize, parse_u8, parse_u16, parse_u32,
             parse_u64, parse_usize,
-        }, parse_prefix::parse_prefix, parse_return::parse_return, parse_sizeof::parse_sizeof, parse_str::parse_str, parse_struct::parse_struct, parse_trait::parse_trait, parse_type_hint::parse_type_hint, parse_type_path::parse_type_path, parse_while::parse_while
+        },
+        parse_prefix::parse_prefix,
+        parse_return::parse_return,
+        parse_sizeof::parse_sizeof,
+        parse_str::parse_str,
+        parse_struct::parse_struct,
+        parse_trait::parse_trait,
+        parse_type_hint::parse_type_hint,
+        parse_type_path::parse_type_path,
+        parse_while::parse_while,
     },
     precedence::{Precedence, get_token_precedence},
 };
@@ -253,15 +278,19 @@ impl Parser {
     }
 
     pub fn parse_type_expression(&mut self, precedence: Precedence) -> ParseResult<Expression> {
+        // 保存状态
+        let old_lt_handler = self.infix_parse_fn_map.remove(&TokenType::Lt);
+
         // 注入 TypePath 解析函数
         self.infix_parse_fn_map
             .insert(TokenType::Lt, parse_type_path);
 
         let r = self.parse_expression(precedence);
 
-        // 移除 TypePath 解析函数
-        self.infix_parse_fn_map
-            .insert(TokenType::Lt, parse_infix);
+        // 恢复
+        if let Some(old_lt) = old_lt_handler {
+            self.infix_parse_fn_map.insert(TokenType::Lt, old_lt);
+        }
 
         r
     }
@@ -275,24 +304,27 @@ impl Parser {
         &mut self,
         end: TokenType,
     ) -> Result<Vec<Box<Expression>>, ParserError> {
-        // WARNING: 非十足把握请勿模仿动态注入表达式解析表
+        // 保存当前 Lt 处理函数
+        let old_lt_handler = self.infix_parse_fn_map.remove(&TokenType::Lt);
+        // 保存当前 Colon 处理函数
+        let old_colon_handler = self.infix_parse_fn_map.remove(&TokenType::Colon);
 
-        // 注入 TypeHint 解析函数
+        // 注入 TypeHint 和 TypePath 解析函数
         self.infix_parse_fn_map
             .insert(TokenType::Colon, parse_type_hint);
-
-        // 注入 TypePath 解析函数
         self.infix_parse_fn_map
             .insert(TokenType::Lt, parse_type_path);
 
         let exprs = self.parse_expression_list(end)?;
 
-        // 移除 TypePath 解析函数
-        self.infix_parse_fn_map
-            .insert(TokenType::Lt, parse_infix);
-
-        // 移除 TypeHint 解析函数
-        self.infix_parse_fn_map.remove(&TokenType::Colon);
+        // 恢复原来的处理函数
+        if let Some(old_lt) = old_lt_handler {
+            self.infix_parse_fn_map.insert(TokenType::Lt, old_lt);
+        }
+        
+        if let Some(old_colon) = old_colon_handler {
+            self.infix_parse_fn_map.insert(TokenType::Colon, old_colon);
+        }
 
         Ok(exprs)
     }
