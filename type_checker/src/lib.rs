@@ -170,11 +170,32 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Expression::SizeOf(token, expr) => Ok(TypedExpression::SizeOf(
                 token,
                 {
-                    let expr = self.check_expr(*expr)?;
+                    let expr = self.check_expr_as_val(*expr)?;
                     self.module.alloc_expr(expr)
                 },
                 self.tcx().alloc(Ty::IntTy(ty::IntTy::USize)),
             )),
+
+            Expression::Cast {
+                token,
+                val,
+                cast_to,
+            } => {
+                let typed_val = self.check_expr_as_val(*val)?;
+                let cast_to = self.check_type_expr(*cast_to)?;
+
+                let cast_to_ty = cast_to.get_type();
+
+                let val_id = self.module.alloc_expr(typed_val);
+                let cast_to_id = self.module.alloc_expr(cast_to);
+
+                Ok(TypedExpression::Cast {
+                    token,
+                    val: val_id,
+                    cast_to: cast_to_id,
+                    ty: cast_to_ty,
+                })
+            }
 
             Expression::FieldAccess(token, struct_expr, field) => {
                 let new_field = Ident {
@@ -182,7 +203,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     token: field.token,
                 };
 
-                let typed_struct_expr = self.check_expr(*struct_expr)?;
+                let typed_struct_expr = self.check_expr_as_val(*struct_expr)?;
 
                 let struct_ty = self.tcx().get(typed_struct_expr.get_type()).clone();
 
@@ -292,9 +313,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 // 取出 struct 的泛型参数和字段定义
                 let def_generics = match self.tcx().get(struct_ty_id).clone() {
-                    Ty::Struct {
-                        generics, ..
-                    } => generics,
+                    Ty::Struct { generics, .. } => generics,
                     it => {
                         return Err(Self::make_err(
                             Some(&format!("expected struct, got {it}")),
@@ -308,7 +327,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 let mut typed_field_ids = IndexMap::new();
 
                 for (k, v) in fields {
-                    let typed_val = self.check_expr(v)?;
+                    let typed_val = self.check_expr_as_val(v)?;
                     typed_field_ids.insert(
                         Ident {
                             token: k.token,
@@ -342,8 +361,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
 
             Expression::Assign { token, left, right } => {
-                let typed_left = self.check_expr(*left)?;
-                let typed_right = self.check_expr(*right)?;
+                let typed_left = self.check_expr_as_val(*left)?;
+                let typed_right = self.check_expr_as_val(*right)?;
 
                 Ok(TypedExpression::Assign {
                     token,
@@ -379,8 +398,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 op,
                 ..
             } => {
-                let left_t = self.check_expr(*left)?;
-                let right_t = self.check_expr(*right)?;
+                let left_t = self.check_expr_as_val(*left)?;
+                let right_t = self.check_expr_as_val(*right)?;
 
                 let lty = left_t.get_type();
 
@@ -398,7 +417,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
 
             Expression::Prefix { token, op, right } => {
-                let right_t = self.check_expr(*right)?;
+                let right_t = self.check_expr_as_val(*right)?;
 
                 Ok(TypedExpression::Prefix {
                     ty: if op.as_ref() == "!" {
@@ -436,8 +455,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Expression::BoolAnd {
                 token, left, right, ..
             } => {
-                let left_expr = self.check_expr(*left)?;
-                let right_expr = self.check_expr(*right)?;
+                let left_expr = self.check_expr_as_val(*left)?;
+                let right_expr = self.check_expr_as_val(*right)?;
 
                 Ok(TypedExpression::BoolAnd {
                     token,
@@ -450,8 +469,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Expression::BoolOr {
                 token, left, right, ..
             } => {
-                let left_expr = self.check_expr(*left)?;
-                let right_expr = self.check_expr(*right)?;
+                let left_expr = self.check_expr_as_val(*left)?;
+                let right_expr = self.check_expr_as_val(*right)?;
 
                 Ok(TypedExpression::BoolOr {
                     token,
@@ -467,8 +486,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 consequence,
                 else_block,
             } => {
-                let typed_condition = self.check_expr(*condition)?;
-                let typed_consequence = self.check_expr(*consequence)?;
+                let typed_condition = self.check_expr_as_val(*condition)?;
+                let typed_consequence = if self.compile_as == CompileAs::AsValue {
+                    self.check_expr_as_val(*consequence)?
+                } else {
+                    self.check_expr(*consequence)?
+                };
 
                 let typed_else_block = match else_block {
                     Some(it) => Some({
@@ -526,7 +549,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 for param in params {
                     typed_param_ids.push({
-                        let expr = self.check_expr(*param)?;
+                        let expr = self.check_type_expr(*param)?;
                         self.module.alloc_expr(expr)
                     });
                 }
@@ -585,7 +608,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                         TypedExpression::Block(token, stmts, ret_ty)
                     }
-                    other => self.check_expr(other)?,
+                    other => self.check_type_expr(other)?,
                 };
 
                 let checked_ret_ty_expr = ret_ty_expr.map(|it| self.check_type_expr(*it));
@@ -714,7 +737,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             // 如果出现此表达式请考虑parser是否损坏
             Expression::ThreeDot(_) => unreachable!(),
 
-            it => todo!("todo expr: {it}")
+            it => todo!("todo expr: {it}"),
         }
     }
 

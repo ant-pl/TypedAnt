@@ -239,6 +239,28 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             TypedExpression::BigInt { ty, .. } => ty,
             TypedExpression::TypeHint(_, expr, _) => self.infer_expr(expr)?,
 
+            TypedExpression::Cast {
+                val, cast_to, ty, ..
+            } => {
+                let val_ty = self.infer_expr(val)?;
+
+                let new_ty = self.infer_expr(cast_to)?;
+
+                self.unify(
+                    ty,
+                    new_ty,
+                    self.module_ref().get_expr(cast_to).unwrap().token(),
+                )?;
+
+                self.check_cast_valid(
+                    val_ty,
+                    new_ty,
+                    self.module_ref().get_expr(val).unwrap().token(),
+                )?;
+
+                new_ty
+            }
+
             TypedExpression::If {
                 consequence,
                 else_block,
@@ -814,6 +836,73 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
         match ty {
             _ => self.substitute(ty_id, &mapping),
+        }
+    }
+}
+
+impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
+    /// 检查类型转换是否合法
+    fn check_cast_valid(&self, from: TyId, to: TyId, token: Token) -> CheckResult<()> {
+        let from_ty = self.tcx_ref().get(from);
+        let to_ty = self.tcx_ref().get(to);
+
+        // 相同类型, 允许
+        if from == to {
+            return Ok(());
+        }
+
+        // 数值类型之间允许转换（i32 as i64, u8 as i32 等）
+        if Self::is_numeric(from_ty) && Self::is_numeric(to_ty) {
+            return Ok(());
+        }
+
+        // 指针转换 (*T as *U, *T as usize 等)
+        if Self::is_ptr(from_ty) {
+            // *T as *U
+            if Self::is_ptr(to_ty) {
+                return Ok(());
+            }
+            // *T as usize/isize
+            if Self::is_integer(to_ty, Some(IntTy::USize))
+                || Self::is_integer(to_ty, Some(IntTy::ISize))
+            {
+                return Ok(());
+            }
+        }
+
+        // usize/isize 转指针
+        if (Self::is_integer(from_ty, Some(IntTy::USize))
+            || Self::is_integer(from_ty, Some(IntTy::ISize)))
+            && Self::is_ptr(to_ty)
+        {
+            return Ok(());
+        }
+
+        // 不合法的转换
+        Err(Self::make_err(
+            Some(&format!(
+                "cannot cast `{}` as `{}`",
+                self.tcx_ref().get(from),
+                self.tcx_ref().get(to)
+            )),
+            TypeCheckerErrorKind::InvalidCast,
+            token,
+        ))
+    }
+
+    fn is_numeric(ty: &Ty) -> bool {
+        matches!(ty, Ty::IntTy(_))
+    }
+
+    fn is_ptr(ty: &Ty) -> bool {
+        matches!(ty, Ty::Ptr(_))
+    }
+
+    fn is_integer(ty: &Ty, specific: Option<IntTy>) -> bool {
+        match (ty, specific) {
+            (Ty::IntTy(_), None) => true,
+            (Ty::IntTy(it), Some(want)) => *it == want,
+            _ => false,
         }
     }
 }
