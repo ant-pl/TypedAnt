@@ -8,6 +8,7 @@ pub enum TypeCheckerErrorKind {
     TypeNotFound,
     NotAConstant,
     TypeMismatch,
+    InvalidCast,
     Other,
 }
 
@@ -18,6 +19,7 @@ impl Display for TypeCheckerErrorKind {
             TypeCheckerErrorKind::TypeNotFound => "type not found",
             TypeCheckerErrorKind::TypeMismatch => "type mismatch",
             TypeCheckerErrorKind::NotAConstant => "not a constant",
+            TypeCheckerErrorKind::InvalidCast => "invalid cast",
             TypeCheckerErrorKind::Other => "other error",
         };
 
