@@ -31,6 +31,15 @@ pub enum IntTy {
 }
 
 impl IntTy {
+    pub fn is_signed(&self) -> bool {
+        matches!(
+            self,
+            Self::ISize | Self::I64 | Self::I32 | Self::I16 | Self::I8
+        )
+    }
+}
+
+impl IntTy {
     pub fn get_bytes_size(&self) -> usize {
         match *self {
             Self::I8 | Self::U8 => 1,
@@ -98,7 +107,7 @@ pub enum Ty {
     },
 
     // T, K: Eq, V: Eq + Clone ...
-    Generic(Arc<str>, Vec<TyId>), 
+    Generic(Arc<str>, Vec<TyId>),
 
     /// StructName<AppliedType>
     AppliedGeneric(Arc<str>, Vec<TyId>),
