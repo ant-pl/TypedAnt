@@ -1,7 +1,12 @@
-use std::{fmt::Display, sync::Arc};
+use std::{
+    fmt::{Display, Formatter},
+    sync::Arc,
+};
 
 use ast::expr::IntValue;
 use indexmap::IndexMap;
+
+use crate::ty_context::TypeContext;
 
 fn get_platform_width() -> usize {
     #[cfg(target_pointer_width = "64")]
@@ -151,6 +156,36 @@ impl Display for Ty {
                 ret_type
             ),
         }
+    }
+}
+
+pub fn display_ty(ty: &Ty, tcx: &TypeContext) -> String {
+    match ty {
+        Ty::Unknown => "unknown".to_owned(),
+        Ty::BigInt => "BigInt".to_owned(),
+        Ty::Str => "str".to_owned(),
+        Ty::IntTy(it) => it.to_string(),
+        Ty::Bool => "bool".to_owned(),
+        Ty::Unit => "Unit".to_owned(),
+        Ty::Ptr(it) => format!("*{}", display_ty(tcx.get(*it), tcx)),
+        Ty::Infer(it) => format!("Infer({it})"),
+        Ty::Generic(it, _) => it.to_string(),
+        Ty::AppliedGeneric(it, _) => it.to_string(),
+        Ty::Struct { name, .. } => name.to_string(),
+        Ty::Trait { name, .. } => name.to_string(),
+        Ty::Function {
+            params_type,
+            ret_type,
+            ..
+        } => format!(
+            "Fn({}) -> {}",
+            params_type
+                .iter()
+                .map(|it| display_ty(tcx.get(*it), tcx))
+                .collect::<Vec<String>>()
+                .join(", "),
+            display_ty(tcx.get(*ret_type), tcx)
+        ),
     }
 }
 
