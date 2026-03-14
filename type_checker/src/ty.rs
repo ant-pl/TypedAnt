@@ -170,15 +170,25 @@ pub fn display_ty(ty: &Ty, tcx: &TypeContext) -> String {
         Ty::AppliedGeneric(it, args) => format!(
             "{it}{}",
             if !args.is_empty() {
-                args.iter()
-                    .map(|it| display_ty(tcx.get(*it), tcx))
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                "<".to_owned()
+                    + &args
+                        .iter()
+                        .map(|it| display_ty(tcx.get(*it), tcx))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                    + ">"
             } else {
                 String::new()
             }
         ),
-        Ty::Struct { name, .. } => name.to_string(),
+        Ty::Struct { name, generics, .. } => format!(
+            "{name}<{}>",
+            if !generics.is_empty() {
+                format!("<{}>", generics.join(", "))
+            } else {
+                String::new()
+            }
+        ),
         Ty::Trait { name, .. } => name.to_string(),
         Ty::Function {
             params_type,
