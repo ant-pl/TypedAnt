@@ -68,12 +68,10 @@ pub fn repl() {
 
         let mut checker = TypeChecker::new(&mut module);
 
-        // 不知道为什么明明有情况能使用到 rust analyzer 死活分析不出来
-        #[allow(unused_assignments)]
-        let mut typed_node = None;
+        let typed_node;
 
         match checker.check_node(node) {
-            Ok(it) => typed_node = Some(it),
+            Ok(it) => typed_node = it,
             Err(err) => {
                 eprintln!("{err:#?}");
                 continue;
@@ -102,18 +100,16 @@ pub fn repl() {
             }
         }
 
-        if let Some(TypedNode::Program { statements, .. }) = typed_node {
-            let module_cloned = module.cloned();
-            println!(
-                "typed statements:\n{:#?}",
-                statements
-                    .iter()
-                    .map(|it| module_cloned.get_stmt(*it).unwrap().clone())
-                    .collect::<Vec<TypedStatement>>()
-            )
-        } else {
-            println!("no typed ast here.")
-        }
+        let TypedNode::Program { statements, .. } = typed_node;
+
+        let module_cloned = module.cloned();
+        println!(
+            "typed statements:\n{:#?}",
+            statements
+                .iter()
+                .map(|it| module_cloned.get_stmt(*it).unwrap().clone())
+                .collect::<Vec<TypedStatement>>()
+        );
 
         if show_tcx {
             println!("~tcx: {ty_ctx:#?}")
