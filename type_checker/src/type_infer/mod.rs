@@ -47,6 +47,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     /// 除非你打算长期持有 Module 否则不推荐使用这个函数
     /// 使用伴随整个 TypeInfer 的生命周期 'a 总是有代价的
     #[inline(always)]
+    #[allow(unused)]
     fn module(&'c mut self) -> &'a mut TypedModule<'b> {
         self.infer_ctx.module
     }
@@ -243,8 +244,10 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 val, cast_to, ty, ..
             } => {
                 let val_ty = self.infer_expr(val)?;
+                let val_ty = self.follow(val_ty);
 
                 let new_ty = self.infer_expr(cast_to)?;
+                let new_ty = self.follow(new_ty);
 
                 self.unify(
                     ty,
@@ -770,10 +773,12 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         real_id
     }
 
+    #[allow(unused)]
     fn get_expr_tyid(&self, exprid: ExprId) -> TyId {
         self.infer_ctx.module.get_expr(exprid).unwrap().get_type()
     }
 
+    #[allow(unused)]
     fn get_stmt_tyid(&self, stmtid: StmtId) -> TyId {
         self.infer_ctx.module.get_stmt(stmtid).unwrap().get_type()
     }
@@ -876,6 +881,13 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             && Self::is_ptr(to_ty)
         {
             return Ok(());
+        }
+
+        // bool -> int / int -> bool
+        match (from_ty, to_ty) {
+            (Ty::Bool, Ty::IntTy(_)) => return Ok(()),
+            (Ty::IntTy(_), Ty::Bool) => return Ok(()),
+            _ => ()
         }
 
         // 不合法的转换
