@@ -226,7 +226,7 @@ impl Parser {
         let mut left = prefix_parse_fn(self)?;
 
         while (self.peek_token.token_type != TokenType::Semicolon
-            || self.peek_token.token_type != TokenType::Eof)
+            && self.peek_token.token_type != TokenType::Eof)
             && precedence < get_token_precedence(self.peek_token.token_type)
         {
             let infix_parse_fn = *self
