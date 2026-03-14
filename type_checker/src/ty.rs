@@ -1,5 +1,5 @@
 use std::{
-    fmt::{Display, Formatter},
+    fmt::Display,
     sync::Arc,
 };
 
@@ -169,8 +169,15 @@ pub fn display_ty(ty: &Ty, tcx: &TypeContext) -> String {
         Ty::Unit => "Unit".to_owned(),
         Ty::Ptr(it) => format!("*{}", display_ty(tcx.get(*it), tcx)),
         Ty::Infer(it) => format!("Infer({it})"),
-        Ty::Generic(it, _) => it.to_string(),
-        Ty::AppliedGeneric(it, _) => it.to_string(),
+        Ty::Generic(it, _impl_traits) => it.to_string(),
+        Ty::AppliedGeneric(it, args) => format!(
+            "{it}<{}>",
+            args
+                .iter()
+                .map(|it| display_ty(tcx.get(*it), tcx))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
         Ty::Struct { name, .. } => name.to_string(),
         Ty::Trait { name, .. } => name.to_string(),
         Ty::Function {
