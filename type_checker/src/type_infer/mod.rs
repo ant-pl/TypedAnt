@@ -616,7 +616,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 new_ret_ty
             }
 
-            TypedExpression::Ident(_, ty) => {
+            TypedExpression::Ident(name, ty) => {
                 if let Ty::Function {
                     params_type,
                     ret_type,
@@ -643,6 +643,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                     let new_ty = self.instantiate(ty, generic_params.as_slice());
                     new_ty
+                } else if let Some(&current_ty) = self.locals_tyid.get(&name.value) {
+                    current_ty
                 } else {
                     ty
                 }
