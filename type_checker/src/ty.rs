@@ -182,7 +182,7 @@ pub fn display_ty(ty: &Ty, tcx: &TypeContext) -> String {
             }
         ),
         Ty::Struct { name, generics, .. } => format!(
-            "{name}<{}>",
+            "{name}{}",
             if !generics.is_empty() {
                 format!("<{}>", generics.join(", "))
             } else {
