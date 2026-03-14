@@ -141,7 +141,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         let expr = self.module_ref().get_expr(expr_id).cloned().unwrap();
 
         let ty = match expr {
-            TypedExpression::TypeHint(_, expr, _) => self.infer_expr(expr)?,
+            TypedExpression::TypeHint(_, expr, _) => self.infer_type_expr(expr)?,
 
             TypedExpression::Prefix { right, token, .. } => {
                 let op = token.value.clone();
