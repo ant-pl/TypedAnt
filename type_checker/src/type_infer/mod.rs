@@ -3,6 +3,7 @@ pub mod infer_context;
 
 use std::cmp::min;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use ast::node::GetToken;
 use ast::{ExprId, StmtId};
@@ -23,6 +24,8 @@ use crate::typed_ast::{GetType, SetType};
 pub struct TypeInfer<'a, 'b, 'c> {
     pub infer_ctx: &'a mut InferContext<'b, 'c>,
 
+    locals_tyid: HashMap<Arc<str>, TyId>,
+
     current_expected_ret_ty: Option<TyId>,
 }
 
@@ -31,6 +34,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         Self {
             infer_ctx,
             current_expected_ret_ty: None,
+            locals_tyid: HashMap::new(),
         }
     }
 
@@ -78,6 +82,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             TypedStatement::Let {
                 value: id,
                 var_type,
+                name,
                 ..
             } => {
                 let expr = self.module_ref().get_expr(id).unwrap().clone();
@@ -99,6 +104,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 };
 
                 self.unify(ty, expr_ty, expr.token())?;
+
+                self.locals_tyid.insert(name.value.clone(), ty);
 
                 Some(ty)
             }
@@ -173,7 +180,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 right_ty
             }
 
-            TypedExpression::Ident(_, ty) => {
+            TypedExpression::Ident(name, ty) => {
                 if let Ty::Function {
                     params_type,
                     ret_type,
@@ -200,6 +207,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                     let new_ty = self.instantiate(ty, generic_params.as_slice());
                     new_ty
+                } else if let Some(&current_ty) = self.locals_tyid.get(&name.value) {
+                    current_ty
                 } else {
                     ty
                 }
@@ -937,7 +946,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         // 替换推导类型
         for expr_idx in 0..self.infer_ctx.module.typed_exprs.len() {
             let ty = self.infer_ctx.module.typed_exprs[expr_idx].get_type();
-            let real_ty = self.follow(ty);
+            let real_ty = self.deep_resolve(ty);
 
             let expr = &mut self.infer_ctx.module.typed_exprs[expr_idx];
             expr.set_type(real_ty);
@@ -945,10 +954,40 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
         for stmt_idx in 0..self.infer_ctx.module.typed_stmts.len() {
             let ty = self.infer_ctx.module.typed_stmts[stmt_idx].get_type();
-            let real_ty = self.follow(ty);
+            let real_ty = self.deep_resolve(ty);
 
             let stmt = &mut self.infer_ctx.module.typed_stmts[stmt_idx];
             stmt.set_type(real_ty);
+        }
+    }
+
+    fn deep_resolve(&mut self, id: TyId) -> TyId {
+        let id = self.follow(id); // 先解开最外层
+        let ty = self.tcx_ref().get(id).clone();
+
+        match ty {
+            Ty::Ptr(inner) => {
+                let resolved = self.deep_resolve(inner);
+                self.tcx().alloc(Ty::Ptr(resolved))
+            }
+            Ty::AppliedGeneric(name, args) => {
+                let resolved_args = args.iter().map(|a| self.deep_resolve(*a)).collect();
+                self.tcx().alloc(Ty::AppliedGeneric(name, resolved_args))
+            }
+            Ty::Function {
+                params_type,
+                ret_type,
+                is_variadic,
+            } => {
+                let ps = params_type.iter().map(|p| self.deep_resolve(*p)).collect();
+                let rs = self.deep_resolve(ret_type);
+                self.tcx().alloc(Ty::Function {
+                    params_type: ps,
+                    ret_type: rs,
+                    is_variadic,
+                })
+            }
+            _ => id,
         }
     }
 }
