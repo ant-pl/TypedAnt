@@ -12,7 +12,7 @@ use crate::CheckResult;
 use crate::constants::BOOL_INFIX_OPERATORS;
 use crate::error::{TypeCheckerError, TypeCheckerErrorKind};
 use crate::module::TypedModule;
-use crate::ty::{IntTy, Ty, TyId};
+use crate::ty::{IntTy, Ty, TyId, display_ty};
 use crate::ty_context::TypeContext;
 use crate::type_infer::constraint::Constraint;
 use crate::type_infer::infer_context::InferContext;
@@ -158,8 +158,11 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                             kind: TypeCheckerErrorKind::TypeMismatch,
                             token,
                             message: Some(
-                                format!("expected `integer`, got {}", self.tcx_ref().get(right_ty))
-                                    .into(),
+                                format!(
+                                    "expected `integer`, got {}",
+                                    display_ty(self.tcx_ref().get(right_ty), self.tcx_ref())
+                                )
+                                .into(),
                             ),
                         });
                     }
@@ -390,7 +393,10 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                             } => (generics, fields),
                             it => {
                                 return Err(Self::make_err(
-                                    Some(&format!("expected struct, got {it:#?}")),
+                                    Some(&format!(
+                                        "expected struct, got {}",
+                                        display_ty(&it, self.tcx_ref())
+                                    )),
                                     TypeCheckerErrorKind::TypeMismatch,
                                     ident.token,
                                 ));
@@ -398,7 +404,10 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                         }
                     }
                     it => Err(Self::make_err(
-                        Some(&format!("expected struct, got {it:#?}")),
+                        Some(&format!(
+                            "expected struct, got {}",
+                            display_ty(&it, self.tcx_ref())
+                        )),
                         TypeCheckerErrorKind::TypeMismatch,
                         ident.token,
                     ))?,
@@ -737,8 +746,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             message: Some(
                 format!(
                     "expected `{}`, got {}",
-                    self.tcx_ref().get(t1),
-                    self.tcx_ref().get(t2)
+                    display_ty(self.tcx_ref().get(t1), self.tcx_ref()),
+                    display_ty(self.tcx_ref().get(t2), self.tcx_ref()),
                 )
                 .into(),
             ),
@@ -890,15 +899,15 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         match (from_ty, to_ty) {
             (Ty::Bool, Ty::IntTy(_)) => return Ok(()),
             (Ty::IntTy(_), Ty::Bool) => return Ok(()),
-            _ => ()
+            _ => (),
         }
 
         // 不合法的转换
         Err(Self::make_err(
             Some(&format!(
                 "cannot cast `{}` as `{}`",
-                self.tcx_ref().get(from),
-                self.tcx_ref().get(to)
+                display_ty(self.tcx_ref().get(from), self.tcx_ref()),
+                display_ty(self.tcx_ref().get(to), self.tcx_ref()),
             )),
             TypeCheckerErrorKind::InvalidCast,
             token,

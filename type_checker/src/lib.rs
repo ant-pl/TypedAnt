@@ -29,7 +29,7 @@ use crate::{
     module::TypedModule,
     scope::{CheckScope, ScopeKind},
     table::TypeTable,
-    ty::{Ty, TyId},
+    ty::{Ty, TyId, display_ty},
     ty_context::TypeContext,
     type_infer::constraint::Constraint,
     typed_ast::{
@@ -316,7 +316,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     Ty::Struct { generics, .. } => generics,
                     it => {
                         return Err(Self::make_err(
-                            Some(&format!("expected struct, got {it}")),
+                            Some(&format!(
+                                "expected struct, got {}",
+                                display_ty(&it, self.tcx_ref())
+                            )),
                             TypeCheckerErrorKind::TypeMismatch,
                             name.token.clone(),
                         ));
@@ -431,7 +434,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             return Err(Self::make_err(
                                 Some(&format!(
                                     "type `{}` cannot be dereferenced",
-                                    self.tcx().get(right_t.get_type())
+                                    display_ty(
+                                        self.tcx_ref().get(right_t.get_type()),
+                                        self.tcx_ref()
+                                    )
                                 )),
                                 TypeCheckerErrorKind::TypeMismatch,
                                 right_t.token(),
@@ -1532,6 +1538,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
     pub fn tcx(&mut self) -> &mut TypeContext {
         self.module.tcx_mut()
+    }
+
+    pub fn tcx_ref(&self) -> &TypeContext {
+        self.module.tcx_ref()
     }
 
     pub fn leave_scope(&mut self) -> (CheckScope, Arc<Mutex<TypeTable>>) {
