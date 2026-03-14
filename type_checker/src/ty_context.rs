@@ -5,10 +5,24 @@ use crate::{
     ty::{Ty, TyId},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TypeContext {
     pub types: Vec<Ty>,
     pub table: Arc<Mutex<TypeTable>>,
+}
+
+impl std::fmt::Debug for TypeContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let fmt_table = self.table.fmt(f);
+
+        f.debug_struct("TypeContext")
+            .field(
+                "types",
+                &self.types.iter().enumerate().collect::<Vec<(usize, &Ty)>>(),
+            )
+            .field("table", &fmt_table?)
+            .finish()
+    }
 }
 
 impl TypeContext {
