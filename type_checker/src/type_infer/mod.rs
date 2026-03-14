@@ -246,7 +246,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let val_ty = self.infer_expr(val)?;
                 let val_ty = self.follow(val_ty);
 
-                let new_ty = self.infer_expr(cast_to)?;
+                let new_ty = self.infer_type_expr(cast_to)?;
                 let new_ty = self.follow(new_ty);
 
                 self.unify(
@@ -506,7 +506,10 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let right = self.module_ref().get_expr(right_id).unwrap().clone();
 
                 let left_t = self.infer_expr(left_id)?;
+                let left_t = self.follow(left_t);
+
                 let right_t = self.infer_expr(right_id)?;
+                let right_t = self.follow(right_t);
 
                 self.unify(left_t, right_t, right.token())?;
 
