@@ -19,9 +19,8 @@ pub fn parse_if(parser: &mut Parser) -> ParseResult<Expression> {
 
     parser.expect_cur(TokenType::RBrace)?;
 
-    parser.next_token(); // 离开右大括号
-
-    if parser.cur_token_is(TokenType::Else) {
+    if parser.peek_token_is(TokenType::Else) {
+        parser.next_token(); // 离开右大括号
         parser.next_token(); // 离开 else 词法单元
 
         let else_block = Box::new(parser.parse_expression(Precedence::Lowest)?);
