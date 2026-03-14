@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    sync::Arc,
-};
+use std::{fmt::Display, sync::Arc};
 
 use ast::expr::IntValue;
 use indexmap::IndexMap;
@@ -171,12 +168,15 @@ pub fn display_ty(ty: &Ty, tcx: &TypeContext) -> String {
         Ty::Infer(it) => format!("Infer({it})"),
         Ty::Generic(it, _impl_traits) => it.to_string(),
         Ty::AppliedGeneric(it, args) => format!(
-            "{it}<{}>",
-            args
-                .iter()
-                .map(|it| display_ty(tcx.get(*it), tcx))
-                .collect::<Vec<_>>()
-                .join(", ")
+            "{it}{}",
+            if !args.is_empty() {
+                args.iter()
+                    .map(|it| display_ty(tcx.get(*it), tcx))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            } else {
+                String::new()
+            }
         ),
         Ty::Struct { name, .. } => name.to_string(),
         Ty::Trait { name, .. } => name.to_string(),
