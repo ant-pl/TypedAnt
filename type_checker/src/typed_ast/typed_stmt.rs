@@ -14,7 +14,7 @@ pub enum TypedStatement {
     ExpressionStatement(Token, ExprId, TyId),
     Return {
         token: Token,
-        expr: ExprId,
+        expr: Option<ExprId>,
         ty: TyId,
     },
     Block {

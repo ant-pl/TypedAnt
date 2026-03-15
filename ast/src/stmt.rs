@@ -9,7 +9,7 @@ pub enum Statement {
     ExpressionStatement(Expression),
     Return {
         token: Token,
-        expr: Expression,
+        expr: Option<Expression>,
     },
     Block {
         token: Token,
@@ -129,11 +129,13 @@ impl Display for Statement {
                 if generics.is_empty() {
                     "".to_string()
                 } else {
-                    "<".to_owned() + &generics
-                        .iter()
-                        .map(|it| it.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ") + ">"
+                    "<".to_owned()
+                        + &generics
+                            .iter()
+                            .map(|it| it.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                        + ">"
                 },
                 if fields.is_empty() {
                     "{}".to_string()
@@ -161,7 +163,11 @@ impl Display for Statement {
                 condition, block, ..
             } => write!(f, "while {condition} {block} "),
             Self::ExpressionStatement(expr) => expr.fmt(f),
-            Self::Return { expr, .. } => write!(f, "return {expr}"),
+            Self::Return { expr, .. } => write!(
+                f,
+                "return{}",
+                expr.as_ref().map_or(";".to_string(), |it| format!(" {it}"))
+            ),
             Self::Let {
                 name,
                 var_type,
