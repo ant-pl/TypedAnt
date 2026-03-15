@@ -120,7 +120,9 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 None
             }
 
-            TypedStatement::Return { expr: id, token, .. } => {
+            TypedStatement::Return {
+                expr: id, token, ..
+            } => {
                 let ty = if let Some(it) = id {
                     self.infer_expr(it)?
                 } else {
@@ -521,18 +523,12 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                     stmt_types.push(self.infer_stmt(*stmt)?);
                 }
 
-                let new_ty = stmt_types.last().map_or(self.tcx().alloc(Ty::Unit), |s| {
-                    s.map_or(self.tcx().alloc(Ty::Unit), |it| it)
-                });
+                let new_ty = stmt_types.last().map_or(ty, |s| s.map_or(ty, |it| it));
 
                 if let Some(&it) = stmts.last() {
                     let token = self.module_ref().get_stmt(it).unwrap().token();
                     if let Some(expected) = self.current_expected_ret_ty {
-                        self.unify(
-                            expected,
-                            new_ty,
-                            token.clone(),
-                        )?;
+                        self.unify(expected, new_ty, token.clone())?;
                     }
 
                     self.unify(new_ty, ty, token)?;
