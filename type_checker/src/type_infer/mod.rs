@@ -527,10 +527,6 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                 if let Some(&it) = stmts.last() {
                     let token = self.module_ref().get_stmt(it).unwrap().token();
-                    if let Some(expected) = self.current_expected_ret_ty {
-                        self.unify(expected, new_ty, token.clone())?;
-                    }
-
                     self.unify(new_ty, ty, token)?;
                 }
 
