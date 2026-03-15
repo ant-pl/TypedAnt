@@ -73,7 +73,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         Ok(())
     }
 
-    fn infer_stmt(&mut self, stmt_id: StmtId) -> CheckResult<()> {
+    fn infer_stmt(&mut self, stmt_id: StmtId) -> CheckResult<Option<usize>> {
         let stmt = self.module_ref().typed_stmts[stmt_id.0].clone();
 
         let ty = match stmt {
@@ -120,14 +120,22 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 None
             }
 
-            TypedStatement::Return { expr: id, .. } => {
-                let ty = self.infer_expr(id)?;
+            TypedStatement::Return { expr: id, token, .. } => {
+                let ty = if let Some(it) = id {
+                    self.infer_expr(it)?
+                } else {
+                    self.tcx().alloc(Ty::Unit)
+                };
 
                 if let Some(expected) = self.current_expected_ret_ty {
                     self.unify(
                         expected,
                         ty,
-                        self.module_ref().get_expr(id).unwrap().token(),
+                        if let Some(it) = id {
+                            self.module_ref().get_expr(it).unwrap().token()
+                        } else {
+                            token
+                        },
                     )?;
                 }
 
@@ -141,7 +149,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             self.infer_ctx.module.typed_stmts[stmt_id.0].set_type(it);
         }
 
-        Ok(())
+        Ok(ty)
     }
 
     fn infer_type_expr(&mut self, expr_id: ExprId) -> CheckResult<TyId> {
@@ -508,11 +516,29 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
 
             TypedExpression::Block(_, stmts, ty) => {
-                for stmt in stmts {
-                    self.infer_stmt(stmt)?;
+                let mut stmt_types = vec![];
+                for stmt in &stmts {
+                    stmt_types.push(self.infer_stmt(*stmt)?);
                 }
 
-                ty
+                let new_ty = stmt_types.last().map_or(self.tcx().alloc(Ty::Unit), |s| {
+                    s.map_or(self.tcx().alloc(Ty::Unit), |it| it)
+                });
+
+                if let Some(&it) = stmts.last() {
+                    let token = self.module_ref().get_stmt(it).unwrap().token();
+                    if let Some(expected) = self.current_expected_ret_ty {
+                        self.unify(
+                            expected,
+                            new_ty,
+                            token.clone(),
+                        )?;
+                    }
+
+                    self.unify(new_ty, ty, token)?;
+                }
+
+                new_ty
             }
 
             TypedExpression::Assign {

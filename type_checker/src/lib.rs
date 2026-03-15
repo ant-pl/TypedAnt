@@ -1468,18 +1468,26 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
 
             Statement::Return { token, expr } => {
-                let typed_expr = self.check_expr(expr)?;
+                let expr = if let Some(it) = expr {
+                    Some(self.check_expr(it)?)
+                } else {
+                    None
+                };
 
-                let rty = typed_expr.get_type();
+                let (ret_ty, ret_token) = if let Some(ref it) = expr {
+                    (it.get_type(), it.token())
+                } else {
+                    (self.tcx().alloc(Ty::Unit), token.clone())
+                };
 
                 self.current_scope_mut()
                     .collect_return_types
-                    .push((rty.clone(), typed_expr.token()));
+                    .push((ret_ty, ret_token));
 
                 Ok(TypedStatement::Return {
                     token,
-                    expr: self.module.alloc_expr(typed_expr),
-                    ty: rty,
+                    expr: expr.and_then(|it| Some(self.module.alloc_expr(it))),
+                    ty: ret_ty,
                 })
             }
 
