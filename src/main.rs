@@ -7,6 +7,7 @@ fn main() {
 
     if let Some(filepath) = arg.file {
         file_runner::run_file(&filepath);
+        return;
     }
 
     repl::repl();
