@@ -501,7 +501,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 let typed_else_block = match else_block {
                     Some(it) => Some({
-                        let expr = self.check_expr(*it)?;
+                        let expr = if self.compile_as == CompileAs::AsValue {
+                            self.check_expr_as_val(*it)
+                        } else {
+                            self.check_expr(*it)
+                        }?;
                         self.module.alloc_expr(expr)
                     }),
                     None => {
