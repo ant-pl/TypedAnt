@@ -56,7 +56,7 @@ pub enum Statement {
         extern_func_name: Token,
         alias: Token,
         params: Vec<Box<Expression>>,
-        ret_ty: Box<Expression>,
+        ret_ty: Option<Box<Expression>>,
     },
     FuncDecl {
         token: Token,
@@ -110,13 +110,18 @@ impl Display for Statement {
                 ..
             } => write!(
                 f,
-                "extern \"{abi}\" {extern_func_name}({}{}) -> {ret_ty} as {alias}",
+                "extern \"{abi}\" {extern_func_name}({}{}){} as {alias}",
                 params
                     .iter()
                     .map(|it| it.to_string())
                     .collect::<Vec<String>>()
                     .join(", "),
-                if *vararg { ", ..." } else { "" }
+                if *vararg { ", ..." } else { "" },
+                if let Some(ret_ty) = ret_ty {
+                    format!(" -> {ret_ty}")
+                } else {
+                    "".to_string()
+                }
             ),
             Self::Struct {
                 name,
