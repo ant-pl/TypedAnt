@@ -41,16 +41,20 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
     // 移除 ThreeDot 解析函数
     parser.prefix_parse_fn_map.remove(&TokenType::ThreeDot);
 
-    parser.next_token(); // 离开右括号 (正常应前进到左大括号 或者 '->' )
+    
+    let ret_type = if parser.peek_token_is(TokenType::Minus) {
+        parser.next_token(); // 离开右括号 (正常应前进到左大括号 或者 '->' )
+        
+        parser.expect_peek(TokenType::Gt)?;
 
-    parser.expect_cur(TokenType::Minus)?;
-    parser.expect_peek(TokenType::Gt)?;
+        parser.next_token(); // 前进到 >
 
-    parser.next_token(); // 前进到 >
+        parser.next_token(); // 前进到 类型表达式
 
-    parser.next_token(); // 前进到 类型表达式
-
-    let ret_type = parser.parse_type_expression(Precedence::Lowest)?;
+        Some(Box::new(parser.parse_type_expression(Precedence::Lowest)?))
+    } else {
+        None
+    };
 
     let alias = if parser.peek_token_is(TokenType::As) {
         parser.next_token(); // 前进到 As
@@ -83,7 +87,7 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
                 .into_iter()
                 .filter(|it| !matches!(it.as_ref(), Expression::ThreeDot(_)))
                 .collect::<Vec<Box<Expression>>>(),
-            ret_ty: Box::new(ret_type),
+            ret_ty: ret_type,
             alias,
             vararg: false,
         });
@@ -113,7 +117,7 @@ pub fn parse_extern(parser: &mut Parser) -> ParseResult<Statement> {
             .into_iter()
             .filter(|it| !matches!(it.as_ref(), Expression::ThreeDot(_)))
             .collect::<Vec<Box<Expression>>>(),
-        ret_ty: Box::new(ret_type),
+        ret_ty: ret_type,
         alias,
         vararg: true,
     })
