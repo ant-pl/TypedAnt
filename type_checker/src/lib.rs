@@ -1109,11 +1109,17 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     typed_param_ids.push(self.module.alloc_expr(typed_param));
                 }
 
-                let ret_ty_expr_typed = self.check_type_expr(*ret_ty)?;
+                let ret_ty_expr_typed = if let Some(ret_ty) = ret_ty {
+                    Some(self.check_type_expr(*ret_ty)?)
+                } else {
+                    None
+                };
 
                 let func_ty = Ty::Function {
                     params_type,
-                    ret_type: ret_ty_expr_typed.get_type(),
+                    ret_type: ret_ty_expr_typed
+                        .as_ref()
+                        .map_or_else(|| self.tcx().alloc(Ty::Unit), |it| it.get_type()),
                     is_variadic: true,
                 };
 
@@ -1132,7 +1138,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     alias,
                     extern_func_name,
                     params: typed_param_ids,
-                    ret_ty: self.module.alloc_expr(ret_ty_expr_typed),
+                    ret_ty: ret_ty_expr_typed.map(|it| self.module.alloc_expr(it)),
                     vararg,
                 })
             }

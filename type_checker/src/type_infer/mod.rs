@@ -115,7 +115,9 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                     self.infer_type_expr(param)?;
                 }
 
-                self.infer_type_expr(ret_ty)?;
+                if let Some(ret_ty) = ret_ty {
+                    self.infer_type_expr(ret_ty)?;
+                }
 
                 None
             }
