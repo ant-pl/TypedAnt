@@ -137,6 +137,11 @@ pub enum Expression {
         left: Ident,
         paths: Vec<Box<Expression>>,
     },
+    GenericInstance {
+        token: Token,
+        left: Box<Expression>,
+        paths: Vec<Box<Expression>>,
+    },
     ThreeDot(Token),
 }
 
@@ -145,6 +150,18 @@ impl Display for Expression {
         match self {
             Self::SizeOf(_, expr) => write!(f, "sizeof {expr}"),
             Self::ThreeDot(token) => write!(f, "{}", token.value),
+            Self::GenericInstance {
+                left,
+                paths,
+                ..
+            } => write!(
+                f, "{left}::<{}>",
+                paths
+                    .iter()
+                    .map(|it| it.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             Self::BuildStruct(_, struct_name, block) => write!(
                 f,
                 "new {struct_name} {{\n{}\n}}",
@@ -261,6 +278,7 @@ impl GetToken for Expression {
             Expression::TypePath { token, .. } => token.clone(),
             Expression::Infix { token, .. } => token.clone(),
             Expression::Cast { token, .. } => token.clone(),
+            Expression::GenericInstance { token, .. } => token.clone(),
             Expression::Prefix { token, .. } => token.clone(),
             Expression::Function { token, .. } => token.clone(),
             Expression::If { token, .. } => token.clone(),

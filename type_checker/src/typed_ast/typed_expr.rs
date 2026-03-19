@@ -104,6 +104,12 @@ pub enum TypedExpression {
         paths: Vec<ExprId>,
         ty: TyId,
     },
+    GenericInstance {
+        token: Token,
+        left: ExprId,
+        paths: Vec<ExprId>,
+        ty: TyId,
+    },
 }
 
 impl GetType for TypedExpression {
@@ -114,6 +120,7 @@ impl GetType for TypedExpression {
             Self::BigInt { ty, .. } => *ty,
             Self::Int { ty, .. } => *ty,
             Self::Bool { ty, .. } => *ty,
+            Self::GenericInstance { ty, .. } => *ty,
             Self::Ident(_, ty) => *ty,
             Self::Block(_, _, ty) => *ty,
             Self::Function { ty, .. } => *ty,
@@ -141,6 +148,7 @@ impl SetType for TypedExpression {
             Self::BigInt { ty, .. } => *ty = new_ty,
             Self::Int { ty, .. } => *ty = new_ty,
             Self::Bool { ty, .. } => *ty = new_ty,
+            Self::GenericInstance { ty, .. } => *ty = new_ty,
             Self::Ident(_, ty) => *ty = new_ty,
             Self::Block(_, _, ty) => *ty = new_ty,
             Self::Function { ty, .. } => *ty = new_ty,
@@ -166,6 +174,7 @@ impl GetToken for TypedExpression {
             TypedExpression::BigInt { token, .. } => token.clone(),
             TypedExpression::Bool { token, .. } => token.clone(),
             TypedExpression::Int { token, .. } => token.clone(),
+            TypedExpression::GenericInstance { token, .. } => token.clone(),
             TypedExpression::Ident(ident, ..) => ident.token.clone(),
             TypedExpression::Block(token, ..) => token.clone(),
             TypedExpression::TypeHint(ident, ..) => ident.token.clone(),
