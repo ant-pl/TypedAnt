@@ -612,7 +612,27 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
 
             TypedExpression::Call { func, args, .. } => {
-                let callee_ty = self.infer_expr(func)?;
+                let mut callee_ty = self.infer_expr(func)?;
+
+                let Ty::Function { generics, .. } = self.tcx_ref().get(callee_ty) else {
+                    return Err(self.unexpected_error(
+                        "function",
+                        &display_ty(self.tcx_ref().get(callee_ty), self.tcx_ref()),
+                        self.module_ref().get_expr(func).unwrap().token(),
+                    ));
+                };
+
+                let generics = generics.clone();
+
+                if !generics.is_empty() {
+                    callee_ty = self.instantiate(
+                        callee_ty,
+                        &generics
+                            .iter()
+                            .map(|it| it.to_string())
+                            .collect::<Vec<String>>(),
+                    )
+                }
 
                 let arg_types = args
                     .iter()
@@ -622,6 +642,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let new_ret_ty = self.infer_ctx.alloc_infer_ty();
 
                 let new_func_ty = self.tcx().alloc(Ty::Function {
+                    generics,
                     params_type: arg_types,
                     ret_type: new_ret_ty,
                     is_variadic: false,
@@ -637,37 +658,38 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
 
             TypedExpression::Ident(name, ty) => {
-                if let Ty::Function {
-                    params_type,
-                    ret_type,
-                    ..
-                } = self.tcx_ref().get(ty)
-                {
-                    let mut generic_params = params_type
-                        .iter()
-                        .map(|it| self.tcx_ref().get(*it))
-                        .filter(|it| matches!(it, Ty::Generic(..)))
-                        .cloned()
-                        .map(|it| {
-                            if let Ty::Generic(name, _impl_traits) = it {
-                                name.to_string()
-                            } else {
-                                unreachable!()
-                            }
-                        })
-                        .collect::<Vec<_>>();
-
-                    if let Ty::Generic(name, _impl_traits) = self.tcx_ref().get(*ret_type) {
-                        generic_params.push(name.to_string());
-                    }
-
-                    let new_ty = self.instantiate(ty, generic_params.as_slice());
-                    new_ty
-                } else if let Some(&current_ty) = self.locals_tyid.get(&name.value) {
+                if let Some(&current_ty) = self.locals_tyid.get(&name.value) {
                     current_ty
                 } else {
                     ty
                 }
+            }
+
+            TypedExpression::GenericInstance { left, paths, .. } => {
+                let base_ty_id = self.infer_expr(left)?;
+                let base_ty = self.tcx_ref().get(self.follow(base_ty_id)).clone();
+
+                let Ty::Function { generics, .. } = &base_ty else {
+                    return Err(self.unexpected_error(
+                        "function",
+                        &display_ty(&base_ty, self.tcx_ref()),
+                        self.module_ref().get_expr(left).unwrap().token(),
+                    ));
+                };
+                
+                let path_types = paths
+                    .iter()
+                    .map(|&g| self.infer_type_expr(g))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let mut mapping = HashMap::new();
+                for (name, concrete_id) in generics.iter().zip(path_types) {
+                    mapping.insert(name.to_string(), concrete_id);
+                }
+
+                let specialized_ty = self.substitute(base_ty_id, &mapping);
+
+                specialized_ty
             }
 
             _ => todo!("todo expr"),
@@ -785,6 +807,14 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         }
     }
 
+    fn unexpected_error(&mut self, expected: &str, got: &str, token: Token) -> TypeCheckerError {
+        TypeCheckerError {
+            kind: TypeCheckerErrorKind::TypeMismatch,
+            token,
+            message: Some(format!("expected `{expected}`, got {got}",).into()),
+        }
+    }
+
     pub fn make_err(
         message: Option<&str>,
         kind: TypeCheckerErrorKind,
@@ -847,6 +877,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
 
             Ty::Function {
+                generics,
                 params_type,
                 ret_type,
                 is_variadic,
@@ -857,8 +888,14 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                     .collect();
                 let new_ret = self.substitute(ret_type, mapping);
 
+                let new_generics: Vec<_> = generics
+                    .into_iter()
+                    .filter(|g| !mapping.contains_key(g.as_ref()))
+                    .collect();
+
                 // 重新打包成一个新的函数 TyId 返回
                 self.tcx().alloc(Ty::Function {
+                    generics: new_generics,
                     params_type: new_params,
                     ret_type: new_ret,
                     is_variadic,
@@ -997,6 +1034,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 self.tcx().alloc(Ty::AppliedGeneric(name, resolved_args))
             }
             Ty::Function {
+                generics,
                 params_type,
                 ret_type,
                 is_variadic,
@@ -1004,6 +1042,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let ps = params_type.iter().map(|p| self.deep_resolve(*p)).collect();
                 let rs = self.deep_resolve(ret_type);
                 self.tcx().alloc(Ty::Function {
+                    generics,
                     params_type: ps,
                     ret_type: rs,
                     is_variadic,

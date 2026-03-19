@@ -93,6 +93,7 @@ impl From<IntValue> for IntTy {
 pub enum Ty {
     BigInt,
     Function {
+        generics: Vec<Arc<str>>,
         params_type: Vec<TyId>,
         ret_type: TyId,
         is_variadic: bool,

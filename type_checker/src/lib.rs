@@ -538,6 +538,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 ret_ty: ret_ty_expr,
                 generics_params,
             } => {
+                let mut generic_names = vec![];
+
                 for generics_param in generics_params
                     .iter()
                     .filter(|it| matches!(&***it, Expression::Ident(_)))
@@ -553,6 +555,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         .lock()
                         .unwrap()
                         .define_var(&it.value, ty_id);
+
+                    generic_names.push(it.value.clone());
                 }
 
                 let mut typed_param_ids: Vec<_> = vec![];
@@ -580,6 +584,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     .map_or(Ok(self.tcx().alloc(Ty::Unit)), |it| Ok(it?.get_type()))?;
 
                 let func_ty = Ty::Function {
+                    generics: generic_names.clone(),
                     params_type,
                     ret_type: ret_ty,
                     is_variadic: false,
@@ -624,6 +629,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 let checked_ret_ty_expr = ret_ty_expr.map(|it| self.check_type_expr(*it));
 
                 let ty = Ty::Function {
+                    generics: generic_names,
                     params_type: typed_param_ids
                         .iter()
                         .map(|p| self.get_expr_tyid(*p))
@@ -742,6 +748,32 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     self.module.alloc_expr(new_ty_expr),
                     ty,
                 ))
+            }
+
+            Expression::GenericInstance {
+                token,
+                left,
+                paths,
+            } => {
+                let typed_left = self.check_expr_as_val(*left)?;
+
+                // 将会在 TypeInfer 被替换
+                let initial_ty = typed_left.get_type();
+
+                let left_expr_id = self.module.alloc_expr(typed_left);
+
+                let mut typed_paths = vec![];
+                for path in paths {
+                    let typed_path = self.check_type_expr(*path)?;
+                    typed_paths.push(self.module.alloc_expr(typed_path));
+                }
+
+                Ok(TypedExpression::GenericInstance {
+                    token,
+                    left: left_expr_id,
+                    paths: typed_paths,
+                    ty: initial_ty,
+                })
             }
 
             // 如果出现此表达式请考虑parser是否损坏
@@ -961,6 +993,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 ret_ty: ret_ty_ident,
                 generics_params,
             } => {
+                let mut generic_names = vec![];
+
                 for generics_param in generics_params
                     .iter()
                     .filter(|it| matches!(&***it, Expression::Ident(_)))
@@ -976,6 +1010,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         .lock()
                         .unwrap()
                         .define_var(&it.value, ty_id);
+
+                    generic_names.push(it.value.clone());
                 }
 
                 let mut typed_param_ids: Vec<_> = vec![];
@@ -1011,6 +1047,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     .map_or(self.tcx().alloc(Ty::Unit), |it| it);
 
                 let func_ty = Ty::Function {
+                    generics: generic_names.clone(),
                     params_type,
                     ret_type: *&ret_ty,
                     is_variadic: false,
@@ -1030,6 +1067,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 });
 
                 let ty = Ty::Function {
+                    generics: generic_names,
                     params_type: typed_param_ids
                         .iter()
                         .map(|p| self.get_expr_tyid(*p))
@@ -1116,6 +1154,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 };
 
                 let func_ty = Ty::Function {
+                    generics: vec![],
                     params_type,
                     ret_type: ret_ty_expr_typed
                         .as_ref()
