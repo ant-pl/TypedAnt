@@ -261,7 +261,7 @@ impl Parser {
                 .infix_parse_fn_map
                 .get(&self.peek_token.token_type)
                 .map_or(
-                    Err(self.make_error(
+                    Err(self.make_error_with_token(
                         ParserErrorKind::InfixParseFnNotFound,
                         Some(
                             format!(
@@ -270,6 +270,7 @@ impl Parser {
                             )
                             .into(),
                         ),
+                        self.peek_token.clone()
                     )),
                     |it| Ok(it),
                 )?;
@@ -379,6 +380,19 @@ impl Parser {
     pub fn make_error(&self, kind: ParserErrorKind, message: Option<Arc<str>>) -> ParserError {
         ParserError {
             token: self.cur_token.clone(),
+            kind,
+            message,
+        }
+    }
+
+    pub fn make_error_with_token(
+        &self,
+        kind: ParserErrorKind,
+        message: Option<Arc<str>>,
+        token: Token,
+    ) -> ParserError {
+        ParserError {
+            token,
             kind,
             message,
         }
