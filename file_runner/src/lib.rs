@@ -77,22 +77,21 @@ pub fn run_file(path: &str) {
 
     let TypedNode::Program { statements, .. } = typed_node;
 
-    let module_cloned = module.cloned();
     println!(
         "typed statements:\n{:#?}",
         statements
             .iter()
-            .map(|it| module_cloned.get_stmt(*it).unwrap().clone())
+            .map(|it| module.get_stmt(*it).unwrap().clone())
             .collect::<Vec<TypedStatement>>()
     );
 
     println!(
         "typed expressions:\n{:#?}",
-        module_cloned.typed_exprs
+        module.typed_exprs
     );
 
     println!(
         "{:#?}",
-        module_cloned.tcx
+        module.tcx_ref()
     );
 }

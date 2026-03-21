@@ -102,12 +102,11 @@ pub fn repl() {
 
         let TypedNode::Program { statements, .. } = typed_node;
 
-        let module_cloned = module.cloned();
         println!(
             "typed statements:\n{:#?}",
             statements
                 .iter()
-                .map(|it| module_cloned.get_stmt(*it).unwrap().clone())
+                .map(|it| module.get_stmt(*it).unwrap().clone())
                 .collect::<Vec<TypedStatement>>()
         );
 
