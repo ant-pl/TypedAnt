@@ -258,6 +258,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         let expr = self.module_ref().get_expr(expr_id).cloned().unwrap();
 
         let ty = match expr {
+            TypedExpression::Float { ty, .. } => ty,
             TypedExpression::Int { ty, .. } => ty,
             TypedExpression::StrLiteral { ty, .. } => ty,
             TypedExpression::Bool { ty, .. } => ty,

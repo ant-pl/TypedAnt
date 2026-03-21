@@ -162,6 +162,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 value,
                 ty: self.tcx().alloc(Ty::IntTy(value.into())),
             }),
+            Expression::Float { token, value } => Ok(TypedExpression::Float {
+                token,
+                value: value.clone(),
+                ty: self.tcx().alloc(Ty::FloatTy(value.into())),
+            }),
             Expression::StrLiteral { token, value } => Ok(TypedExpression::StrLiteral {
                 token,
                 value,
