@@ -273,6 +273,7 @@ name = "parser"
 version = "0.1.0"
 dependencies = [
  "ast",
+ "bigdecimal",
  "colored",
  "indexmap",
  "num_enum",
