@@ -26,8 +26,8 @@ use crate::{
         parse_infix::parse_infix,
         parse_let::parse_let,
         parse_num::{
-            parse_i8, parse_i16, parse_i32, parse_i64, parse_isize, parse_u8, parse_u16, parse_u32,
-            parse_u64, parse_usize,
+            parse_i8, parse_i16, parse_i32, parse_i64, parse_int, parse_isize, parse_u8, parse_u16,
+            parse_u32, parse_u64, parse_usize,
         },
         parse_prefix::parse_prefix,
         parse_return::parse_return,
@@ -68,6 +68,7 @@ pub struct Parser {
 
 impl Parser {
     fn init_prefix_parse_fn_map(m: &mut HashMap<TokenType, PrefixParseFn>) {
+        m.insert(TokenType::Integer, parse_int);
         m.insert(TokenType::Integer64, parse_i64);
         m.insert(TokenType::Integer32, parse_i32);
         m.insert(TokenType::Integer16, parse_i16);
@@ -261,7 +262,7 @@ impl Parser {
                 .infix_parse_fn_map
                 .get(&self.peek_token.token_type)
                 .map_or(
-                    Err(self.make_error_with_token(
+                    Err(Self::make_error_with_token(
                         ParserErrorKind::InfixParseFnNotFound,
                         Some(
                             format!(
@@ -270,7 +271,7 @@ impl Parser {
                             )
                             .into(),
                         ),
-                        self.peek_token.clone()
+                        self.peek_token.clone(),
                     )),
                     |it| Ok(it),
                 )?;
@@ -386,7 +387,6 @@ impl Parser {
     }
 
     pub fn make_error_with_token(
-        &self,
         kind: ParserErrorKind,
         message: Option<Arc<str>>,
         token: Token,
