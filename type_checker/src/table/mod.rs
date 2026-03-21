@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    Ty, ty::{IntTy, TyId}, ty_context::TypeContext, typed_ast::GetType
+    Ty, ty::{FloatTy, IntTy, TyId}, ty_context::TypeContext, typed_ast::GetType
 };
 
 pub enum SymbolScope {
@@ -48,6 +48,10 @@ impl TypeTable {
         self.define_var("BigInt", tcx.alloc(Ty::BigInt));
         self.define_var("bool", tcx.alloc(Ty::Bool));
         self.define_var("unit", tcx.alloc(Ty::Unit));
+
+        // float
+        self.define_var("f64", tcx.alloc(Ty::FloatTy(FloatTy::F64)));
+        self.define_var("f32", tcx.alloc(Ty::FloatTy(FloatTy::F32)));
 
         // signed
         self.define_var("i64", tcx.alloc(Ty::IntTy(IntTy::I64)));

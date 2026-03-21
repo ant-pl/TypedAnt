@@ -242,6 +242,8 @@ pub fn display_ty(ty: &Ty, tcx: &TypeContext) -> String {
 pub fn str_to_ty(ty_str: &str) -> Option<Ty> {
     match ty_str {
         "str" => Some(Ty::Str),
+        "f32" => Some(Ty::FloatTy(FloatTy::F32)),
+        "f64" => Some(Ty::FloatTy(FloatTy::F64)),
         "i64" => Some(Ty::IntTy(crate::ty::IntTy::I64)),
         "i32" => Some(Ty::IntTy(crate::ty::IntTy::I32)),
         "i16" => Some(Ty::IntTy(crate::ty::IntTy::I16)),
