@@ -37,6 +37,24 @@ impl Display for IntValue {
     }
 }
 
+/// 迫不得已只能用 BigDecimal 储存这些浮点数了
+/// 后面再转成 f32, f64
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FloatValue {
+    F32(BigDecimal),
+    F64(BigDecimal),
+}
+
+
+impl Display for FloatValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FloatValue::F32(it) => write!(f, "{it}"),
+            FloatValue::F64(it) => write!(f, "{it}"),
+        }
+    }
+}
+
 macro_rules! impl_from {
     ($ty:ident, $big_ty:ident) => {
         impl From<$ty> for IntValue {
@@ -60,13 +78,17 @@ impl_from!(isize, ISize);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
-    BigInt {
+    UnknownTypeInt {
         token: Token,
         value: BigDecimal,
     },
     Int {
         token: Token,
         value: IntValue,
+    },
+    Float {
+        token: Token,
+        value: FloatValue,
     },
     Bool {
         token: Token,
@@ -182,9 +204,10 @@ impl Display for Expression {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
-            Self::BigInt { value, .. } => write!(f, "{}", value),
+            Self::UnknownTypeInt { value, .. } => write!(f, "{}", value),
             Self::Bool { value, .. } => write!(f, "{}", value),
             Self::Int { value, .. } => write!(f, "{}", value),
+            Self::Float { value, .. } => write!(f, "{}", value),
             Self::TypeHint(ident, ty) => write!(f, "{ident}: {ty}"),
             Self::Ident(ident) => write!(f, "{}", ident),
             Self::If {
@@ -267,8 +290,9 @@ impl Display for Expression {
 impl GetToken for Expression {
     fn token(&self) -> Token {
         match self {
-            Expression::BigInt { token, .. } => token.clone(),
+            Expression::UnknownTypeInt { token, .. } => token.clone(),
             Expression::Int { token, .. } => token.clone(),
+            Expression::Float { token, .. } => token.clone(),
             Expression::Bool { token, .. } => token.clone(),
             Expression::Ident(ident) => ident.token.clone(),
             Expression::TypeHint(ident, ..) => ident.token.clone(),

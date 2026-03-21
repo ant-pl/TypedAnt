@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ast::{ExprId, StmtId, expr::IntValue, node::GetToken};
+use ast::{ExprId, StmtId, expr::{FloatValue, IntValue}, node::GetToken};
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use token::token::Token;
@@ -12,7 +12,7 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TypedExpression {
-    BigInt {
+    UnknownTypeInt {
         token: Token,
         value: BigDecimal,
         ty: TyId,
@@ -25,6 +25,11 @@ pub enum TypedExpression {
     Int {
         token: Token,
         value: IntValue,
+        ty: TyId,
+    },
+    Float {
+        token: Token,
+        value: FloatValue,
         ty: TyId,
     },
     Ident(Ident, TyId),
@@ -117,8 +122,9 @@ impl GetType for TypedExpression {
         match self {
             Self::FieldAccess(_, _, _, field_ty) => field_ty.clone(),
             Self::StrLiteral { ty, .. } => *ty,
-            Self::BigInt { ty, .. } => *ty,
+            Self::UnknownTypeInt { ty, .. } => *ty,
             Self::Int { ty, .. } => *ty,
+            Self::Float { ty, .. } => *ty,
             Self::Bool { ty, .. } => *ty,
             Self::GenericInstance { ty, .. } => *ty,
             Self::Ident(_, ty) => *ty,
@@ -145,8 +151,9 @@ impl SetType for TypedExpression {
         match self {
             Self::FieldAccess(_, _, _, field_ty) => *field_ty = new_ty,
             Self::StrLiteral { ty, .. } => *ty = new_ty,
-            Self::BigInt { ty, .. } => *ty = new_ty,
+            Self::UnknownTypeInt { ty, .. } => *ty = new_ty,
             Self::Int { ty, .. } => *ty = new_ty,
+            Self::Float { ty, .. } => *ty = new_ty,
             Self::Bool { ty, .. } => *ty = new_ty,
             Self::GenericInstance { ty, .. } => *ty = new_ty,
             Self::Ident(_, ty) => *ty = new_ty,
@@ -171,9 +178,10 @@ impl SetType for TypedExpression {
 impl GetToken for TypedExpression {
     fn token(&self) -> Token {
         match self {
-            TypedExpression::BigInt { token, .. } => token.clone(),
+            TypedExpression::UnknownTypeInt { token, .. } => token.clone(),
             TypedExpression::Bool { token, .. } => token.clone(),
             TypedExpression::Int { token, .. } => token.clone(),
+            TypedExpression::Float { token, .. } => token.clone(),
             TypedExpression::GenericInstance { token, .. } => token.clone(),
             TypedExpression::Ident(ident, ..) => ident.token.clone(),
             TypedExpression::Block(token, ..) => token.clone(),
