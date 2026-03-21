@@ -860,7 +860,9 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         }
 
         // 如果找不到替换直接替换为 i32
-        id = self.tcx().alloc(Ty::IntTy(IntTy::I32));
+        if let Ty::InferInt(_) = &self.tcx_ref().get(id) {
+            id = self.tcx().alloc(Ty::IntTy(IntTy::I32));
+        }
 
         id
     }
