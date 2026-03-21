@@ -1,6 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{module::TypedModule, table::Symbol, typed_ast::typed_node::TypedNode};
+use indexmap::IndexMap;
+
+use crate::{definition::{Def, DefId}, module::TypedModule, table::Symbol, typed_ast::typed_node::TypedNode};
 
 macro_rules! dervie_from_num {
     ($num_ty:ty, $impl_ty:ty) => {
@@ -57,6 +59,16 @@ pub struct ModuleNode<'a> {
 }
 
 pub struct Crate<'a> {
+    pub definitions: Vec<Def>,
+    
+    pub path_index: IndexMap<Vec<Arc<str>>, DefId>,
+    
     pub modules: Vec<ModuleNode<'a>>,
     pub root_id: ModuleId,
+}
+
+impl<'a> Crate<'a> {
+    pub fn get_def(&self, id: DefId) -> &Def {
+        &self.definitions[id.0]
+    }
 }
