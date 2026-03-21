@@ -1012,7 +1012,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     }
 
     fn is_numeric(ty: &Ty) -> bool {
-        matches!(ty, Ty::IntTy(_))
+        matches!(ty, Ty::IntTy(_) | Ty::FloatTy(_))
     }
 
     fn is_ptr(ty: &Ty) -> bool {
