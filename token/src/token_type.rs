@@ -3,7 +3,7 @@ use phf::phf_map;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TokenType {
     Nonsense,
-    IntegerBig,
+    Integer,
     Integer64,
     Integer32,
     Integer16,
@@ -12,6 +12,8 @@ pub enum TokenType {
     UInteger32,
     UInteger16,
     UInteger8,
+    Float32,
+    Float64,
     USize,
     ISize,
     String,
@@ -69,7 +71,6 @@ pub enum TokenType {
     Let,
     TwoColon,
     Comment,
-    TestPrint,
     Use,
     NumberSign, // #
     Break,
@@ -143,7 +144,9 @@ impl TokenType {
             TokenType::Illegal => "illegal",
             TokenType::Ident => "identifier",
             TokenType::Nonsense => "nonsense",
-            TokenType::IntegerBig => "integer",
+            TokenType::Integer => "integer",
+            TokenType::Float64 => "float64",
+            TokenType::Float32 => "float32",
             TokenType::Integer64 => "integer64",
             TokenType::Integer32 => "integer32",
             TokenType::Integer16 => "integer16",
@@ -156,7 +159,6 @@ impl TokenType {
             TokenType::ISize => "isize",
             TokenType::String => "string",
             TokenType::TwoColon => "::",
-            TokenType::TestPrint => "testprint",
             TokenType::Comment => "comment",
             TokenType::None => "None",
             TokenType::Use => "use",
@@ -222,7 +224,6 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     "FROM" => TokenType::From,
     "LET" => TokenType::Let,
     "::" => TokenType::TwoColon,
-    "TESTPRINT" => TokenType::TestPrint,
     "NONE" => TokenType::None,
     "USE" => TokenType::Use,
     "#" => TokenType::NumberSign,
@@ -242,5 +243,5 @@ pub enum TokenNumType {
     UInt8(String),
     USize(String),
     ISize(String),
-    Big(String)
+    Integer(String)
 }
