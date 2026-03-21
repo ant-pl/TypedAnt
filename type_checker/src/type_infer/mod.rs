@@ -530,7 +530,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                 if let Some(&it) = stmts.last() {
                     let token = self.module_ref().get_stmt(it).unwrap().token();
-                    self.unify(new_ty, ty, token)?;
+                    self.unify(ty, new_ty, token)?;
                 }
 
                 new_ty
