@@ -1,3 +1,4 @@
+pub mod ant_crate;
 pub mod constants;
 pub mod error;
 pub mod module;
@@ -146,10 +147,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
     pub fn check_expr(&mut self, expr: Expression) -> CheckResult<TypedExpression> {
         match expr {
-            Expression::BigInt { token, value } => Ok(TypedExpression::BigInt {
+            Expression::UnknownTypeInt { token, value } => Ok(TypedExpression::UnknownTypeInt {
                 token,
                 value,
-                ty: self.tcx().alloc(Ty::BigInt),
+                ty: self.tcx().alloc(Ty::Unknown),
             }),
             Expression::Bool { token, value } => Ok(TypedExpression::Bool {
                 token,

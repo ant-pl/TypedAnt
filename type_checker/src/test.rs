@@ -71,12 +71,12 @@ mod tests {
                 token: Token::new("a".into(), TokenType::Ident, file.clone(), 1, 5),
                 value: "a".into(),
             },
-            value: ast::expr::Expression::BigInt {
-                token: Token::new("1".into(), TokenType::IntegerBig, file.clone(), 1, 17),
+            value: ast::expr::Expression::UnknownTypeInt {
+                token: Token::new("1".into(), TokenType::Integer, file.clone(), 1, 17),
                 value: BigDecimal::from(1),
             },
             var_type: Some(ast::expressions::ident::Ident {
-                token: Token::new("BigInt".into(), TokenType::IntegerBig, file.clone(), 1, 8),
+                token: Token::new("BigInt".into(), TokenType::Integer, file.clone(), 1, 8),
                 value: "BigInt".into(),
             }),
             token: Token::new("let".into(), TokenType::Let, file.clone(), 1, 1),
