@@ -1,5 +1,6 @@
 pub mod ant_crate;
 pub mod constants;
+pub mod definition;
 pub mod error;
 pub mod module;
 pub mod scope;
@@ -756,11 +757,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 ))
             }
 
-            Expression::GenericInstance {
-                token,
-                left,
-                paths,
-            } => {
+            Expression::GenericInstance { token, left, paths } => {
                 let typed_left = self.check_expr_as_val(*left)?;
 
                 // 将会在 TypeInfer 被替换
@@ -895,7 +892,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 })
             }
 
-            _ => panic!("not a type expr"),
+            _ => Err(Self::make_err(
+                Some("not a type expr"),
+                TypeCheckerErrorKind::Other,
+                expr.token()
+            )),
         }
     }
 

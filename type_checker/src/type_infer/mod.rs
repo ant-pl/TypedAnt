@@ -248,7 +248,13 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 new_ty
             }
 
-            _ => panic!("not a type expr"),
+            _ => {
+                return Err(Self::make_err(
+                    Some("not a type expr"),
+                    TypeCheckerErrorKind::Other,
+                    self.module_ref().get_expr(expr_id).unwrap().token(),
+                ));
+            }
         };
 
         self.infer_ctx.module.typed_exprs[expr_id.0].set_type(ty);
