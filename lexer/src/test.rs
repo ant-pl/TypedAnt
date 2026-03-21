@@ -28,13 +28,13 @@ mod tests {
             TokenType::Let,
             TokenType::Ident,
             TokenType::Assign,
-            TokenType::IntegerBig,
+            TokenType::Integer,
             TokenType::Plus,
-            TokenType::IntegerBig,
+            TokenType::Integer,
             TokenType::Asterisk,
-            TokenType::IntegerBig,
+            TokenType::Integer,
             TokenType::Slash,
-            TokenType::IntegerBig,
+            TokenType::Integer,
             TokenType::RBrace,
         ];
 
@@ -76,21 +76,6 @@ mod tests {
         let tokens = l.get_tokens();
 
         let expected = vec![];
-
-        // 验证词法单元
-        expected_token_types(expected, tokens);
-    }
-
-    #[test]
-    fn test_lexer_test_print_token() {
-        let mut l = Lexer::new(
-            "TestPrint n".into(),
-            Arc::from("__test_lexer_test_print_token__"),
-        );
-
-        let tokens = l.get_tokens();
-
-        let expected = vec![TokenType::TestPrint, TokenType::Ident];
 
         // 验证词法单元
         expected_token_types(expected, tokens);

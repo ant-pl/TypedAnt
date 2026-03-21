@@ -188,7 +188,7 @@ impl Lexer {
         lexical_int_literal_xxxx!(self, "usize", USize, code);
         lexical_int_literal_xxxx!(self, "isize", ISize, code);
 
-        TokenNumType::Big(code)
+        TokenNumType::Integer(code)
     }
 
     fn push_err(&mut self, kind: LexerErrorKind, message: Option<Arc<str>>) {
@@ -427,8 +427,8 @@ impl Lexer {
                 } else if self.cur_char.is_ascii_digit() {
                     let num = self.read_number();
                     match num {
-                        TokenNumType::Big(num) => {
-                            token.token_type = TokenType::IntegerBig;
+                        TokenNumType::Integer(num) => {
+                            token.token_type = TokenType::Integer;
                             token.value = num.into();
                         }
 
