@@ -1,6 +1,6 @@
 use std::{fmt::Display, sync::Arc};
 
-use ast::expr::IntValue;
+use ast::expr::{FloatValue, IntValue};
 use indexmap::IndexMap;
 
 use crate::ty_context::TypeContext;
@@ -89,6 +89,32 @@ impl From<IntValue> for IntTy {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FloatTy {
+    F32,
+    F64,
+}
+
+impl Display for FloatTy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::F32 => "f32",
+            Self::F64 => "f64",
+        };
+
+        write!(f, "{s}")
+    }
+}
+
+impl From<FloatValue> for FloatTy {
+    fn from(value: FloatValue) -> Self {
+        match value {
+            FloatValue::F32(_) => Self::F32,
+            FloatValue::F64(_) => Self::F64,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Ty {
     BigInt,
@@ -116,7 +142,9 @@ pub enum Ty {
     AppliedGeneric(Arc<str>, Vec<TyId>),
 
     Infer(usize),
+    InferInt(usize),
     IntTy(IntTy),
+    FloatTy(FloatTy),
     Ptr(TyId),
     Bool,
     Unit,
@@ -130,11 +158,13 @@ impl Display for Ty {
             Self::Unknown => write!(f, "unknown"),
             Self::Ptr(it) => write!(f, "*{it}"),
             Self::Infer(it) => write!(f, "Infer({it})"),
+            Self::InferInt(it) => write!(f, "InferInt({it})"),
             Self::Generic(it, _) => write!(f, "{it}"),
             Self::AppliedGeneric(it, _) => write!(f, "{it}"),
             Self::BigInt => write!(f, "BigInt"),
             Self::Str => write!(f, "str"),
             Self::IntTy(it) => write!(f, "{it}"),
+            Self::FloatTy(it) => write!(f, "{it}"),
             Self::Bool => write!(f, "bool"),
             Self::Unit => write!(f, "Unit"),
             Self::Struct { name, .. } => write!(f, "{name}"),
@@ -162,11 +192,13 @@ pub fn display_ty(ty: &Ty, tcx: &TypeContext) -> String {
         Ty::Unknown => "unknown".to_owned(),
         Ty::BigInt => "BigInt".to_owned(),
         Ty::Str => "str".to_owned(),
+        Ty::FloatTy(it) => it.to_string(),
         Ty::IntTy(it) => it.to_string(),
         Ty::Bool => "bool".to_owned(),
         Ty::Unit => "Unit".to_owned(),
         Ty::Ptr(it) => format!("*{}", display_ty(tcx.get(*it), tcx)),
         Ty::Infer(it) => format!("Infer({it})"),
+        Ty::InferInt(it) => format!("InferInt({it})"),
         Ty::Generic(it, _impl_traits) => it.to_string(),
         Ty::AppliedGeneric(it, args) => format!(
             "{it}{}",
