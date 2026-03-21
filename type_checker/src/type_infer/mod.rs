@@ -105,7 +105,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                 self.unify(ty, expr_ty, expr.token())?;
 
-                self.locals_tyid.insert(name.value.clone(), ty);
+                self.locals_tyid.insert(name.value.clone(), self.follow(ty));
 
                 Some(ty)
             }
@@ -261,7 +261,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             TypedExpression::Int { ty, .. } => ty,
             TypedExpression::StrLiteral { ty, .. } => ty,
             TypedExpression::Bool { ty, .. } => ty,
-            TypedExpression::BigInt { ty, .. } => ty,
+            TypedExpression::UnknownTypeInt { .. } => self.infer_ctx.alloc_infer_int(),
             TypedExpression::TypeHint(_, expr, _) => self.infer_expr(expr)?,
 
             TypedExpression::Cast {
@@ -676,7 +676,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                         self.module_ref().get_expr(left).unwrap().token(),
                     ));
                 };
-                
+
                 let path_types = paths
                     .iter()
                     .map(|&g| self.infer_type_expr(g))
@@ -729,6 +729,16 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 Ok(())
             }
             (_, Ty::Infer(id)) => {
+                self.infer_ctx.substitutions.insert(id, t1);
+                Ok(())
+            }
+
+            // 如果其中一个是整数推导变量，记录替换关系
+            (Ty::InferInt(id), Ty::IntTy(_)) => {
+                self.infer_ctx.substitutions.insert(id, t2);
+                Ok(())
+            }
+            (Ty::IntTy(_), Ty::InferInt(id)) => {
                 self.infer_ctx.substitutions.insert(id, t1);
                 Ok(())
             }
@@ -836,6 +846,22 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 break;
             }
         }
+
+        id
+    }
+
+    pub fn follow_int(&mut self, mut id: TyId) -> TyId {
+        while let Ty::InferInt(infer_id) = &self.tcx_ref().get(id) {
+            if let Some(target) = self.infer_ctx.substitutions.get(infer_id) {
+                id = *target;
+            } else {
+                break;
+            }
+        }
+
+        // 如果找不到替换直接替换为 i32
+        id = self.tcx().alloc(Ty::IntTy(IntTy::I32));
+
         id
     }
 
@@ -1005,18 +1031,39 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         // 替换推导类型
         for expr_idx in 0..self.infer_ctx.module.typed_exprs.len() {
             let ty = self.infer_ctx.module.typed_exprs[expr_idx].get_type();
-            let real_ty = self.deep_resolve(ty);
+            let mut real_ty_id = self.deep_resolve(ty);
+
+            let is_infer_int = matches!(self.tcx_ref().get(real_ty_id), Ty::InferInt(_));
+            if is_infer_int {
+                real_ty_id = self.follow_int(real_ty_id)
+            }
 
             let expr = &mut self.infer_ctx.module.typed_exprs[expr_idx];
-            expr.set_type(real_ty);
+            expr.set_type(real_ty_id);
         }
 
         for stmt_idx in 0..self.infer_ctx.module.typed_stmts.len() {
             let ty = self.infer_ctx.module.typed_stmts[stmt_idx].get_type();
-            let real_ty = self.deep_resolve(ty);
+            let mut real_ty_id = self.deep_resolve(ty);
+
+            let is_infer_int = matches!(self.tcx_ref().get(real_ty_id), Ty::InferInt(_));
+            if is_infer_int {
+                real_ty_id = self.follow_int(real_ty_id)
+            }
 
             let stmt = &mut self.infer_ctx.module.typed_stmts[stmt_idx];
-            stmt.set_type(real_ty);
+            stmt.set_type(real_ty_id);
+        }
+
+        for (local_name, local_ty) in self.locals_tyid.clone() {
+            let mut real_ty_id = self.deep_resolve(local_ty);
+
+            let is_infer_int = matches!(self.tcx_ref().get(real_ty_id), Ty::InferInt(_));
+            if is_infer_int {
+                real_ty_id = self.follow_int(real_ty_id)
+            }
+
+            self.locals_tyid.insert(local_name, real_ty_id);
         }
     }
 
@@ -1029,10 +1076,12 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let resolved = self.deep_resolve(inner);
                 self.tcx().alloc(Ty::Ptr(resolved))
             }
+
             Ty::AppliedGeneric(name, args) => {
                 let resolved_args = args.iter().map(|a| self.deep_resolve(*a)).collect();
                 self.tcx().alloc(Ty::AppliedGeneric(name, resolved_args))
             }
+
             Ty::Function {
                 generics,
                 params_type,
@@ -1048,6 +1097,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                     is_variadic,
                 })
             }
+
             _ => id,
         }
     }
