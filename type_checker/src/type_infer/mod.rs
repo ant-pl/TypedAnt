@@ -282,6 +282,22 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                     self.module_ref().get_expr(cast_to).unwrap().token(),
                 )?;
 
+                let target_ty = self.tcx_ref().get(new_ty);
+                let value_ty = self.tcx_ref().get(val_ty);
+                if matches!(value_ty, Ty::InferInt(_))
+                    && matches!(target_ty, Ty::IntTy(_) | Ty::Ptr(_))
+                {
+                    // 这会让 InferInt 真正变成目标类型
+                    self.unify(
+                        val_ty,
+                        new_ty,
+                        self.module_ref().get_expr(val).unwrap().token(),
+                    )?;
+                }
+
+                let val_ty = self.follow_all(val_ty);
+                let new_ty = self.follow_all(new_ty);
+
                 self.check_cast_valid(
                     val_ty,
                     new_ty,
@@ -530,11 +546,6 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                 let new_ty = stmt_types.last().map_or(ty, |s| s.map_or(ty, |it| it));
 
-                if let Some(&it) = stmts.last() {
-                    let token = self.module_ref().get_stmt(it).unwrap().token();
-                    self.unify(ty, new_ty, token)?;
-                }
-
                 new_ty
             }
 
@@ -744,6 +755,19 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
             (Ty::IntTy(_), Ty::InferInt(id)) => {
                 self.infer_ctx.substitutions.insert(id, t1);
+                Ok(())
+            }
+
+            (Ty::InferInt(id), Ty::Ptr(_)) | (Ty::Ptr(_), Ty::InferInt(id)) => {
+                let usize_ty = self.tcx().alloc(Ty::IntTy(IntTy::USize));
+                self.infer_ctx.substitutions.insert(id, usize_ty);
+                Ok(())
+            }
+
+            (Ty::InferInt(id1), Ty::InferInt(id2)) => {
+                if id1 != id2 {
+                    self.infer_ctx.substitutions.insert(id1, t2);
+                }
                 Ok(())
             }
 
