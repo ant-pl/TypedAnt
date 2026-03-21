@@ -10,3 +10,4 @@ ast = { version = "0.1.0", path = "../ast" }
 num_enum = "0.7.5"
 once_cell = "1.21.3"
 indexmap = "2.12.1"
+bigdecimal = "0.4.9"
