@@ -105,7 +105,9 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                 self.unify(ty, expr_ty, expr.token())?;
 
-                self.locals_tyid.insert(name.value.clone(), self.follow(ty));
+                let followed = self.follow_all(ty);
+
+                self.locals_tyid.insert(name.value.clone(), followed);
 
                 Some(ty)
             }
@@ -269,10 +271,10 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 val, cast_to, ty, ..
             } => {
                 let val_ty = self.infer_expr(val)?;
-                let val_ty = self.follow(val_ty);
+                let val_ty = self.follow_all(val_ty);
 
                 let new_ty = self.infer_type_expr(cast_to)?;
-                let new_ty = self.follow(new_ty);
+                let new_ty = self.follow_all(new_ty);
 
                 self.unify(
                     ty,
@@ -329,11 +331,11 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let left_t = self.infer_expr(left_id)?;
                 let right_t = self.infer_expr(right_id)?;
 
-                let ltyid = self.follow(left_t);
-                let rtyid = self.follow(right_t);
+                let ltyid = self.follow_all(left_t);
+                let rtyid = self.follow_all(right_t);
 
-                let lty = self.tcx_ref().get(self.follow(left_t));
-                let rty = self.tcx_ref().get(self.follow(right_t));
+                let lty = self.tcx_ref().get(ltyid);
+                let rty = self.tcx_ref().get(rtyid);
 
                 match (lty, rty, op.as_ref()) {
                     (Ty::Ptr(_), Ty::IntTy(IntTy::USize), "+") => ltyid, // 指针加法，结果是左边的指针类型
@@ -472,7 +474,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
             TypedExpression::FieldAccess(_, obj, field_ident, ty) => {
                 let new_obj_ty = self.infer_expr(obj)?;
-                let obj_ty_followed = self.follow(new_obj_ty);
+                let obj_ty_followed = self.follow_all(new_obj_ty);
 
                 match self.tcx_ref().get(obj_ty_followed).clone() {
                     // 访问的是泛型实例
@@ -545,10 +547,10 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let right = self.module_ref().get_expr(right_id).unwrap().clone();
 
                 let left_t = self.infer_expr(left_id)?;
-                let left_t = self.follow(left_t);
+                let left_t = self.follow_all(left_t);
 
                 let right_t = self.infer_expr(right_id)?;
-                let right_t = self.follow(right_t);
+                let right_t = self.follow_all(right_t);
 
                 self.unify(left_t, right_t, right.token())?;
 
@@ -668,7 +670,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
             TypedExpression::GenericInstance { left, paths, .. } => {
                 let base_ty_id = self.infer_expr(left)?;
-                let base_ty = self.tcx_ref().get(self.follow(base_ty_id)).clone();
+                let base_ty_id = self.follow_all(base_ty_id);
+                let base_ty = self.tcx_ref().get(base_ty_id).clone();
 
                 let Ty::Function { generics, .. } = &base_ty else {
                     return Err(self.unexpected_error(
@@ -713,8 +716,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
     /// 核心：统一两个类型。如果失败，利用 Token 抛出 TypeChecker 错误
     pub fn unify(&mut self, t1: TyId, t2: TyId, token: Token) -> CheckResult<()> {
-        let t1 = self.follow(t1);
-        let t2 = self.follow(t2);
+        let t1 = self.follow_all(t1);
+        let t2 = self.follow_all(t2);
 
         if t1 == t2 {
             return Ok(());
@@ -838,6 +841,11 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         }
     }
 
+    pub fn follow_all(&mut self, id: TyId) -> TyId {
+        let id = self.follow(id);
+        self.follow_int(id)
+    }
+
     /// 沿着替换链找到最终的真实类型
     pub fn follow(&self, mut id: TyId) -> TyId {
         while let Ty::Infer(infer_id) = &self.tcx_ref().get(id) {
@@ -869,8 +877,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     }
 
     /// 核心：把一个可能是 Infer 的 TyId 彻底转正
-    pub fn resolve_real_ty(&self, id: TyId) -> TyId {
-        let real_id = self.follow(id);
+    pub fn resolve_real_ty(&mut self, id: TyId) -> TyId {
+        let real_id = self.follow_all(id);
         // 如果 real_id 指向的依然是 Ty::Infer，说明这个变量到最后也没推导出来（报错点）
         real_id
     }
@@ -1071,7 +1079,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     }
 
     fn deep_resolve(&mut self, id: TyId) -> TyId {
-        let id = self.follow(id); // 先解开最外层
+        let id = self.follow_all(id); // 先解开最外层
         let ty = self.tcx_ref().get(id).clone();
 
         match ty {
