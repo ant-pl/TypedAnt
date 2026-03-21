@@ -618,7 +618,12 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let old_ret_ty = self.current_expected_ret_ty;
                 self.current_expected_ret_ty = Some(expected_ret_ty);
 
-                self.infer_expr(block)?;
+                let block_ty = self.infer_expr(block)?;
+                self.unify(
+                    expected_ret_ty,
+                    block_ty,
+                    self.module_ref().get_expr(block).unwrap().token(),
+                )?;
 
                 self.current_expected_ret_ty = old_ret_ty;
 
