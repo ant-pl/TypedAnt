@@ -360,7 +360,6 @@ impl Parser {
 
             if self.peek_token_is(end) {
                 // 尾逗号
-                self.next_token();
                 break;
             }
 
@@ -369,6 +368,8 @@ impl Parser {
             let expression = self.parse_expression(get_token_precedence(end))?;
             expressions.push(Box::new(expression));
         }
+
+        self.expect_peek(end)?;
 
         // 前进到结束的词法单元
         self.next_token();
