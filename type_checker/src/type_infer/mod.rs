@@ -1141,6 +1141,10 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 })
             }
 
+            Ty::InferInt(_) => {
+                self.tcx().alloc(Ty::IntTy(IntTy::I32))
+            }
+
             _ => id,
         }
     }
