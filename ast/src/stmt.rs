@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
 use token::token::Token;
 
@@ -48,6 +48,11 @@ pub enum Statement {
         impl_: Ident,
         for_: Option<Ident>,
         block: Box<Statement>,
+    },
+    Use {
+        token: Token,
+        full_path: Vec<Arc<str>>,
+        alias: Token,
     },
     Extern {
         token: Token,
@@ -100,6 +105,12 @@ impl Display for Statement {
                     .as_ref()
                     .map_or_else(|| " ".into(), |it| format!(" -> {it} ")),
             ),
+            Self::Use {
+                full_path, alias, ..
+            } => write!(
+                f, "use {} as {alias}",
+                full_path.join("::")
+            ),
             Self::Extern {
                 abi,
                 extern_func_name,
@@ -110,7 +121,7 @@ impl Display for Statement {
                 ..
             } => write!(
                 f,
-                "extern \"{abi}\" {extern_func_name}({}{}){} as {alias}",
+                "extern \"{abi}\" {extern_func_name}({}{}){} as {alias};",
                 params
                     .iter()
                     .map(|it| it.to_string())
@@ -179,8 +190,8 @@ impl Display for Statement {
                 value,
                 ..
             } => match var_type {
-                Some(ty) => write!(f, "let {name}: {ty} = {value}",),
-                None => write!(f, "let {name} = {value}"),
+                Some(ty) => write!(f, "let {name}: {ty} = {value};",),
+                None => write!(f, "let {name} = {value};"),
             },
             Self::Const {
                 name,
@@ -188,8 +199,8 @@ impl Display for Statement {
                 value,
                 ..
             } => match var_type {
-                Some(ty) => write!(f, "const {name}: {ty} = {value}",),
-                None => write!(f, "const {name} = {value}"),
+                Some(ty) => write!(f, "const {name}: {ty} = {value};",),
+                None => write!(f, "const {name} = {value};"),
             },
             Self::Block { statements, .. } => write!(
                 f,
@@ -211,6 +222,7 @@ impl GetToken for Statement {
             Statement::FuncDecl { token, .. } => token.clone(),
             Statement::Return { token, .. } => token.clone(),
             Statement::Block { token, .. } => token.clone(),
+            Statement::Use { token, .. } => token.clone(),
             Statement::While { token, .. } => token.clone(),
             Statement::Let { token, .. } => token.clone(),
             Statement::Const { token, .. } => token.clone(),
