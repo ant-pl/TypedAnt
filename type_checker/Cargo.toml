@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ast = { version = "0.1.0", path = "../ast" }
+ast = { path = "../ast" }
 bigdecimal = "0.4.9"
 indexmap = "2.12.1"
-token = { version = "0.1.0", path = "../token" }
-utils = { version = "0.1.0", path = "../utils" }
+token = { path = "../token" }
+utils = { path = "../utils" }

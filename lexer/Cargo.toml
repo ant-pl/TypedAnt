@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-token = { version = "0.1.0", path = "../token" }
-utils = { version = "0.1.0", path = "../utils" }
+token = { path = "../token" }
+utils = { path = "../utils" }
 
 unicode-properties = "0.1.4"
 colored = "3.0.0"
