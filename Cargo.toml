@@ -10,4 +10,4 @@ repl = { path = "./repl" }
 file_runner = { path = "./file_runner" }
 
 [workspace]
-members = ["ast", "lexer", "repl", "token", "utils", "parser", "type_checker", "file_runner"]
+members = ["ast", "lexer", "repl", "token", "utils", "parser", "type_checker", "file_runner", "name_resolver", "ant_crate_def"]

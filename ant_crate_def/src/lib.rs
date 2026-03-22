@@ -1,8 +1,16 @@
+pub mod definition;
+
 use std::{collections::HashMap, sync::Arc};
 
 use indexmap::IndexMap;
 
-use crate::{definition::{Def, DefId}, module::TypedModule, table::Symbol, typed_ast::typed_node::TypedNode};
+use type_checker::{
+    module::TypedModule,
+    table::Symbol,
+    typed_ast::typed_node::TypedNode,
+};
+
+use crate::definition::{Def, DefId};
 
 macro_rules! dervie_from_num {
     ($num_ty:ty, $impl_ty:ty) => {
@@ -24,7 +32,7 @@ macro_rules! dervie_into_num {
     };
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ModuleId(pub usize);
 
 dervie_from_num!(u64, ModuleId);
@@ -51,7 +59,7 @@ dervie_into_num!(isize, ModuleId);
 
 pub struct ModuleNode<'a> {
     pub id: ModuleId,
-    pub path: Vec<Arc<str>>, // 从父路径一直到当前路径 (包含当前路径)
+    pub path: Vec<Arc<str>>,    // 从父路径一直到当前路径 (包含当前路径)
     pub ast: Option<TypedNode>, // 模块 AST
     pub typed_module: Option<TypedModule<'a>>, // 类型检查后的结果
     pub exports: HashMap<Arc<str>, Symbol>, // 该模块导出的符号
@@ -60,9 +68,9 @@ pub struct ModuleNode<'a> {
 
 pub struct Crate<'a> {
     pub definitions: Vec<Def>,
-    
+
     pub path_index: IndexMap<Vec<Arc<str>>, DefId>,
-    
+
     pub modules: Vec<ModuleNode<'a>>,
     pub root_id: ModuleId,
 }
@@ -70,5 +78,13 @@ pub struct Crate<'a> {
 impl<'a> Crate<'a> {
     pub fn get_def(&self, id: DefId) -> &Def {
         &self.definitions[id.0]
+    }
+
+    pub fn alloc_def(&mut self, def: Def) -> DefId {
+        let id = DefId(self.definitions.len());
+
+        self.definitions.push(def);
+
+        id
     }
 }

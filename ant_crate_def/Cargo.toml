@@ -1,0 +1,9 @@
+[package]
+name = "ant_crate_def"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ast = { path = "../ast" }
+indexmap = "2.13.0"
+type_checker = { path = "../type_checker" }

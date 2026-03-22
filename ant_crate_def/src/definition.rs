@@ -53,8 +53,9 @@ pub enum Visibility {
 use std::sync::Arc;
 use ast::ExprId;
 use indexmap::IndexMap;
-use crate::ty::TyId;
-use crate::ant_crate::ModuleId;
+use type_checker::ty::TyId;
+
+use crate::ModuleId;
 
 #[derive(Debug, Clone)]
 pub enum Def {
@@ -75,7 +76,7 @@ pub struct ModuleData {
 #[derive(Debug, Clone)]
 pub struct StructData {
     pub name: Arc<str>,
-    pub vis: Visibility,
+    pub visibility: Visibility,
     pub module_id: ModuleId,
     pub generics: Vec<Arc<str>>, 
     pub fields: IndexMap<Arc<str>, TyId>, 
@@ -84,20 +85,20 @@ pub struct StructData {
 #[derive(Debug, Clone)]
 pub struct FunctionData {
     pub name: Arc<str>,
-    pub vis: Visibility,
+    pub visibility: Visibility,
     pub module_id: ModuleId,
     pub generics: Vec<Arc<str>>,
     pub params: Vec<TyId>,
     pub ret_ty: TyId,
     pub is_variadic: bool,
-    /// 如果是 Extern 函数，这里可能是 None
+    /// 如果是函数声明，这里可能是 None
     pub body: Option<ExprId>, 
 }
 
 #[derive(Debug, Clone)]
 pub struct TraitData {
     pub name: Arc<str>,
-    pub vis: Visibility,
+    pub visibility: Visibility,
     pub module_id: ModuleId,
     pub methods: IndexMap<Arc<str>, DefId>, // 指向 Function 定义
 }
@@ -105,7 +106,7 @@ pub struct TraitData {
 #[derive(Debug, Clone)]
 pub struct ConstantData {
     pub name: Arc<str>,
-    pub vis: Visibility,
+    pub visibility: Visibility,
     pub module_id: ModuleId,
     pub ty: TyId,
 }
