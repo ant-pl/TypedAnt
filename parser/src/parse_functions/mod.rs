@@ -1,3 +1,4 @@
+pub mod parse_use;
 pub mod parse_turbo_fish;
 pub mod parse_grouped_expr;
 pub mod parse_three_dot;
