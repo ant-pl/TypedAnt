@@ -2,13 +2,10 @@ pub mod definition;
 
 use std::{collections::HashMap, sync::Arc};
 
+use ast::node::Node;
 use indexmap::IndexMap;
 
-use type_checker::{
-    module::TypedModule,
-    table::Symbol,
-    typed_ast::typed_node::TypedNode,
-};
+use type_checker::{module::TypedModule, table::Symbol, typed_ast::typed_node::TypedNode};
 
 use crate::definition::{Def, DefId};
 
@@ -57,15 +54,22 @@ dervie_into_num!(i16, ModuleId);
 dervie_into_num!(i8, ModuleId);
 dervie_into_num!(isize, ModuleId);
 
+#[derive(Debug, Clone)]
+pub enum NodeOrTyped {
+    Node(Node),
+    Typed(TypedNode),
+}
+
+#[derive(Debug, Default)]
 pub struct ModuleNode<'a> {
-    pub id: ModuleId,
     pub path: Vec<Arc<str>>,    // 从父路径一直到当前路径 (包含当前路径)
-    pub ast: Option<TypedNode>, // 模块 AST
+    pub ast: Option<NodeOrTyped>, // 模块 AST
     pub typed_module: Option<TypedModule<'a>>, // 类型检查后的结果
     pub exports: HashMap<Arc<str>, Symbol>, // 该模块导出的符号
     pub children: HashMap<Arc<str>, ModuleId>, // 子模块
 }
 
+#[derive(Debug)]
 pub struct Crate<'a> {
     pub definitions: Vec<Def>,
 
@@ -84,6 +88,24 @@ impl<'a> Crate<'a> {
         let id = DefId(self.definitions.len());
 
         self.definitions.push(def);
+
+        id
+    }
+}
+
+impl<'a> Crate<'a> {
+    pub fn get_mod(&'_ self, id: ModuleId) -> &'_ ModuleNode<'_> {
+        &self.modules[id.0]
+    }
+
+    pub fn get_mut_mod(&mut self, id: ModuleId) -> &mut ModuleNode<'a> {
+        &mut self.modules[id.0]
+    }
+
+    pub fn alloc_mod(&mut self, module: ModuleNode<'a>) -> ModuleId {
+        let id = ModuleId(self.modules.len());
+
+        self.modules.push(module);
 
         id
     }
