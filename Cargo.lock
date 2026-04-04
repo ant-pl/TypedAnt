@@ -161,6 +161,7 @@ name = "file_runner"
 version = "0.1.0"
 dependencies = [
  "lexer",
+ "name_resolver",
  "parser",
  "type_checker",
 ]
@@ -222,6 +223,9 @@ dependencies = [
  "ant_crate_def",
  "ast",
  "indexmap",
+ "lexer",
+ "parser",
+ "token",
  "type_checker",
 ]
 

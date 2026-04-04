@@ -1,6 +1,7 @@
 use std::{process::exit, sync::Arc};
 
 use lexer::Lexer;
+use name_resolver::Resolver;
 use parser::{Parser, error::display_err};
 use type_checker::{
     TypeChecker,
@@ -38,6 +39,13 @@ pub fn run_file(path: &str) {
             exit(1);
         }
     };
+
+    let mut name_resolver = Resolver::new(0.into(), path);
+    if let Err(it) = name_resolver.resolve(node.clone()) {
+        println!("{it:#?}")
+    };
+
+    println!("name_resolver: {:#?}", name_resolver);
 
     let mut module = TypedModule::new(&mut ty_ctx);
 
@@ -85,13 +93,7 @@ pub fn run_file(path: &str) {
             .collect::<Vec<TypedStatement>>()
     );
 
-    println!(
-        "typed expressions:\n{:#?}",
-        module.typed_exprs
-    );
+    println!("typed expressions:\n{:#?}", module.typed_exprs);
 
-    println!(
-        "{:#?}",
-        module.tcx_ref()
-    );
+    println!("{:#?}", module.tcx_ref());
 }
