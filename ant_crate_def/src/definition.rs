@@ -57,7 +57,7 @@ use type_checker::ty::TyId;
 
 use crate::ModuleId;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Def {
     Module(ModuleData),
     Struct(StructData),
@@ -66,14 +66,27 @@ pub enum Def {
     Constant(ConstantData),
 }
 
-#[derive(Debug, Clone)]
+impl Def {
+    pub fn visibility(&self) -> Visibility {
+        match self {
+            Def::Module(module_data) => module_data.visibility,
+            Def::Struct(struct_data) => struct_data.visibility,
+            Def::Function(function_data) => function_data.visibility,
+            Def::Trait(trait_data) => trait_data.visibility,
+            Def::Constant(constant_data) => constant_data.visibility,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleData {
     pub name: Arc<str>,
     pub parent: Option<ModuleId>,
     pub path: Vec<Arc<str>>, // 全路径 (包括本身, 例: ["std", "vec"])
+    pub visibility: Visibility,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StructData {
     pub name: Arc<str>,
     pub visibility: Visibility,
@@ -82,7 +95,7 @@ pub struct StructData {
     pub fields: IndexMap<Arc<str>, TyId>, 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionData {
     pub name: Arc<str>,
     pub visibility: Visibility,
@@ -95,7 +108,7 @@ pub struct FunctionData {
     pub body: Option<ExprId>, 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TraitData {
     pub name: Arc<str>,
     pub visibility: Visibility,
@@ -103,7 +116,7 @@ pub struct TraitData {
     pub methods: IndexMap<Arc<str>, DefId>, // 指向 Function 定义
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConstantData {
     pub name: Arc<str>,
     pub visibility: Visibility,
