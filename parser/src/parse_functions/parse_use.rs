@@ -31,7 +31,7 @@ pub fn parse_use(parser: &mut Parser) -> ParseResult<Statement> {
 
         return Ok(Statement::Use {
             token,
-            full_path: full_path.iter().map(|it| it.value.clone()).collect(),
+            full_path: full_path.iter().map(|it| it.clone()).collect(),
             alias: name_token,
         });
     }
@@ -51,7 +51,7 @@ pub fn parse_use(parser: &mut Parser) -> ParseResult<Statement> {
 
     Ok(Statement::Use {
         token,
-        full_path: full_path.iter().map(|it| it.value.clone()).collect(),
+        full_path: full_path.iter().map(|it| it.clone()).collect(),
         alias: full_path.last().unwrap_or(&alias).clone(),
     })
 }
