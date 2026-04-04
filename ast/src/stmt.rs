@@ -1,4 +1,4 @@
-use std::{fmt::Display, sync::Arc};
+use std::fmt::Display;
 
 use token::token::Token;
 
@@ -51,7 +51,7 @@ pub enum Statement {
     },
     Use {
         token: Token,
-        full_path: Vec<Arc<str>>,
+        full_path: Vec<Token>,
         alias: Token,
     },
     Extern {
@@ -108,8 +108,13 @@ impl Display for Statement {
             Self::Use {
                 full_path, alias, ..
             } => write!(
-                f, "use {} as {alias}",
-                full_path.join("::")
+                f,
+                "use {} as {alias}",
+                full_path
+                    .iter()
+                    .map(|it| it.value.clone())
+                    .collect::<Vec<_>>()
+                    .join("::")
             ),
             Self::Extern {
                 abi,
@@ -232,4 +237,45 @@ impl GetToken for Statement {
             Statement::Impl { token, .. } => token.clone(),
         }
     }
+}
+
+/// 接收一个含有顶层所有语句的切片
+/// 返回一个含有所有层级的所有语句的列表
+pub fn collect_all_statements(top_statements: &[Statement]) -> Vec<Statement> {
+    let mut all = vec![];
+
+    fn collect(all: &mut Vec<Statement>, stmt: Statement) {
+        let mut collect_if_block = |expr: Expression| {
+            if let Expression::Block(_, mut it) = expr {
+                all.append(&mut it);
+            }
+        };
+
+        match stmt.clone() {
+            Statement::ExpressionStatement(expression) => collect_if_block(expression),
+            Statement::Return { expr, .. } => {
+                if let Some(it) = expr {
+                    collect_if_block(it)
+                }
+            }
+            Statement::Block { mut statements, .. } => all.append(&mut statements),
+            Statement::While { block, .. } => collect(all, *block),
+            Statement::Let { value, .. } => collect_if_block(value),
+            Statement::Const { value, .. } => collect_if_block(value),
+            Statement::Struct { .. } => {}
+            Statement::Trait { block, .. } => collect(all, *block),
+            Statement::Impl { block, .. } => collect(all, *block),
+            Statement::Use { .. } => {}
+            Statement::Extern { .. } => {}
+            Statement::FuncDecl { .. } => {},
+        }
+        
+        all.push(stmt);
+    }
+    
+    for stmt in top_statements {
+        collect(&mut all, stmt.clone());
+    }
+
+    all
 }
