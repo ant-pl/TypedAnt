@@ -1,13 +1,14 @@
 use token::token::Token;
 
-use crate::ty::TyId;
+use ty::TyId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ScopeKind {
     Global,
     Function,
     Class,
-    Trait
+    Trait,
+    Module
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
