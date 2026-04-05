@@ -96,11 +96,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
     }
 
-    fn write_back_type(
-        &mut self,
-        def_id: DefId,
-        ty: TyId,
-    ) -> CheckResult<()> {
+    fn write_back_type(&mut self, def_id: DefId, ty: TyId) -> CheckResult<()> {
         match &mut self.name_resolver.krate.definitions[def_id.0] {
             Def::Constant(data) => data.ty = ty,
             Def::Function(data) => data.ty = ty,
@@ -486,6 +482,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             value: it.value,
                         },
                         symbol.ty.get_type(),
+                        None,
                     ));
                 } else if let Some(def_id) = self
                     .name_resolver
@@ -499,6 +496,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             value: it.value,
                         },
                         ty_id,
+                        Some(def_id),
                     ));
                 } else {
                     Err(Self::make_err(
@@ -901,19 +899,35 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Expression::Ident(it) => {
                 let ident_name = &it.value;
 
-                match self.tcx().table.lock().unwrap().get(&ident_name) {
-                    Some(symbol) => Ok(TypedExpression::Ident(
+                if let Some(symbol) = self.tcx().table.lock().unwrap().get(&ident_name) {
+                    return Ok(TypedExpression::Ident(
                         Ident {
                             token: it.token,
                             value: it.value,
                         },
                         symbol.ty.get_type(),
-                    )),
-                    None => Err(Self::make_err(
+                        None,
+                    ));
+                } else if let Some(def_id) = self
+                    .name_resolver
+                    .lookup_name(self.current_mod_id, &it.value)
+                {
+                    let ty_id = self.resolve_def_type(def_id)?;
+
+                    return Ok(TypedExpression::Ident(
+                        Ident {
+                            token: it.token,
+                            value: it.value,
+                        },
+                        ty_id,
+                        Some(def_id),
+                    ));
+                } else {
+                    Err(Self::make_err(
                         None,
                         TypeCheckerErrorKind::VariableNotFound,
                         it.token,
-                    )),
+                    ))
                 }
             }
 
