@@ -4,6 +4,7 @@ pub mod test;
 use ant_crate_def::definition::{ConstantData, Def, FunctionData, StructData, Visibility};
 use ant_crate_def::{Crate, ModuleId, definition::DefId};
 use ant_crate_def::{ModuleNode, NodeOrTyped};
+use ast::StmtId;
 use ast::expr::Expression;
 use ast::node::Node;
 use ast::stmt::{Statement, collect_all_statements};
@@ -14,6 +15,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use token::token::Token;
+use utils::span_assert;
 
 use crate::error::{NameResolverError, NameResolverErrorKind};
 
@@ -27,7 +29,7 @@ pub struct ModuleScope {
 }
 
 #[derive(Debug)]
-pub struct Resolver<'a> {
+pub struct NameResolver<'a> {
     pub krate: Crate<'a>,
 
     /// ModuleId -> (LocalName -> DefId)
@@ -40,7 +42,7 @@ pub struct Resolver<'a> {
     pub file: &'a str,
 }
 
-impl<'a> Resolver<'a> {
+impl<'a> NameResolver<'a> {
     pub fn new(root_module_id: ModuleId, file: &'a str) -> Self {
         Self::from_crate(
             Crate {
@@ -90,61 +92,70 @@ impl<'a> Resolver<'a> {
     }
 }
 
-impl<'a> Resolver<'a> {
+impl<'a> NameResolver<'a> {
     fn collect(&mut self, mod_id: ModuleId, stmts: &[Statement]) -> ResolveResult<()> {
         self.resolve_module_definitions(mod_id, stmts)?;
 
         for stmt in stmts {
-            if let Statement::Use { full_path, .. } = stmt {
-                let mut full_path_without_item = full_path.clone();
-                full_path_without_item.pop(); // 最后一个为 item
+            let Statement::Use {
+                token, full_path, ..
+            } = stmt
+            else {
+                continue;
+            };
 
-                let target_path = self
-                    .file_path_from_import_path(&full_path_without_item)
-                    .map_or_else(
-                        || {
-                            Err(Self::make_err(
-                                Some(&format!(
-                                    "unresolved import `{}`",
-                                    full_path
-                                        .iter()
-                                        .map(|it| it.to_string())
-                                        .collect::<Vec<_>>()
-                                        .join("::")
-                                )),
-                                NameResolverErrorKind::Unresolvedimport,
-                                full_path.first().unwrap().clone(),
-                            ))
-                        },
-                        |it| Ok(it),
-                    )?;
+            span_assert!(!full_path.is_empty(), token, "can't import empty path");
+            span_assert!(
+                full_path.len() > 1,
+                token,
+                "can't import item without module path"
+            );
 
-                // 如果没加载过，就去加载并解析
-                if !self.is_module_loaded(&target_path) {
-                    let node =
-                        self.load_and_parse(&target_path, full_path.first().unwrap().clone())?;
+            let [module_full_path @ .., _item] = full_path.as_slice() else {
+                unreachable!()
+            };
 
-                    let mod_node = ModuleNode {
-                        path: full_path_without_item
-                            .iter()
-                            .map(|it| it.value.clone())
-                            .collect(),
-                        ast: Some(NodeOrTyped::Node(node.clone())),
-                        typed_module: None,
-                        exports: HashMap::new(),
-                        children: HashMap::new(),
-                    };
+            let target_path = Self::file_path_from_import_path(self.file, &module_full_path)
+                .map_or_else(
+                    || {
+                        Err(Self::make_err(
+                            Some(&format!(
+                                "unresolved import `{}`",
+                                full_path
+                                    .iter()
+                                    .map(|it| it.to_string())
+                                    .collect::<Vec<_>>()
+                                    .join("::")
+                            )),
+                            NameResolverErrorKind::Unresolvedimport,
+                            full_path.first().unwrap().clone(),
+                        ))
+                    },
+                    |it| Ok(it),
+                )?;
 
-                    let new_mod_id = self.krate.alloc_mod(mod_node);
+            // 如果没加载过，就去加载并解析
+            if !self.is_module_loaded(&target_path) {
+                let node = self.load_and_parse(&target_path, full_path.first().unwrap().clone())?;
 
-                    let Node::Program { statements, .. } = node;
-                    let all = collect_all_statements(&statements);
+                let mod_node = ModuleNode {
+                    path: module_full_path.iter().map(|it| it.value.clone()).collect(),
+                    ast: Some(NodeOrTyped::Node(node.clone())),
+                    typed_module: None,
+                    exports: HashMap::new(),
+                    children: HashMap::new(),
+                    file: target_path.to_string_lossy().into()
+                };
 
-                    self.loaded_modules.insert(target_path, new_mod_id);
+                let new_mod_id = self.krate.alloc_mod(mod_node);
 
-                    // 递归收集子模块
-                    self.collect(new_mod_id, &all)?;
-                }
+                let Node::Program { statements, .. } = node;
+                let all = collect_all_statements(&statements);
+
+                self.loaded_modules.insert(target_path, new_mod_id);
+
+                // 递归收集子模块
+                self.collect(new_mod_id, &all)?;
             }
         }
         Ok(())
@@ -158,7 +169,7 @@ impl<'a> Resolver<'a> {
     ) -> ResolveResult<()> {
         let mut local_symbols = HashMap::new();
 
-        for stmt in stmts {
+        for (i, stmt) in stmts.iter().enumerate() {
             match stmt {
                 Statement::Struct { name, generics, .. } => {
                     // 构造原始定义数据
@@ -168,36 +179,47 @@ impl<'a> Resolver<'a> {
                         module_id,
                         generics: generics.iter().map(|g| g.to_string().into()).collect(),
                         fields: IndexMap::new(), // TypeChecker 稍后填充
+                        ty: 0usize,              // 同上
+                        ast_index: StmtId(i),
                     };
 
                     let def_id = self.krate.alloc_def(Def::Struct(data));
                     local_symbols.insert(name.value.clone(), def_id);
                 }
 
-                Statement::FuncDecl {
+                Statement::FuncDecl { name, .. } => {
+                    let data = FunctionData {
+                        name: name.value.clone(),
+                        visibility: Visibility::Public, // 还没写访问控制语法先等着吧
+                        module_id,
+                        body: None,
+                        is_variadic: false, // 非外部函数一律不允许变长
+                        ty: 0usize,         // 等 TypeChecker 填
+                        ast_index: StmtId(i),
+                    };
+
+                    local_symbols.insert(
+                        name.value.clone(),
+                        self.krate.alloc_def(Def::Function(data)),
+                    );
+                }
+
+                Statement::ExpressionStatement(Expression::Function {
+                    token,
                     name,
-                    generics_params,
                     ..
-                } => {
-                    let generic_names = generics_params
-                        .iter()
-                        .filter(|it| matches!(&***it, Expression::Ident(..)))
-                        .map(|it| {
-                            let Expression::Ident(it) = &**it else {
-                                unreachable!()
-                            };
-                            it.value.clone()
-                        });
+                }) => {
+                    span_assert!(name.is_some(), token, "unsupported top level lambda function");
+                    let name = name.clone().unwrap();
 
                     let data = FunctionData {
                         name: name.value.clone(),
                         visibility: Visibility::Public, // 还没写访问控制语法先等着吧
                         module_id,
-                        generics: generic_names.collect(),
                         body: None,
                         is_variadic: false, // 非外部函数一律不允许变长
-                        params: vec![],     // 等到 TypeCheck 阶段填充，
-                        ret_ty: 0usize,     // 同上
+                        ty: 0usize,         // 等 TypeChecker 填
+                        ast_index: StmtId(i),
                     };
 
                     local_symbols.insert(
@@ -212,6 +234,7 @@ impl<'a> Resolver<'a> {
                         visibility: Visibility::Public, // 默认公开
                         module_id,
                         ty: 0, // 占位符，由 TypeChecker 填充
+                        ast_index: StmtId(i),
                     };
 
                     let def_id = self.krate.alloc_def(Def::Constant(data));
@@ -245,7 +268,7 @@ impl<'a> Resolver<'a> {
     }
 }
 
-impl<'a> Resolver<'a> {
+impl<'a> NameResolver<'a> {
     pub fn resolve_use(
         &mut self,
         current_module_id: ModuleId,
@@ -304,11 +327,11 @@ impl<'a> Resolver<'a> {
     }
 
     /// 查找顺序: 当前文件的目录 -> 标准库目录
-    fn file_path_from_import_path<T: ToString>(&self, path: &[T]) -> Option<PathBuf> {
+    fn file_path_from_import_path<T: ToString>(file: &str, path: &[T]) -> Option<PathBuf> {
         let parts = path.iter().map(|it| it.to_string()).collect::<Vec<_>>();
 
         let roots = vec![
-            PathBuf::from(self.file)
+            PathBuf::from(file)
                 .parent()
                 .unwrap_or(&PathBuf::from("."))
                 .to_path_buf(),
@@ -371,7 +394,7 @@ impl<'a> Resolver<'a> {
     }
 }
 
-impl<'a> Resolver<'a> {
+impl<'a> NameResolver<'a> {
     pub fn lookup_name(&self, current_mod: ModuleId, name: &str) -> Option<DefId> {
         // 局部作用域
         if let Some(it) = self.local_maps.get(&current_mod)
@@ -391,7 +414,7 @@ impl<'a> Resolver<'a> {
     }
 }
 
-impl<'a> Resolver<'a> {
+impl<'a> NameResolver<'a> {
     pub fn make_err(
         message: Option<&str>,
         kind: NameResolverErrorKind,

@@ -5,9 +5,11 @@ edition = "2024"
 
 [dependencies]
 indexmap = "2.13.0"
-type_checker = { path = "../type_checker" }
+typed_module = { path = "../typed_module" }
+ty = { path = "../ty" }
 ast = { path = "../ast" }
 token = { path = "../token" }
 ant_crate_def = { path = "../ant_crate_def" }
 lexer = { path = "../lexer" }
 parser = { path = "../parser" }
+utils = { path = "../utils", features = ["span_assert"] }

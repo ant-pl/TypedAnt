@@ -6,14 +6,15 @@ pub mod tests {
         Crate, ModuleNode,
         definition::{ConstantData, Def, Visibility},
     };
+    use ast::StmtId;
     use indexmap::IndexMap;
-    use type_checker::{
-        table::{Symbol, SymbolType},
-        ty::{IntTy, Ty},
+    use ty::{IntTy, Ty};
+    use typed_module::{
         ty_context::TypeContext,
+        type_table::{Symbol, SymbolType},
     };
 
-    use crate::{ModuleScope, Resolver};
+    use crate::{ModuleScope, NameResolver};
 
     #[test]
     fn test_name_resolver_lookup_name_local() {
@@ -22,6 +23,7 @@ pub mod tests {
         let mut tcx = TypeContext::new();
 
         let root_mod = ModuleNode {
+            file: file.into(),
             ast: None,
             path: vec![file.into()],
             typed_module: None,
@@ -44,6 +46,7 @@ pub mod tests {
             visibility: Visibility::Private,
             module_id: mod_id,
             ty: tcx.alloc(Ty::IntTy(IntTy::I32)),
+            ast_index: StmtId(0),
         });
 
         let expected_const_stack_size_id = krate.alloc_def(test_const_stack_size.clone());
@@ -51,7 +54,7 @@ pub mod tests {
         let mut local_maps = HashMap::new();
         local_maps.insert("STACK_SIZE".into(), expected_const_stack_size_id);
 
-        let mut name_resolver = Resolver::from_crate(krate, file);
+        let mut name_resolver = NameResolver::from_crate(krate, file);
         name_resolver.local_maps.insert(mod_id, local_maps);
 
         let got_const_stack_size_id = name_resolver.lookup_name(mod_id, "STACK_SIZE");
@@ -79,6 +82,7 @@ pub mod tests {
         let mut tcx = TypeContext::new();
 
         let root_mod = ModuleNode {
+            file: file.into(),
             ast: None,
             path: vec![file.into()],
             typed_module: None,
@@ -89,6 +93,7 @@ pub mod tests {
         let stack_size_ty = tcx.alloc(Ty::IntTy(IntTy::I32));
 
         let mod_constants = ModuleNode {
+            file: "constants".into(),
             ast: None,
             path: vec!["constants".into()],
             typed_module: None,
@@ -123,6 +128,7 @@ pub mod tests {
             visibility: Visibility::Public,
             module_id: mod_constants_id,
             ty: stack_size_ty,
+            ast_index: StmtId(0),
         });
 
         let expected_const_stack_size_id = krate.alloc_def(test_const_stack_size.clone());
@@ -143,7 +149,7 @@ pub mod tests {
             },
         );
 
-        let mut name_resolver = Resolver::from_crate(krate, file);
+        let mut name_resolver = NameResolver::from_crate(krate, file);
         name_resolver.resolved_imports = resolved_imports;
         name_resolver
             .local_maps
