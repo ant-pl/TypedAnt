@@ -498,7 +498,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 let ident_name = &it.value;
 
                 if let Some(symbol) = self.tcx().table.lock().unwrap().get(&ident_name) {
-                    println!("2");
                     return Ok(TypedExpression::Ident(
                         Ident {
                             token: it.token,
@@ -513,7 +512,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 {
                     let ty_id = self.resolve_def_type(def_id)?;
 
-                    println!("1");
                     return Ok(TypedExpression::Ident(
                         Ident {
                             token: it.token,
