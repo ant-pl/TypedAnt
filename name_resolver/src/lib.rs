@@ -2,12 +2,12 @@ pub mod error;
 pub mod test;
 
 use ant_crate_def::definition::{ConstantData, Def, FunctionData, StructData, Visibility};
-use ant_crate_def::{Crate, ModuleId, definition::DefId};
+use ant_crate_def::Crate;
 use ant_crate_def::{ModuleNode, NodeOrTyped};
-use ast::StmtId;
 use ast::expr::Expression;
 use ast::node::Node;
 use ast::stmt::{Statement, collect_all_statements};
+use id::{DefId, ModuleId, StmtId};
 use indexmap::IndexMap;
 use lexer::Lexer;
 use parser::Parser;

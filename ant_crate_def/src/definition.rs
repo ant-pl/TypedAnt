@@ -10,64 +10,18 @@ macro_rules! get_field {
     };
 }
 
-macro_rules! dervie_from_num {
-    ($num_ty:ty, $impl_ty:ty) => {
-        impl From<$num_ty> for $impl_ty {
-            fn from(value: $num_ty) -> $impl_ty {
-                Self(value as usize)
-            }
-        }
-    };
-}
-
-macro_rules! dervie_into_num {
-    ($num_ty:ty, $impl_ty:ty) => {
-        impl Into<$num_ty> for $impl_ty {
-            fn into(self) -> $num_ty {
-                self.0 as $num_ty
-            }
-        }
-    };
-}
-
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct DefId(pub usize);
-
-dervie_from_num!(u64, DefId);
-dervie_from_num!(u32, DefId);
-dervie_from_num!(u16, DefId);
-dervie_from_num!(u8, DefId);
-dervie_from_num!(usize, DefId);
-dervie_from_num!(i64, DefId);
-dervie_from_num!(i32, DefId);
-dervie_from_num!(i16, DefId);
-dervie_from_num!(i8, DefId);
-dervie_from_num!(isize, DefId);
-
-dervie_into_num!(u64, DefId);
-dervie_into_num!(u32, DefId);
-dervie_into_num!(u16, DefId);
-dervie_into_num!(u8, DefId);
-dervie_into_num!(usize, DefId);
-dervie_into_num!(i64, DefId);
-dervie_into_num!(i32, DefId);
-dervie_into_num!(i16, DefId);
-dervie_into_num!(i8, DefId);
-dervie_into_num!(isize, DefId);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Visibility {
     Public,
     Private,
 }
 
+use id::{DefId, ModuleId};
+use id::{ExprId, StmtId};
 use std::sync::Arc;
-use ast::{ExprId, StmtId};
+
 use indexmap::IndexMap;
 use ty::TyId;
-
-use crate::ModuleId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Def {
@@ -90,7 +44,6 @@ impl Def {
     pub fn module_id(&self) -> ModuleId {
         get_field!(self, module_id)
     }
-
 
     pub fn ty(&self) -> Option<TyId> {
         match self {
@@ -119,8 +72,8 @@ pub struct StructData {
     pub name: Arc<str>,
     pub visibility: Visibility,
     pub module_id: ModuleId,
-    pub generics: Vec<Arc<str>>, 
-    pub fields: IndexMap<Arc<str>, TyId>, 
+    pub generics: Vec<Arc<str>>,
+    pub fields: IndexMap<Arc<str>, TyId>,
     pub ast_index: StmtId,
     pub ty: TyId,
 }
@@ -132,7 +85,7 @@ pub struct FunctionData {
     pub module_id: ModuleId,
     pub is_variadic: bool,
     /// 如果是函数声明，这里可能是 None
-    pub body: Option<ExprId>, 
+    pub body: Option<ExprId>,
     pub ast_index: StmtId,
     pub ty: TyId,
 }

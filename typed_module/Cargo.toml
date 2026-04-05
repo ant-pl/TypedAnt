@@ -8,3 +8,4 @@ ast = { path = "../ast" }
 typed_ast = { path = "../typed_ast" }
 ty = { path = "../ty" }
 indexmap = "2.12.1"
+id = { path = "../id" }

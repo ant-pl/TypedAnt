@@ -10,6 +10,7 @@ ant_crate_def = { path = "../ant_crate_def" }
 typed_module = { path = "../typed_module" }
 typed_ast = { path = "../typed_ast" }
 ty = { path = "../ty" }
+id = { path = "../id" }
 token = { path = "../token" }
 utils = { path = "../utils" }
 bigdecimal = "0.4.9"

@@ -1,4 +1,4 @@
-use ast::{ExprId, StmtId};
+use id::{ExprId, StmtId};
 
 use typed_ast::{typed_expr::TypedExpression, typed_stmt::TypedStatement};
 

@@ -1,4 +1,4 @@
-use ast::StmtId;
+use id::StmtId;
 use token::token::Token;
 
 #[derive(Clone, Debug, PartialEq, Eq)]

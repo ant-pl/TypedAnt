@@ -24,4 +24,5 @@ members = [
     "typed_module",
     "typed_ast",
     "ty",
+    "id",
 ]

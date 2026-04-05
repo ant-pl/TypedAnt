@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ast::node::GetToken;
-use ast::{ExprId, StmtId};
+use id::{ExprId, StmtId};
 use token::token::Token;
 use ty::{IntTy, Ty, TyId};
 use typed_module::{display_ty, module::TypedModule, ty_context::TypeContext};

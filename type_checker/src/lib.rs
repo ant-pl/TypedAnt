@@ -9,17 +9,14 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ant_crate_def::{
-    ModuleId, NodeOrTyped,
-    definition::{Def, DefId},
-};
+use ant_crate_def::{NodeOrTyped, definition::Def};
 use ast::{
-    ExprId, StmtId,
     expr::Expression,
     node::{GetToken, Node},
     stmt::Statement,
 };
 
+use id::{DefId, ExprId, ModuleId, StmtId};
 use indexmap::IndexMap;
 use name_resolver::NameResolver;
 use token::token::Token;
@@ -101,7 +98,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
     fn write_back_type(
         &mut self,
-        def_id: ant_crate_def::definition::DefId,
+        def_id: DefId,
         ty: TyId,
     ) -> CheckResult<()> {
         match &mut self.name_resolver.krate.definitions[def_id.0] {

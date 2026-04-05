@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use ast::{
-    ExprId, StmtId,
     expr::{FloatValue, IntValue},
     node::GetToken,
 };
 use bigdecimal::BigDecimal;
+use id::{ExprId, StmtId};
 use indexmap::IndexMap;
 use token::token::Token;
 use ty::TyId;

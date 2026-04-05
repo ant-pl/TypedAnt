@@ -6,7 +6,7 @@ pub mod tests {
         Crate, ModuleNode,
         definition::{ConstantData, Def, Visibility},
     };
-    use ast::StmtId;
+    use id::StmtId;
     use indexmap::IndexMap;
     use ty::{IntTy, Ty};
     use typed_module::{

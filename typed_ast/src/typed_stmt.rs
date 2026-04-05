@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use ast::{ExprId, StmtId, node::GetToken};
+use id::{ExprId, StmtId};
+use ast::node::GetToken;
 use indexmap::IndexMap;
 use token::token::Token;
 use ty::TyId;

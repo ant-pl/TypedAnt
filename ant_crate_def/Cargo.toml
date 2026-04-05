@@ -9,3 +9,4 @@ typed_ast = { path = "../typed_ast" }
 ty = { path = "../ty" }
 indexmap = "2.13.0"
 typed_module = { path = "../typed_module" }
+id = { path = "../id" }
