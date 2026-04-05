@@ -84,6 +84,25 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
     }
 
+    pub fn check_all(&mut self, root_node: Node) -> CheckResult<TypedNode> {
+        self.fill_defs_ty()?;
+
+        self.check_all_modules()?;
+
+        let node = self.check_node(root_node)?;
+
+        if let Some(it) = self
+            .name_resolver
+            .krate
+            .modules
+            .get_mut(self.name_resolver.krate.root_id.0)
+        {
+            it.ast = Some(NodeOrTyped::Typed(node.clone()))
+        }
+
+        Ok(node)
+    }
+
     fn get_raw_stmt(&self, def_id: DefId) -> &Statement {
         let def = self.name_resolver.krate.get_def(def_id);
         let (mod_id, ast_idx) = (def.module_id(), def.ast_index());
@@ -164,9 +183,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     pub fn check_node(&mut self, node: Node) -> CheckResult<TypedNode> {
         match node {
             Node::Program { token, statements } => {
-                self.fill_defs_ty()?;
-                self.check_all_modules()?;
-
                 let mut typed_statements = vec![];
 
                 for stmt in statements {
@@ -178,15 +194,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     token,
                     statements: typed_statements,
                 };
-
-                if let Some(it) = self
-                    .name_resolver
-                    .krate
-                    .modules
-                    .get_mut(self.name_resolver.krate.root_id.0)
-                {
-                    it.ast = Some(NodeOrTyped::Typed(node.clone()))
-                }
 
                 Ok(node)
             }

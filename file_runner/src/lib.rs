@@ -54,7 +54,7 @@ pub fn run_file(path: &str) {
 
     let typed_node;
 
-    match checker.check_node(node) {
+    match checker.check_all(node) {
         Ok(it) => typed_node = it,
         Err(err) => {
             eprintln!("{err:#?}");
