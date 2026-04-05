@@ -1,4 +1,4 @@
-use crate::ty::TyId;
+use ty::TyId;
 
 pub mod typed_expressions;
 pub mod typed_expr;

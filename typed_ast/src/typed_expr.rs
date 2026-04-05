@@ -1,14 +1,16 @@
 use std::sync::Arc;
 
-use ast::{ExprId, StmtId, expr::{FloatValue, IntValue}, node::GetToken};
+use ast::{
+    ExprId, StmtId,
+    expr::{FloatValue, IntValue},
+    node::GetToken,
+};
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use token::token::Token;
+use ty::TyId;
 
-use crate::{
-    ty::TyId,
-    typed_ast::{GetType, SetType, typed_expressions::ident::Ident},
-};
+use crate::{GetType, SetType, typed_expressions::ident::Ident};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TypedExpression {
@@ -78,13 +80,13 @@ pub enum TypedExpression {
         condition: ExprId,
         consequence: ExprId,
         else_block: Option<ExprId>,
-        ty: TyId
+        ty: TyId,
     },
     Assign {
         token: Token,
         left: ExprId,
         right: ExprId,
-        ty: TyId
+        ty: TyId,
     },
     StrLiteral {
         token: Token,

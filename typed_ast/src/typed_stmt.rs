@@ -3,11 +3,9 @@ use std::sync::Arc;
 use ast::{ExprId, StmtId, node::GetToken};
 use indexmap::IndexMap;
 use token::token::Token;
+use ty::TyId;
 
-use crate::{
-    ty::TyId,
-    typed_ast::{GetType, SetType, typed_expressions::ident::Ident},
-};
+use crate::{GetType, SetType, typed_expressions::ident::Ident};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TypedStatement {
@@ -49,6 +47,12 @@ pub enum TypedStatement {
         ty: TyId,
         generics: Vec<ExprId>,
     },
+    Use {
+        token: Token,
+        full_path: Vec<Token>,
+        alias: Token,
+        ty: TyId,
+    },
     Trait {
         token: Token,
         name: Ident,
@@ -70,7 +74,7 @@ pub enum TypedStatement {
         name: Token,
         params: Vec<ExprId>,
         generics_params: Vec<ExprId>,
-        ret_ty: Option<Ident>,
+        ret_ty: Option<ExprId>,
         ty: TyId,
     },
     Impl {
@@ -97,6 +101,7 @@ impl GetType for TypedStatement {
             Self::Trait { ty, .. } => *ty,
             Self::While { ty, .. } => *ty,
             Self::Impl { ty, .. } => *ty,
+            Self::Use { ty, .. } => *ty,
         }
     }
 }
@@ -115,6 +120,7 @@ impl SetType for TypedStatement {
             Self::Trait { ty, .. } => *ty = new_ty,
             Self::While { ty, .. } => *ty = new_ty,
             Self::Impl { ty, .. } => *ty = new_ty,
+            Self::Use { ty, .. } => *ty = new_ty,
         }
     }
 }
@@ -133,6 +139,7 @@ impl GetToken for TypedStatement {
             TypedStatement::Extern { token, .. } => token.clone(),
             TypedStatement::FuncDecl { token, .. } => token.clone(),
             TypedStatement::Impl { token, .. } => token.clone(),
+            TypedStatement::Use { token, .. } => token.clone(),
         }
     }
 }
