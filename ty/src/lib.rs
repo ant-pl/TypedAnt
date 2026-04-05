@@ -3,8 +3,6 @@ use std::{fmt::Display, sync::Arc};
 use ast::expr::{FloatValue, IntValue};
 use indexmap::IndexMap;
 
-use crate::ty_context::TypeContext;
-
 fn get_platform_width() -> usize {
     #[cfg(target_pointer_width = "64")]
     return 64;
@@ -187,73 +185,21 @@ impl Display for Ty {
     }
 }
 
-pub fn display_ty(ty: &Ty, tcx: &TypeContext) -> String {
-    match ty {
-        Ty::Unknown => "unknown".to_owned(),
-        Ty::BigInt => "BigInt".to_owned(),
-        Ty::Str => "str".to_owned(),
-        Ty::FloatTy(it) => it.to_string(),
-        Ty::IntTy(it) => it.to_string(),
-        Ty::Bool => "bool".to_owned(),
-        Ty::Unit => "Unit".to_owned(),
-        Ty::Ptr(it) => format!("*{}", display_ty(tcx.get(*it), tcx)),
-        Ty::Infer(it) => format!("Infer({it})"),
-        Ty::InferInt(it) => format!("InferInt({it})"),
-        Ty::Generic(it, _impl_traits) => it.to_string(),
-        Ty::AppliedGeneric(it, args) => format!(
-            "{it}{}",
-            if !args.is_empty() {
-                "<".to_owned()
-                    + &args
-                        .iter()
-                        .map(|it| display_ty(tcx.get(*it), tcx))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                    + ">"
-            } else {
-                String::new()
-            }
-        ),
-        Ty::Struct { name, generics, .. } => format!(
-            "{name}{}",
-            if !generics.is_empty() {
-                format!("<{}>", generics.join(", "))
-            } else {
-                String::new()
-            }
-        ),
-        Ty::Trait { name, .. } => name.to_string(),
-        Ty::Function {
-            params_type,
-            ret_type,
-            ..
-        } => format!(
-            "Fn({}) -> {}",
-            params_type
-                .iter()
-                .map(|it| display_ty(tcx.get(*it), tcx))
-                .collect::<Vec<String>>()
-                .join(", "),
-            display_ty(tcx.get(*ret_type), tcx)
-        ),
-    }
-}
-
 pub fn str_to_ty(ty_str: &str) -> Option<Ty> {
     match ty_str {
         "str" => Some(Ty::Str),
         "f32" => Some(Ty::FloatTy(FloatTy::F32)),
         "f64" => Some(Ty::FloatTy(FloatTy::F64)),
-        "i64" => Some(Ty::IntTy(crate::ty::IntTy::I64)),
-        "i32" => Some(Ty::IntTy(crate::ty::IntTy::I32)),
-        "i16" => Some(Ty::IntTy(crate::ty::IntTy::I16)),
-        "i8" => Some(Ty::IntTy(crate::ty::IntTy::I8)),
-        "u64" => Some(Ty::IntTy(crate::ty::IntTy::U64)),
-        "u32" => Some(Ty::IntTy(crate::ty::IntTy::U32)),
-        "u16" => Some(Ty::IntTy(crate::ty::IntTy::U16)),
-        "u8" => Some(Ty::IntTy(crate::ty::IntTy::U8)),
-        "usize" => Some(Ty::IntTy(crate::ty::IntTy::USize)),
-        "isize" => Some(Ty::IntTy(crate::ty::IntTy::ISize)),
+        "i64" => Some(Ty::IntTy(crate::IntTy::I64)),
+        "i32" => Some(Ty::IntTy(crate::IntTy::I32)),
+        "i16" => Some(Ty::IntTy(crate::IntTy::I16)),
+        "i8" => Some(Ty::IntTy(crate::IntTy::I8)),
+        "u64" => Some(Ty::IntTy(crate::IntTy::U64)),
+        "u32" => Some(Ty::IntTy(crate::IntTy::U32)),
+        "u16" => Some(Ty::IntTy(crate::IntTy::U16)),
+        "u8" => Some(Ty::IntTy(crate::IntTy::U8)),
+        "usize" => Some(Ty::IntTy(crate::IntTy::USize)),
+        "isize" => Some(Ty::IntTy(crate::IntTy::ISize)),
         "BigInt" => Some(Ty::BigInt),
 
         _ => None,
@@ -264,7 +210,7 @@ pub fn str_to_ty(ty_str: &str) -> Option<Ty> {
 mod tests {
     use indexmap::IndexMap;
 
-    use crate::ty::{IntTy, Ty};
+    use crate::{IntTy, Ty};
 
     fn expected_ty_display(ty: &Ty, expected: &str) {
         assert_eq!(&ty.to_string(), expected);

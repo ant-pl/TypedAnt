@@ -1,0 +1,8 @@
+[package]
+name = "ty"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ast = { path = "../ast" }
+indexmap = "2.12.1"
