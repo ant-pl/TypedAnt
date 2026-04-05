@@ -68,7 +68,7 @@ pub enum Statement {
         name: Token,
         params: Vec<Box<Expression>>,
         generics_params: Vec<Box<Expression>>,
-        ret_ty: Option<Ident>,
+        ret_ty: Option<Box<Expression>>,
     },
 }
 
