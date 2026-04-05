@@ -336,6 +336,7 @@ impl<'a> NameResolver<'a> {
                 .unwrap_or(&PathBuf::from("."))
                 .to_path_buf(),
             std::env::current_exe().ok()?.parent()?.join("include"),
+            std::env::current_exe().ok()?.parent()?.into(),
         ];
 
         for root in roots {
