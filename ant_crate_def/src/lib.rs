@@ -5,7 +5,8 @@ use std::{collections::HashMap, sync::Arc};
 use ast::node::Node;
 use indexmap::IndexMap;
 
-use type_checker::{module::TypedModule, table::Symbol, typed_ast::typed_node::TypedNode};
+use typed_module::{module::TypedModule, type_table::Symbol};
+use typed_ast::typed_node::TypedNode;
 
 use crate::definition::{Def, DefId};
 
@@ -62,6 +63,7 @@ pub enum NodeOrTyped {
 
 #[derive(Debug, Default)]
 pub struct ModuleNode<'a> {
+    pub file: Arc<str>,
     pub path: Vec<Arc<str>>,    // 从父路径一直到当前路径 (包含当前路径)
     pub ast: Option<NodeOrTyped>, // 模块 AST
     pub typed_module: Option<TypedModule<'a>>, // 类型检查后的结果
