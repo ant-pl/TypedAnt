@@ -8,18 +8,17 @@ use std::sync::Arc;
 use ast::node::GetToken;
 use ast::{ExprId, StmtId};
 use token::token::Token;
+use ty::{IntTy, Ty, TyId};
+use typed_module::{display_ty, module::TypedModule, ty_context::TypeContext};
+use typed_ast::typed_expr::TypedExpression;
+use typed_ast::typed_stmt::TypedStatement;
+use typed_ast::{GetType, SetType};
 
 use crate::CheckResult;
 use crate::constants::BOOL_INFIX_OPERATORS;
 use crate::error::{TypeCheckerError, TypeCheckerErrorKind};
-use crate::module::TypedModule;
-use crate::ty::{IntTy, Ty, TyId, display_ty};
-use crate::ty_context::TypeContext;
 use crate::type_infer::constraint::Constraint;
 use crate::type_infer::infer_context::InferContext;
-use crate::typed_ast::typed_expr::TypedExpression;
-use crate::typed_ast::typed_stmt::TypedStatement;
-use crate::typed_ast::{GetType, SetType};
 
 pub struct TypeInfer<'a, 'b, 'c> {
     pub infer_ctx: &'a mut InferContext<'b, 'c>,
@@ -1141,9 +1140,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 })
             }
 
-            Ty::InferInt(_) => {
-                self.tcx().alloc(Ty::IntTy(IntTy::I32))
-            }
+            Ty::InferInt(_) => self.tcx().alloc(Ty::IntTy(IntTy::I32)),
 
             _ => id,
         }

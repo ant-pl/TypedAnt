@@ -1,6 +1,6 @@
 use token::token::Token;
 
-use crate::ty::TyId;
+use ty::TyId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Constraint {
