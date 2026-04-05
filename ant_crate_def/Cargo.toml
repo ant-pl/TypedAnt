@@ -5,5 +5,7 @@ edition = "2024"
 
 [dependencies]
 ast = { path = "../ast" }
+typed_ast = { path = "../typed_ast" }
+ty = { path = "../ty" }
 indexmap = "2.13.0"
-type_checker = { path = "../type_checker" }
+typed_module = { path = "../typed_module" }

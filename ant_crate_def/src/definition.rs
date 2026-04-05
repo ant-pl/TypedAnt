@@ -1,3 +1,15 @@
+macro_rules! get_field {
+    ($self:expr,$field:ident) => {
+        match $self {
+            Self::Module(data) => data.$field,
+            Self::Struct(data) => data.$field,
+            Self::Function(data) => data.$field,
+            Self::Trait(data) => data.$field,
+            Self::Constant(data) => data.$field,
+        }
+    };
+}
+
 macro_rules! dervie_from_num {
     ($num_ty:ty, $impl_ty:ty) => {
         impl From<$num_ty> for $impl_ty {
@@ -44,16 +56,16 @@ dervie_into_num!(i16, DefId);
 dervie_into_num!(i8, DefId);
 dervie_into_num!(isize, DefId);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Visibility {
     Public,
     Private,
 }
 
 use std::sync::Arc;
-use ast::ExprId;
+use ast::{ExprId, StmtId};
 use indexmap::IndexMap;
-use type_checker::ty::TyId;
+use ty::TyId;
 
 use crate::ModuleId;
 
@@ -68,12 +80,25 @@ pub enum Def {
 
 impl Def {
     pub fn visibility(&self) -> Visibility {
+        get_field!(self, visibility)
+    }
+
+    pub fn ast_index(&self) -> StmtId {
+        get_field!(self, ast_index)
+    }
+
+    pub fn module_id(&self) -> ModuleId {
+        get_field!(self, module_id)
+    }
+
+
+    pub fn ty(&self) -> Option<TyId> {
         match self {
-            Def::Module(module_data) => module_data.visibility,
-            Def::Struct(struct_data) => struct_data.visibility,
-            Def::Function(function_data) => function_data.visibility,
-            Def::Trait(trait_data) => trait_data.visibility,
-            Def::Constant(constant_data) => constant_data.visibility,
+            Self::Module(_data) => None,
+            Self::Struct(data) => Some(data.ty),
+            Self::Function(data) => Some(data.ty),
+            Self::Trait(data) => Some(data.ty),
+            Self::Constant(data) => Some(data.ty),
         }
     }
 }
@@ -84,6 +109,9 @@ pub struct ModuleData {
     pub parent: Option<ModuleId>,
     pub path: Vec<Arc<str>>, // 全路径 (包括本身, 例: ["std", "vec"])
     pub visibility: Visibility,
+    pub ast_index: StmtId,
+    /// 模块本身的 id
+    pub module_id: ModuleId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,6 +121,8 @@ pub struct StructData {
     pub module_id: ModuleId,
     pub generics: Vec<Arc<str>>, 
     pub fields: IndexMap<Arc<str>, TyId>, 
+    pub ast_index: StmtId,
+    pub ty: TyId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -100,12 +130,11 @@ pub struct FunctionData {
     pub name: Arc<str>,
     pub visibility: Visibility,
     pub module_id: ModuleId,
-    pub generics: Vec<Arc<str>>,
-    pub params: Vec<TyId>,
-    pub ret_ty: TyId,
     pub is_variadic: bool,
     /// 如果是函数声明，这里可能是 None
     pub body: Option<ExprId>, 
+    pub ast_index: StmtId,
+    pub ty: TyId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,6 +143,8 @@ pub struct TraitData {
     pub visibility: Visibility,
     pub module_id: ModuleId,
     pub methods: IndexMap<Arc<str>, DefId>, // 指向 Function 定义
+    pub ast_index: StmtId,
+    pub ty: TyId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -121,5 +152,6 @@ pub struct ConstantData {
     pub name: Arc<str>,
     pub visibility: Visibility,
     pub module_id: ModuleId,
+    pub ast_index: StmtId,
     pub ty: TyId,
 }
