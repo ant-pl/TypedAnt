@@ -158,12 +158,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             ));
         };
 
-        let mut ty_ctx = TypeContext::new();
-        let mut module = TypedModule::new(&mut ty_ctx);
-
-        let mut checker = TypeChecker::new(&mut module, &mut name_resolver);
-
-        checker.check_node(node)
+        self.check_node(node)
     }
 
     pub fn check_node(&mut self, node: Node) -> CheckResult<TypedNode> {
