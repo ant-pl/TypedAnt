@@ -58,7 +58,9 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "indexmap",
- "type_checker",
+ "ty",
+ "typed_ast",
+ "typed_module",
 ]
 
 [[package]]
@@ -164,6 +166,8 @@ dependencies = [
  "name_resolver",
  "parser",
  "type_checker",
+ "typed_ast",
+ "typed_module",
 ]
 
 [[package]]
@@ -226,7 +230,9 @@ dependencies = [
  "lexer",
  "parser",
  "token",
- "type_checker",
+ "ty",
+ "typed_module",
+ "utils",
 ]
 
 [[package]]
@@ -379,8 +385,11 @@ name = "repl"
 version = "0.1.0"
 dependencies = [
  "lexer",
+ "name_resolver",
  "parser",
  "type_checker",
+ "typed_ast",
+ "typed_module",
 ]
 
 [[package]]
@@ -479,13 +488,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "type_checker"
+name = "ty"
 version = "0.1.0"
 dependencies = [
  "ast",
+ "indexmap",
+]
+
+[[package]]
+name = "type_checker"
+version = "0.1.0"
+dependencies = [
+ "ant_crate_def",
+ "ast",
  "bigdecimal",
  "indexmap",
+ "name_resolver",
  "token",
+ "ty",
+ "typed_ast",
+ "typed_module",
  "utils",
 ]
 
@@ -496,6 +518,27 @@ dependencies = [
  "clap",
  "file_runner",
  "repl",
+]
+
+[[package]]
+name = "typed_ast"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "bigdecimal",
+ "indexmap",
+ "token",
+ "ty",
+]
+
+[[package]]
+name = "typed_module"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "indexmap",
+ "ty",
+ "typed_ast",
 ]
 
 [[package]]
