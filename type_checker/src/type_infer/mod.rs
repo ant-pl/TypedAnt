@@ -5,14 +5,17 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ant_crate_def::NodeOrTyped;
 use ast::node::GetToken;
-use id::{ExprId, StmtId};
+use id::{ExprId, ModuleId, StmtId};
+use name_resolver::NameResolver;
 use token::token::Token;
 use ty::{IntTy, Ty, TyId};
-use typed_module::{display_ty, module::TypedModule, ty_context::TypeContext};
 use typed_ast::typed_expr::TypedExpression;
+use typed_ast::typed_node::TypedNode;
 use typed_ast::typed_stmt::TypedStatement;
 use typed_ast::{GetType, SetType};
+use typed_module::{display_ty, module::TypedModule, ty_context::TypeContext};
 
 use crate::CheckResult;
 use crate::constants::BOOL_INFIX_OPERATORS;
@@ -22,16 +25,24 @@ use crate::type_infer::infer_context::InferContext;
 
 pub struct TypeInfer<'a, 'b, 'c> {
     pub infer_ctx: &'a mut InferContext<'b, 'c>,
+    pub name_resolver: &'a mut NameResolver<'b>,
 
     locals_tyid: HashMap<Arc<str>, TyId>,
 
     current_expected_ret_ty: Option<TyId>,
+
+    current_mod_id: ModuleId,
 }
 
 impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
-    pub fn new(infer_ctx: &'a mut InferContext<'b, 'c>) -> Self {
+    pub fn new(
+        infer_ctx: &'a mut InferContext<'b, 'c>,
+        name_resolver: &'a mut NameResolver<'b>,
+    ) -> Self {
         Self {
             infer_ctx,
+            current_mod_id: name_resolver.krate.root_id,
+            name_resolver,
             current_expected_ret_ty: None,
             locals_tyid: HashMap::new(),
         }
@@ -61,10 +72,22 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     }
 
     pub fn infer(&mut self) -> CheckResult<()> {
-        let stmt_len = self.module_ref().typed_stmts.len();
+        let mod_count = self.name_resolver.krate.modules.len();
 
-        for i in 0..stmt_len {
-            self.infer_stmt(StmtId(i))?;
+        for i in 0..mod_count {
+            let mod_id = ModuleId(i);
+
+            self.current_mod_id = mod_id;
+
+            let module_node = &self.name_resolver.krate.modules[i];
+
+            if let Some(NodeOrTyped::Typed(typed_node)) = &module_node.ast {
+                let TypedNode::Program { statements, .. } = typed_node.clone();
+
+                for stmt_id in statements {
+                    self.infer_stmt(stmt_id)?;
+                }
+            }
         }
 
         self.finalize();
@@ -421,16 +444,9 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                     Ty::Struct {
                         generics, fields, ..
                     } => (generics, fields),
+
                     Ty::AppliedGeneric(name, _) => {
-                        let ty = self
-                            .tcx()
-                            .table
-                            .lock()
-                            .unwrap()
-                            .get(name.as_ref())
-                            .unwrap()
-                            .ty
-                            .get_type();
+                        let ty = self.resolve_type_by_name(&name, &ident.token)?;
 
                         match self.tcx_ref().get(ty).clone() {
                             Ty::Struct {
@@ -448,6 +464,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                             }
                         }
                     }
+
                     it => Err(Self::make_err(
                         Some(&format!(
                             "expected struct, got {}",
@@ -501,15 +518,10 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                     // 访问的是泛型实例
                     Ty::AppliedGeneric(struct_name, args) => {
                         // 找回原始 Struct 定义
-                        let base_id = self
-                            .tcx()
-                            .table
-                            .lock()
-                            .unwrap()
-                            .get(struct_name.as_ref())
-                            .unwrap()
-                            .ty
-                            .get_type();
+                        let base_id = self.resolve_type_by_name(
+                            &struct_name,
+                            &self.module_ref().get_expr(obj).unwrap().token(),
+                        )?;
 
                         let (generics_defs, fields_defs) = match self.tcx_ref().get(base_id) {
                             Ty::Struct {
@@ -723,6 +735,27 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         self.infer_ctx.module.typed_exprs[expr_id.0].set_type(ty);
 
         return Ok(ty);
+    }
+
+    fn resolve_type_by_name(&self, name: &str, token: &Token) -> CheckResult<TyId> {
+        //  先查局部符号表
+        if let Some(symbol) = self.tcx_ref().table.lock().unwrap().get(name) {
+            return Ok(symbol.ty.get_type());
+        }
+
+        // 使用 NameResolver 查找
+        if let Some(def_id) = self.name_resolver.lookup_name(self.current_mod_id, name) {
+            let def = self.name_resolver.krate.get_def(def_id);
+            if let Some(ty) = def.ty() {
+                return Ok(ty);
+            }
+        }
+
+        Err(TypeCheckerError {
+            kind: TypeCheckerErrorKind::TypeNotFound,
+            token: token.clone(),
+            message: Some(format!("type `{}` not found during inference", name).into()),
+        })
     }
 
     pub fn unify_all(&mut self, constraints: Vec<Constraint>) -> CheckResult<()> {

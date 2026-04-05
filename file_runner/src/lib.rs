@@ -3,15 +3,12 @@ use std::{process::exit, sync::Arc};
 use lexer::Lexer;
 use name_resolver::NameResolver;
 use parser::{Parser, error::display_err};
-use typed_ast::{typed_node::TypedNode, typed_stmt::TypedStatement};
-use typed_module::{
-    module::TypedModule,
-    ty_context::TypeContext
-};
 use type_checker::{
     TypeChecker,
     type_infer::{TypeInfer, infer_context::InferContext},
 };
+use typed_ast::{typed_node::TypedNode, typed_stmt::TypedStatement};
+use typed_module::{module::TypedModule, ty_context::TypeContext};
 
 pub fn run_file(path: &str) {
     let filepath: Arc<str> = path.into();
@@ -66,7 +63,7 @@ pub fn run_file(path: &str) {
 
     let mut infer_ctx = InferContext::new(&mut module);
 
-    let mut type_infer = TypeInfer::new(&mut infer_ctx);
+    let mut type_infer = TypeInfer::new(&mut infer_ctx, &mut name_resolver);
 
     match type_infer.unify_all(constraints) {
         Ok(_) => (),
@@ -90,11 +87,14 @@ pub fn run_file(path: &str) {
         "typed statements:\n{:#?}",
         statements
             .iter()
-            .map(|it| module.get_stmt(*it).unwrap().clone())
+            .map(|it| type_infer.infer_ctx.module.get_stmt(*it).unwrap().clone())
             .collect::<Vec<TypedStatement>>()
     );
 
-    println!("typed expressions:\n{:#?}", module.typed_exprs);
+    println!(
+        "typed expressions:\n{:#?}",
+        type_infer.infer_ctx.module.typed_exprs
+    );
 
-    println!("{:#?}", module.tcx_ref());
+    println!("{:#?}", type_infer.infer_ctx.module.tcx_ref());
 }

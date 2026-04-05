@@ -87,7 +87,7 @@ pub fn repl() {
 
         let mut infer_ctx = InferContext::new(&mut module);
 
-        let mut type_infer = TypeInfer::new(&mut infer_ctx);
+        let mut type_infer = TypeInfer::new(&mut infer_ctx, &mut name_resolver);
 
         match type_infer.unify_all(constraints) {
             Ok(_) => (),
@@ -111,7 +111,7 @@ pub fn repl() {
             "typed statements:\n{:#?}",
             statements
                 .iter()
-                .map(|it| module.get_stmt(*it).unwrap().clone())
+                .map(|it| type_infer.infer_ctx.module.get_stmt(*it).unwrap().clone())
                 .collect::<Vec<TypedStatement>>()
         );
 

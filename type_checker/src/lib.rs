@@ -170,11 +170,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         Ok(())
     }
 
-    pub fn check_module(
-        &mut self,
-        node: Node,
-        mod_id: ModuleId,
-    ) -> CheckResult<TypedNode> {
+    pub fn check_module(&mut self, node: Node, mod_id: ModuleId) -> CheckResult<TypedNode> {
         let old_mod = self.current_mod_id;
         self.current_mod_id = mod_id;
 
@@ -644,7 +640,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         self.module.alloc_expr(expr)
                     }),
                     None => {
-                        if self.compile_as == CompileAs::AsValue {
+                        let consequence_ty = typed_consequence.get_type();
+
+                        if self.compile_as == CompileAs::AsValue
+                            && self.tcx().get(consequence_ty) != &Ty::Unit
+                        {
                             return Err(Self::make_err(
                                 Some("`if` may be missing an `else` clause"),
                                 TypeCheckerErrorKind::Other,
@@ -998,20 +998,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     value: left.value,
                 };
 
-                if self
-                    .tcx()
-                    .table
-                    .lock()
-                    .unwrap()
-                    .get(left.value.as_ref())
-                    .is_none()
-                {
-                    return Err(Self::make_err(
-                        Some(&format!("type `{left}` not found")),
-                        TypeCheckerErrorKind::TypeNotFound,
-                        left.token,
-                    ));
-                }
+                let _base_ty = self.lookup_type_by_name(&left.value, left.token.clone())?;
 
                 let typed_path_exprs = paths
                     .into_iter()
