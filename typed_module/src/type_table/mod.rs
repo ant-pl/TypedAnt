@@ -5,9 +5,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{
-    Ty, ty::{FloatTy, IntTy, TyId}, ty_context::TypeContext, typed_ast::GetType
-};
+use typed_ast::GetType;
+use ty::{FloatTy, IntTy, Ty, TyId};
+
+use crate::ty_context::TypeContext;
 
 pub enum SymbolScope {
     Global,
@@ -44,8 +45,8 @@ pub struct TypeTable {
 
 impl TypeTable {
     pub fn init_table(&mut self, tcx: &mut TypeContext) {
-        self.define_var("str", tcx.alloc(Ty::Str));
         self.define_var("BigInt", tcx.alloc(Ty::BigInt));
+        self.define_var("str", tcx.alloc(Ty::Str));
         self.define_var("bool", tcx.alloc(Ty::Bool));
         self.define_var("unit", tcx.alloc(Ty::Unit));
 
@@ -72,7 +73,9 @@ impl TypeTable {
         self.init_table(tcx);
         self
     }
+}
 
+impl TypeTable {
     pub fn with_outer(outer: Arc<Mutex<TypeTable>>) -> Self {
         Self {
             outer: Some(outer),

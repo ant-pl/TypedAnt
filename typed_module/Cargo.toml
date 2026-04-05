@@ -1,0 +1,10 @@
+[package]
+name = "typed_module"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ast = { path = "../ast" }
+typed_ast = { path = "../typed_ast" }
+ty = { path = "../ty" }
+indexmap = "2.12.1"

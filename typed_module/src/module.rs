@@ -1,9 +1,8 @@
 use ast::{ExprId, StmtId};
 
-use crate::{
-    ty_context::TypeContext,
-    typed_ast::{typed_expr::TypedExpression, typed_stmt::TypedStatement},
-};
+use typed_ast::{typed_expr::TypedExpression, typed_stmt::TypedStatement};
+
+use crate::ty_context::TypeContext;
 
 #[derive(Debug)]
 pub struct TypedModule<'a> {
@@ -90,4 +89,3 @@ impl<'a> TypedModule<'a> {
         }
     }
 }
-

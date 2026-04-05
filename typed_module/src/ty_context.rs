@@ -1,9 +1,8 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{
-    table::TypeTable,
-    ty::{Ty, TyId},
-};
+use ty::{Ty, TyId};
+
+use crate::type_table::TypeTable;
 
 #[derive(Clone)]
 pub struct TypeContext {
