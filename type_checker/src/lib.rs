@@ -179,10 +179,21 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     typed_statements.push(self.module.alloc_stmt(stmt));
                 }
 
-                Ok(TypedNode::Program {
+                let node = TypedNode::Program {
                     token,
                     statements: typed_statements,
-                })
+                };
+
+                if let Some(it) = self
+                    .name_resolver
+                    .krate
+                    .modules
+                    .get_mut(self.name_resolver.krate.root_id.0)
+                {
+                    it.ast = Some(NodeOrTyped::Typed(node.clone()))
+                }
+
+                Ok(node)
             }
         }
     }
