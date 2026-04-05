@@ -65,7 +65,7 @@ pub fn parse_int(parser: &mut Parser) -> ParseResult<Expression> {
 
         return Ok(Expression::Float {
             token,
-            value: FloatValue::F32(it),
+            value: FloatValue::F64(it),
         });
     }
 
