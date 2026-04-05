@@ -28,3 +28,18 @@ where
     // 检查所有剩余元素是否等于基准值
     iter.all(|item| item == first)
 }
+
+#[cfg(feature = "span_assert")]
+#[macro_export]
+macro_rules! span_assert {
+    ($cond:expr,$span:expr,$msg:expr) => {
+        assert!(
+            $cond,
+            "assertion failed at file {}, line {}, column {}\nmsg: {}",
+            $span.file,
+            $span.line,
+            $span.column,
+            $msg
+        );
+    }
+}
