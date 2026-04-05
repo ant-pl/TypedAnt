@@ -1,14 +1,16 @@
 use std::{process::exit, sync::Arc};
 
 use lexer::Lexer;
-use name_resolver::Resolver;
+use name_resolver::NameResolver;
 use parser::{Parser, error::display_err};
+use typed_ast::{typed_node::TypedNode, typed_stmt::TypedStatement};
+use typed_module::{
+    module::TypedModule,
+    ty_context::TypeContext
+};
 use type_checker::{
     TypeChecker,
-    module::TypedModule,
-    ty_context::TypeContext,
     type_infer::{TypeInfer, infer_context::InferContext},
-    typed_ast::{typed_node::TypedNode, typed_stmt::TypedStatement},
 };
 
 pub fn run_file(path: &str) {
@@ -40,16 +42,15 @@ pub fn run_file(path: &str) {
         }
     };
 
-    let mut name_resolver = Resolver::new(0.into(), path);
+    let mut name_resolver = NameResolver::new(0.into(), path);
     if let Err(it) = name_resolver.resolve(node.clone()) {
-        println!("{it:#?}")
+        eprintln!("{it:#?}");
+        exit(1)
     };
-
-    println!("name_resolver: {:#?}", name_resolver);
 
     let mut module = TypedModule::new(&mut ty_ctx);
 
-    let mut checker = TypeChecker::new(&mut module);
+    let mut checker = TypeChecker::new(&mut module, &mut name_resolver);
 
     let typed_node;
 

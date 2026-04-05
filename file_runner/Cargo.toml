@@ -8,3 +8,5 @@ lexer = { path = "../lexer" }
 parser = { path = "../parser" }
 type_checker = { path = "../type_checker" }
 name_resolver = { path = "../name_resolver" }
+typed_module = { path = "../typed_module" }
+typed_ast = { path = "../typed_ast" }
