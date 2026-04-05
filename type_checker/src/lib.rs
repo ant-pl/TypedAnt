@@ -58,6 +58,8 @@ pub struct TypeChecker<'a, 'b> {
     scope_index: usize,
 
     compile_as: CompileAs,
+
+    builtins_table: Arc<Mutex<TypeTable>>,
 }
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
@@ -68,6 +70,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         };
 
         Self {
+            builtins_table: Arc::new(Mutex::new(TypeTable::new().init(module.tcx_mut()))),
+
             resolving_defs: HashSet::new(),
 
             module,
@@ -84,10 +88,19 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
     }
 
+    fn reset_to_builtins(&mut self) {
+        // 以内置类型表为父级，创建一个新的空表
+        self.module.tcx_mut().table = Arc::new(Mutex::new(TypeTable::with_outer(
+            self.builtins_table.clone(),
+        )));
+    }
+
     pub fn check_all(&mut self, root_node: Node) -> CheckResult<TypedNode> {
         self.fill_defs_ty()?;
 
         self.check_all_modules()?;
+
+        self.reset_to_builtins();
 
         let node = self.check_node(root_node)?;
 
@@ -144,12 +157,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
 
             let module = &self.name_resolver.krate.modules[i];
-            let file = module.file.clone();
             let Some(NodeOrTyped::Node(node)) = module.ast.clone() else {
                 continue;
             };
 
-            let typed_node = self.check_module(node, &file)?;
+            let typed_node = self.check_module(node, ModuleId(i))?;
 
             let module = &mut self.name_resolver.krate.modules[i];
             module.ast = Some(NodeOrTyped::Typed(typed_node));
@@ -158,26 +170,23 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         Ok(())
     }
 
-    pub fn check_module(&mut self, node: Node, file: &str) -> CheckResult<TypedNode> {
-        let mut name_resolver = NameResolver::new(ModuleId(0), file);
-        if let Err(it) = name_resolver.resolve(node.clone()) {
-            return Err(Self::make_err(
-                Some(&format!(
-                    "checking module `{file}` failed{}",
-                    if let Some(it) = it.message
-                        && !it.is_empty()
-                    {
-                        format!(", {it}")
-                    } else {
-                        "".to_owned()
-                    }
-                )),
-                TypeCheckerErrorKind::Other,
-                it.token,
-            ));
-        };
+    pub fn check_module(
+        &mut self,
+        node: Node,
+        mod_id: ModuleId,
+    ) -> CheckResult<TypedNode> {
+        let old_mod = self.current_mod_id;
+        self.current_mod_id = mod_id;
 
-        self.check_node(node)
+        // 重置符号表：每个模块都该有干净的开始
+        self.reset_to_builtins();
+
+        // 这一定是一个不同以往的浪漫古士
+        let r = self.check_node(node);
+
+        self.current_mod_id = old_mod;
+
+        r
     }
 
     pub fn check_node(&mut self, node: Node) -> CheckResult<TypedNode> {
@@ -489,6 +498,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 let ident_name = &it.value;
 
                 if let Some(symbol) = self.tcx().table.lock().unwrap().get(&ident_name) {
+                    println!("2");
                     return Ok(TypedExpression::Ident(
                         Ident {
                             token: it.token,
@@ -503,6 +513,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 {
                     let ty_id = self.resolve_def_type(def_id)?;
 
+                    println!("1");
                     return Ok(TypedExpression::Ident(
                         Ident {
                             token: it.token,
