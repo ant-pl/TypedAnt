@@ -1,41 +1,42 @@
 pub mod constants;
 pub mod error;
-pub mod module;
 pub mod scope;
-pub mod table;
 pub mod test;
-pub mod ty;
-pub mod ty_context;
 pub mod type_infer;
-pub mod typed_ast;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
 
+use ant_crate_def::{
+    ModuleId, NodeOrTyped,
+    definition::{Def, DefId},
+};
 use ast::{
     ExprId, StmtId,
     expr::Expression,
     node::{GetToken, Node},
     stmt::Statement,
 };
+
 use indexmap::IndexMap;
+use name_resolver::NameResolver;
 use token::token::Token;
+use ty::{Ty, TyId};
+use typed_ast::{
+    GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident, typed_node::TypedNode,
+    typed_stmt::TypedStatement,
+};
+use typed_module::{
+    display_ty, module::TypedModule, ty_context::TypeContext, type_table::TypeTable,
+};
 
 use crate::{
     constants::BOOL_INFIX_OPERATORS,
     error::{TypeCheckerError, TypeCheckerErrorKind},
-    module::TypedModule,
     scope::{CheckScope, ScopeKind},
-    table::TypeTable,
-    ty::{Ty, TyId, display_ty},
-    ty_context::TypeContext,
     type_infer::constraint::Constraint,
-    typed_ast::{
-        GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident,
-        typed_node::TypedNode, typed_stmt::TypedStatement,
-    },
 };
 
 pub type CheckResult<T> = Result<T, TypeCheckerError>;
@@ -47,7 +48,12 @@ enum CompileAs {
 }
 
 pub struct TypeChecker<'a, 'b> {
+    name_resolver: &'a mut NameResolver<'b>,
+
+    resolving_defs: HashSet<DefId>,
+
     module: &'a mut TypedModule<'b>,
+    current_mod_id: ModuleId,
 
     constraints: Vec<Constraint>,
 
@@ -58,14 +64,19 @@ pub struct TypeChecker<'a, 'b> {
 }
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
-    pub fn new(module: &'a mut TypedModule<'b>) -> Self {
+    pub fn new(module: &'a mut TypedModule<'b>, name_resolver: &'a mut NameResolver<'b>) -> Self {
         let global_scope = CheckScope {
             kind: ScopeKind::Global,
             collect_return_types: vec![],
         };
 
         Self {
+            resolving_defs: HashSet::new(),
+
             module,
+            current_mod_id: name_resolver.krate.root_id,
+
+            name_resolver,
 
             constraints: vec![],
 
@@ -76,9 +87,98 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
     }
 
+    fn get_raw_stmt(&self, def_id: DefId) -> &Statement {
+        let def = self.name_resolver.krate.get_def(def_id);
+        let (mod_id, ast_idx) = (def.module_id(), def.ast_index());
+
+        let mod_node = &self.name_resolver.krate.modules[mod_id.0];
+        if let Some(NodeOrTyped::Node(Node::Program { statements, .. })) = &mod_node.ast {
+            &statements[ast_idx.0]
+        } else {
+            panic!("module has not ast node or be typed")
+        }
+    }
+
+    fn write_back_type(
+        &mut self,
+        def_id: ant_crate_def::definition::DefId,
+        ty: TyId,
+    ) -> CheckResult<()> {
+        match &mut self.name_resolver.krate.definitions[def_id.0] {
+            Def::Constant(data) => data.ty = ty,
+            Def::Function(data) => data.ty = ty,
+            Def::Trait(data) => data.ty = ty,
+            Def::Struct(data) => data.ty = ty,
+
+            _ => {}
+        }
+
+        Ok(())
+    }
+
+    pub fn fill_defs_ty(&mut self) -> CheckResult<()> {
+        for def_id in 0..self.name_resolver.krate.definitions.len() {
+            self.resolve_def_type(DefId(def_id))?;
+        }
+
+        Ok(())
+    }
+
+    pub fn check_all_modules(&mut self) -> CheckResult<()> {
+        for i in 0..self.name_resolver.krate.modules.len() {
+            if i == self.name_resolver.krate.root_id.0 {
+                // 我们将在后面检查主模块
+                continue;
+            }
+
+            let module = &self.name_resolver.krate.modules[i];
+            let file = module.file.clone();
+            let Some(NodeOrTyped::Node(node)) = module.ast.clone() else {
+                continue;
+            };
+
+            let typed_node = self.check_module(node, &file)?;
+
+            let module = &mut self.name_resolver.krate.modules[i];
+            module.ast = Some(NodeOrTyped::Typed(typed_node));
+        }
+
+        Ok(())
+    }
+
+    pub fn check_module(&mut self, node: Node, file: &str) -> CheckResult<TypedNode> {
+        let mut name_resolver = NameResolver::new(ModuleId(0), file);
+        if let Err(it) = name_resolver.resolve(node.clone()) {
+            return Err(Self::make_err(
+                Some(&format!(
+                    "checking module `{file}` failed{}",
+                    if let Some(it) = it.message
+                        && !it.is_empty()
+                    {
+                        format!(", {it}")
+                    } else {
+                        "".to_owned()
+                    }
+                )),
+                TypeCheckerErrorKind::Other,
+                it.token,
+            ));
+        };
+
+        let mut ty_ctx = TypeContext::new();
+        let mut module = TypedModule::new(&mut ty_ctx);
+
+        let mut checker = TypeChecker::new(&mut module, &mut name_resolver);
+
+        checker.check_node(node)
+    }
+
     pub fn check_node(&mut self, node: Node) -> CheckResult<TypedNode> {
         match node {
             Node::Program { token, statements } => {
+                self.fill_defs_ty()?;
+                self.check_all_modules()?;
+
                 let mut typed_statements = vec![];
 
                 for stmt in statements {
@@ -135,11 +235,27 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     }
 
     pub fn check_expr_as_val(&mut self, expr: Expression) -> CheckResult<TypedExpression> {
+        let old = self.compile_as;
         self.compile_as = CompileAs::AsValue;
 
         let result = self.check_expr(expr);
 
-        self.compile_as = CompileAs::AsNone;
+        self.compile_as = old;
+
+        result
+    }
+
+    pub fn check_expr_with_mod_id(
+        &mut self,
+        expr: Expression,
+        id: ModuleId,
+    ) -> CheckResult<TypedExpression> {
+        let old = self.current_mod_id;
+        self.current_mod_id = id;
+
+        let result = self.check_expr(expr);
+
+        self.current_mod_id = old;
 
         result
     }
@@ -297,24 +413,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
             Expression::BuildStruct(token, name, fields) => {
                 // 查 struct 类型
-                let struct_sym = self
-                    .tcx()
-                    .table
-                    .lock()
-                    .unwrap()
-                    .get(&name.value)
-                    .map_or_else(
-                        || {
-                            Err(Self::make_err(
-                                Some(&format!("type not found: {}", &name.value)),
-                                TypeCheckerErrorKind::VariableNotFound,
-                                name.token.clone(),
-                            ))
-                        },
-                        |it| Ok(it),
-                    )?;
-
-                let struct_ty_id = struct_sym.ty.get_type();
+                let struct_ty_id = self.lookup_type_by_name(&name.value, name.token.clone())?;
 
                 // 取出 struct 的泛型参数和字段定义
                 let def_generics = match self.tcx().get(struct_ty_id).clone() {
@@ -383,19 +482,33 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Expression::Ident(it) => {
                 let ident_name = &it.value;
 
-                match self.tcx().table.lock().unwrap().get(&ident_name) {
-                    Some(symbol) => Ok(TypedExpression::Ident(
+                if let Some(symbol) = self.tcx().table.lock().unwrap().get(&ident_name) {
+                    return Ok(TypedExpression::Ident(
                         Ident {
                             token: it.token,
                             value: it.value,
                         },
                         symbol.ty.get_type(),
-                    )),
-                    None => Err(Self::make_err(
+                    ));
+                } else if let Some(def_id) = self
+                    .name_resolver
+                    .lookup_name(self.current_mod_id, &it.value)
+                {
+                    let ty_id = self.resolve_def_type(def_id)?;
+
+                    return Ok(TypedExpression::Ident(
+                        Ident {
+                            token: it.token,
+                            value: it.value,
+                        },
+                        ty_id,
+                    ));
+                } else {
+                    Err(Self::make_err(
                         None,
                         TypeCheckerErrorKind::VariableNotFound,
                         it.token,
-                    )),
+                    ))
                 }
             }
 
@@ -893,13 +1006,38 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             _ => Err(Self::make_err(
                 Some("not a type expr"),
                 TypeCheckerErrorKind::Other,
-                expr.token()
+                expr.token(),
             )),
         }
     }
 
+    pub fn check_stmt_with_mod_id(
+        &mut self,
+        stmt: Statement,
+        id: ModuleId,
+    ) -> CheckResult<TypedStatement> {
+        let old = self.current_mod_id;
+        self.current_mod_id = id;
+
+        let result = self.check_statement(stmt);
+
+        self.current_mod_id = old;
+
+        result
+    }
+
     pub fn check_statement(&mut self, stmt: Statement) -> CheckResult<TypedStatement> {
         match stmt {
+            Statement::Use {
+                token,
+                full_path,
+                alias,
+            } => Ok(TypedStatement::Use {
+                token,
+                full_path,
+                alias,
+                ty: self.tcx().alloc(Ty::Unit),
+            }),
             Statement::Impl {
                 token,
                 impl_,
@@ -995,7 +1133,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 token,
                 name,
                 params,
-                ret_ty: ret_ty_ident,
+                ret_ty: ret_ty_expr,
                 generics_params,
             } => {
                 let mut generic_names = vec![];
@@ -1036,20 +1174,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
 
                 // 初步返回定义
-                let ret_ty = ret_ty_ident
+                let ret_ty = ret_ty_expr
                     .as_ref()
-                    .map_or_else(
-                        || None,
-                        |it| {
-                            self.tcx()
-                                .table
-                                .lock()
-                                .unwrap()
-                                .get(&it.value)
-                                .map_or(None, |it| Some(it.ty.get_type()))
-                        },
-                    )
-                    .map_or(self.tcx().alloc(Ty::Unit), |it| it);
+                    .map_or_else(|| None, |it| Some(self.check_type_expr(*it.clone())))
+                    .map_or(Ok(self.tcx().alloc(Ty::Unit)), |it| Ok(it?.get_type()))?;
 
                 let func_ty = Ty::Function {
                     generics: generic_names.clone(),
@@ -1066,10 +1194,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     .unwrap()
                     .define_var(&name.value, func_ty_id);
 
-                let ret_ident = ret_ty_ident.map(|it| Ident {
-                    token: it.token,
-                    value: it.value,
-                });
+                let checked_ret_ty_expr = ret_ty_expr.map(|it| self.check_type_expr(*it));
 
                 let ty = Ty::Function {
                     generics: generic_names,
@@ -1077,19 +1202,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         .iter()
                         .map(|p| self.get_expr_tyid(*p))
                         .collect(),
-                    ret_type: ret_ident
+                    ret_type: checked_ret_ty_expr
                         .as_ref()
-                        .map_or(Ok(self.tcx().alloc(Ty::Unit)), |id| {
-                            self.tcx().table.lock().unwrap().get(&id.value).map_or_else(
-                                || {
-                                    Err(TypeChecker::make_err(
-                                        Some(&format!("unknown type: {}", &id.value)),
-                                        TypeCheckerErrorKind::TypeNotFound,
-                                        id.token.clone(),
-                                    ))
-                                },
-                                |it| Ok(it.ty.get_type()),
-                            )
+                        .map_or(Ok(self.tcx().alloc(Ty::Unit)), |ty_expr| {
+                            Ok(ty_expr.clone()?.get_type())
                         })?,
                     is_variadic: false,
                 };
@@ -1127,7 +1243,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     token,
                     name,
                     params: typed_param_ids,
-                    ret_ty: ret_ident,
+                    ret_ty: if let Some(it) = checked_ret_ty_expr {
+                        Some(self.module.alloc_expr(it?))
+                    } else {
+                        None
+                    },
                     ty: self.tcx().alloc(ty),
                     generics_params: typed_generic_params,
                 })
@@ -1563,9 +1683,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     ty,
                 })
             }
-
-            it => todo!("todo expr: {it}"),
         }
+    }
+
+    fn get_def_token(&'a self, id: DefId) -> Token {
+        let stmt = self.get_raw_stmt(id);
+        stmt.token()
     }
 
     fn get_expr_tyid(&self, exprid: ExprId) -> TyId {
@@ -1637,6 +1760,238 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             token,
             message: message.map_or_else(|| None, |it| Some(it.into())),
         }
+    }
+}
+
+impl<'a, 'b> TypeChecker<'a, 'b> {
+    pub fn resolve_def_type(&mut self, def_id: DefId) -> CheckResult<TyId> {
+        let existing_ty = self.name_resolver.krate.get_def(def_id).ty().unwrap_or(0);
+
+        /*
+        考虑到目前零号类型是 BigInt，该类型很少见。所以
+        即使重新检查一遍所耗费时间也可忽略不计
+        */
+        if existing_ty != 0 {
+            return Ok(existing_ty);
+        }
+
+        // 循环检测 防止 const A = B; const B = A; 这种死循环
+        if !self.resolving_defs.insert(def_id) {
+            return Err(Self::make_err(
+                Some("circular dependency detected"),
+                TypeCheckerErrorKind::Other,
+                self.get_def_token(def_id),
+            ));
+        }
+
+        let mod_id_of_def = self.name_resolver.krate.get_def(def_id).module_id();
+        let raw_stmt = self.get_raw_stmt(def_id).clone();
+
+        // 上下文切换
+        let old_mod_id = self.current_mod_id;
+        self.current_mod_id = mod_id_of_def;
+
+        let result = match raw_stmt {
+            Statement::Const { value, .. } => {
+                let typed_expr = self.check_expr(value)?;
+                let ty = typed_expr.get_type();
+                self.write_back_type(def_id, ty)?;
+                Ok(ty)
+            }
+
+            Statement::FuncDecl {
+                params,
+                ret_ty,
+                generics_params,
+                ..
+            } => {
+                // 这里只解析函数头
+                let mut generics = vec![];
+
+                for generics_param in generics_params
+                    .iter()
+                    .filter(|it| matches!(&***it, Expression::Ident(_)))
+                {
+                    let Expression::Ident(it) = &**generics_param else {
+                        unreachable!()
+                    };
+
+                    let ty_id = self.tcx().alloc(Ty::Generic(it.value.clone(), vec![]));
+
+                    generics.push(it.value.clone());
+
+                    self.tcx()
+                        .table
+                        .lock()
+                        .unwrap()
+                        .define_var(&it.value, ty_id);
+                }
+
+                let mut params_type = vec![];
+                for param in params {
+                    params_type.push(self.check_type_expr(*param)?.get_type());
+                }
+
+                let ret_ty_id = ret_ty.map_or(Ok(self.tcx().alloc(Ty::Unit)), |ret| {
+                    self.check_type_expr(*ret).map(|it| it.get_type())
+                })?;
+
+                // 清理泛型
+                generics.iter().for_each(|it| {
+                    self.tcx().table.lock().unwrap().var_map.remove(it);
+                });
+
+                let func_ty = self.tcx().alloc(Ty::Function {
+                    generics,
+                    params_type,
+                    ret_type: ret_ty_id,
+                    is_variadic: false,
+                });
+
+                self.write_back_type(def_id, func_ty)?;
+                Ok(func_ty)
+            }
+
+            Statement::ExpressionStatement(Expression::Function {
+                params,
+                ret_ty,
+                generics_params,
+                ..
+            }) => {
+                // 这里只解析函数头
+                let mut generics = vec![];
+
+                for generics_param in generics_params
+                    .iter()
+                    .filter(|it| matches!(&***it, Expression::Ident(_)))
+                {
+                    let Expression::Ident(it) = &**generics_param else {
+                        unreachable!()
+                    };
+
+                    let ty_id = self.tcx().alloc(Ty::Generic(it.value.clone(), vec![]));
+
+                    generics.push(it.value.clone());
+
+                    self.tcx()
+                        .table
+                        .lock()
+                        .unwrap()
+                        .define_var(&it.value, ty_id);
+                }
+
+                let mut params_type = vec![];
+                for param in params {
+                    params_type.push(self.check_type_expr(*param)?.get_type());
+                }
+
+                let ret_ty_id = ret_ty.map_or(Ok(self.tcx().alloc(Ty::Unit)), |ret| {
+                    self.check_type_expr(*ret).map(|it| it.get_type())
+                })?;
+
+                // 清理泛型
+                generics.iter().for_each(|it| {
+                    self.tcx().table.lock().unwrap().var_map.remove(it);
+                });
+
+                let func_ty = self.tcx().alloc(Ty::Function {
+                    generics,
+                    params_type,
+                    ret_type: ret_ty_id,
+                    is_variadic: false,
+                });
+
+                self.write_back_type(def_id, func_ty)?;
+                Ok(func_ty)
+            }
+
+            Statement::Struct {
+                name: struct_name,
+                fields: raw_fields,
+                generics: raw_generics,
+                ..
+            } => {
+                for generic in raw_generics
+                    .iter()
+                    .filter(|it| matches!(&***it, Expression::Ident(_)))
+                {
+                    let Expression::Ident(it) = &**generic else {
+                        unreachable!()
+                    };
+
+                    let ty_id = self.tcx().alloc(Ty::Generic(it.value.clone(), vec![]));
+
+                    self.tcx()
+                        .table
+                        .lock()
+                        .unwrap()
+                        .define_var(&it.value, ty_id);
+                }
+
+                let mut fields = IndexMap::new();
+
+                for field_expr in raw_fields {
+                    let typed_field = self.check_type_expr(*field_expr.clone())?;
+
+                    if let TypedExpression::TypeHint(field_ident, _, field_ty) = typed_field {
+                        fields.insert(field_ident.value.clone(), field_ty);
+                    }
+                }
+
+                // 移除之前定义的泛型避免污染全局空间
+                raw_generics
+                    .iter()
+                    .filter(|it| matches!(&***it, Expression::Ident(_)))
+                    .for_each(|it| {
+                        let Expression::Ident(it) = &**it else {
+                            unreachable!()
+                        };
+
+                        self.tcx().table.lock().unwrap().remove(&it.value);
+                    });
+
+                // 处理泛型名
+                let generics: Vec<Arc<str>> =
+                    raw_generics.iter().map(|g| g.to_string().into()).collect();
+
+                let struct_ty = self.tcx().alloc(Ty::Struct {
+                    name: struct_name.value.clone(),
+                    generics,
+                    fields,
+                    impl_traits: IndexMap::new(),
+                });
+
+                self.write_back_type(def_id, struct_ty)?;
+                Ok(struct_ty)
+            }
+
+            it => todo!("todo def {it}"),
+        };
+
+        self.current_mod_id = old_mod_id;
+        self.resolving_defs.remove(&def_id);
+        result
+    }
+}
+
+impl<'a, 'b> TypeChecker<'a, 'b> {
+    pub fn lookup_type_by_name(&mut self, name: &str, token: Token) -> CheckResult<TyId> {
+        // 查局部符号表
+        if let Some(symbol) = self.tcx().table.lock().unwrap().get(name) {
+            return Ok(symbol.ty.get_type());
+        }
+
+        // 全局符号表
+        if let Some(def_id) = self.name_resolver.lookup_name(self.current_mod_id, name) {
+            // 触发拉取式推导，确保那个 Def 已经被填坑了
+            return self.resolve_def_type(def_id);
+        }
+
+        Err(Self::make_err(
+            Some(&format!("type `{}` not found in this scope", name)),
+            TypeCheckerErrorKind::TypeNotFound,
+            token,
+        ))
     }
 }
 

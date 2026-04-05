@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use crate::{module::TypedModule, ty::{Ty, TyId}};
+use typed_module::module::TypedModule;
+use ty::{Ty, TyId};
 
 pub struct InferContext<'a, 'b> {
     pub module: &'a mut TypedModule<'b>,

@@ -3,15 +3,15 @@ mod tests {
     use std::sync::Arc;
 
     use bigdecimal::BigDecimal;
+    use name_resolver::NameResolver;
     use token::{token::Token, token_type::TokenType};
+    use ty::Ty;
+    use typed_ast::{GetType, typed_expr::TypedExpression, typed_stmt::TypedStatement};
+    use typed_module::{module::TypedModule, ty_context::TypeContext};
 
     use crate::{
         TypeChecker,
-        module::TypedModule,
-        ty::Ty,
-        ty_context::TypeContext,
         type_infer::{TypeInfer, infer_context::InferContext},
-        typed_ast::{GetType, typed_expr::TypedExpression, typed_stmt::TypedStatement},
     };
 
     #[test]
@@ -19,13 +19,15 @@ mod tests {
         let file: Arc<str> = "__test_checker_var_get__".into();
 
         let mut tcx = TypeContext::new();
-        
+
         let bigint_id = tcx.alloc(Ty::BigInt);
-        
+
         tcx.table.lock().unwrap().define_var("a", bigint_id);
-        
+
+        let mut name_resolver = NameResolver::new(0.into(), &file);
         let mut module = TypedModule::new(&mut tcx);
-        let checker = &mut TypeChecker::new(&mut module);
+
+        let checker = &mut TypeChecker::new(&mut module, &mut name_resolver);
 
         let ident_raw = ast::expressions::ident::Ident {
             token: Token::new("a".into(), TokenType::Ident, file.clone(), 1, 1),
@@ -61,10 +63,11 @@ mod tests {
     fn test_checker_var_def() {
         let file: Arc<str> = "__test_checker_var_def__".into();
 
+        let mut name_resolver = NameResolver::new(0.into(), &file);
         let mut tcx = TypeContext::new();
         let mut module = TypedModule::new(&mut tcx);
 
-        let checker = &mut TypeChecker::new(&mut module);
+        let checker = &mut TypeChecker::new(&mut module, &mut name_resolver);
 
         let let_stmt_raw = ast::stmt::Statement::Let {
             name: ast::expressions::ident::Ident {

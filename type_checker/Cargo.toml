@@ -5,7 +5,12 @@ edition = "2024"
 
 [dependencies]
 ast = { path = "../ast" }
-bigdecimal = "0.4.9"
-indexmap = "2.12.1"
+name_resolver = { path = "../name_resolver" }
+ant_crate_def = { path = "../ant_crate_def" }
+typed_module = { path = "../typed_module" }
+typed_ast = { path = "../typed_ast" }
+ty = { path = "../ty" }
 token = { path = "../token" }
 utils = { path = "../utils" }
+bigdecimal = "0.4.9"
+indexmap = "2.12.1"
