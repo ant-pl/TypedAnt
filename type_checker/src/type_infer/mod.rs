@@ -193,7 +193,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 right_ty
             }
 
-            TypedExpression::Ident(name, ty) => {
+            TypedExpression::Ident(name, ty, _) => {
                 if let Ty::Function {
                     params_type,
                     ret_type,
@@ -681,7 +681,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 new_ret_ty
             }
 
-            TypedExpression::Ident(name, ty) => {
+            TypedExpression::Ident(name, ty, _) => {
                 if let Some(&current_ty) = self.locals_tyid.get(&name.value) {
                     current_ty
                 } else {

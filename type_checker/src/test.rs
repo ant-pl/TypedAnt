@@ -49,7 +49,7 @@ mod tests {
         assert!(matches!(result, TypedExpression::Ident(..)));
 
         let (ident, ty) = match result {
-            TypedExpression::Ident(it, ty) => (it, ty),
+            TypedExpression::Ident(it, ty, _) => (it, ty),
             _ => unreachable!(),
         };
 

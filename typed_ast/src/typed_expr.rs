@@ -5,7 +5,7 @@ use ast::{
     node::GetToken,
 };
 use bigdecimal::BigDecimal;
-use id::{ExprId, StmtId};
+use id::{DefId, ExprId, StmtId};
 use indexmap::IndexMap;
 use token::token::Token;
 use ty::TyId;
@@ -34,7 +34,7 @@ pub enum TypedExpression {
         value: FloatValue,
         ty: TyId,
     },
-    Ident(Ident, TyId),
+    Ident(Ident, TyId, Option<DefId>),
     Block(Token, Vec<StmtId>, TyId),
     TypeHint(Ident, ExprId, TyId),
     SizeOf(Token, ExprId, TyId),
@@ -129,7 +129,7 @@ impl GetType for TypedExpression {
             Self::Float { ty, .. } => *ty,
             Self::Bool { ty, .. } => *ty,
             Self::GenericInstance { ty, .. } => *ty,
-            Self::Ident(_, ty) => *ty,
+            Self::Ident(_, ty, _) => *ty,
             Self::Block(_, _, ty) => *ty,
             Self::Function { ty, .. } => *ty,
             Self::Infix { ty, .. } => *ty,
@@ -158,7 +158,7 @@ impl SetType for TypedExpression {
             Self::Float { ty, .. } => *ty = new_ty,
             Self::Bool { ty, .. } => *ty = new_ty,
             Self::GenericInstance { ty, .. } => *ty = new_ty,
-            Self::Ident(_, ty) => *ty = new_ty,
+            Self::Ident(_, ty, _) => *ty = new_ty,
             Self::Block(_, _, ty) => *ty = new_ty,
             Self::Function { ty, .. } => *ty = new_ty,
             Self::Infix { ty, .. } => *ty = new_ty,
