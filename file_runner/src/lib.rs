@@ -97,4 +97,5 @@ pub fn run_file(path: &str) {
     );
 
     println!("{:#?}", module.tcx_ref());
+    println!("{:#?}", name_resolver.krate);
 }
