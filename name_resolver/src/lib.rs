@@ -80,7 +80,7 @@ impl<'a> NameResolver<'a> {
         }
 
         // 收集
-        self.collect(self.krate.root_id, &all)?;
+        self.collect(self.krate.root_id, &all, self.file.clone())?;
 
         // 构建
         self.build_path_index();
@@ -103,7 +103,7 @@ impl<'a> NameResolver<'a> {
 }
 
 impl<'a> NameResolver<'a> {
-    fn collect(&mut self, mod_id: ModuleId, stmts: &[Statement]) -> ResolveResult<()> {
+    fn collect(&mut self, mod_id: ModuleId, stmts: &[Statement], current_file: Arc<str>) -> ResolveResult<()> {
         self.resolve_module_definitions(mod_id, stmts)?;
 
         for stmt in stmts {
@@ -125,7 +125,7 @@ impl<'a> NameResolver<'a> {
                 unreachable!()
             };
 
-            let target_path = Self::file_path_from_import_path(&self.file, &module_full_path)
+            let target_path = Self::file_path_from_import_path(&current_file, &module_full_path)
                 .map_or_else(
                     || {
                         Err(Self::make_err(
@@ -162,10 +162,12 @@ impl<'a> NameResolver<'a> {
                 let Node::Program { statements, .. } = node;
                 let all = collect_all_statements(&statements);
 
+                let next_file: Arc<str> = target_path.to_string_lossy().into();
+
                 self.loaded_modules.insert(target_path, new_mod_id);
 
                 // 递归收集子模块
-                self.collect(new_mod_id, &all)?;
+                self.collect(new_mod_id, &all, next_file)?;
             }
         }
         Ok(())
