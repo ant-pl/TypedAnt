@@ -205,9 +205,9 @@ impl<'a> NameResolver<'a> {
                     );
                 }
 
-                Statement::Extern { extern_func_name, .. } => {
+                Statement::Extern { alias, .. } => {
                     let data = FunctionData {
-                        name: extern_func_name.value.clone(),
+                        name: alias.value.clone(),
                         visibility: Visibility::Public, // 还没写访问控制语法先等着吧
                         module_id,
                         params: IndexMap::new(),
@@ -218,7 +218,7 @@ impl<'a> NameResolver<'a> {
                     };
 
                     local_symbols.insert(
-                        extern_func_name.value.clone(),
+                        alias.value.clone(),
                         self.krate.alloc_def(Def::Function(data)),
                     );
                 }
