@@ -778,14 +778,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 };
 
                 if let Some(name) = &name {
-                    let ty_id = self.tcx().alloc(ty.clone());
-
-                    self.tcx()
-                        .table
-                        .lock()
-                        .unwrap()
-                        .define_var(&name.value, ty_id);
-
                     if let Some(def_id) = self
                         .name_resolver
                         .lookup_name(self.current_mod_id, &name.value)
@@ -1387,27 +1379,39 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     })
                     .collect::<Vec<_>>();
 
+                let fields = {
+                    let mut m = IndexMap::new();
+
+                    for field_id in &typed_field_ids {
+                        let field = self.module.get_expr(*field_id).unwrap();
+                        if let TypedExpression::TypeHint(name, _, ty) = field {
+                            m.insert(name.value.clone(), ty.clone());
+                        } else {
+                            return Err(Self::make_err(
+                                Some(&format!("not a type hint")),
+                                TypeCheckerErrorKind::Other,
+                                field.token(),
+                            ));
+                        }
+                    }
+
+                    m
+                };
+
+                // 在此填充 Def
+                if let Some(def_id) = self
+                    .name_resolver
+                    .lookup_name(self.current_mod_id, &name.value)
+                    && let Def::Struct(struct_data) = self.name_resolver.krate.get_mut_def(def_id)
+                {
+                    struct_data.fields = fields.clone();
+                    struct_data.generics = generic_names.clone();
+                }
+
                 let ty = Ty::Struct {
                     name: name.value.clone(),
                     generics: generic_names,
-                    fields: {
-                        let mut m = IndexMap::new();
-
-                        for field_id in &typed_field_ids {
-                            let field = self.module.get_expr(*field_id).unwrap();
-                            if let TypedExpression::TypeHint(name, _, ty) = field {
-                                m.insert(name.value.clone(), ty.clone());
-                            } else {
-                                return Err(Self::make_err(
-                                    Some(&format!("not a type hint")),
-                                    TypeCheckerErrorKind::Other,
-                                    field.token(),
-                                ));
-                            }
-                        }
-
-                        m
-                    },
+                    fields,
                     impl_traits: IndexMap::new(),
                 };
 
