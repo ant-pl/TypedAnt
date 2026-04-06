@@ -63,7 +63,7 @@ pub fn repl() {
             }
         };
 
-        let mut name_resolver = NameResolver::new(0.into(), &file);
+        let mut name_resolver = NameResolver::new(0.into(), file.clone());
         if let Err(it) = name_resolver.resolve(node.clone()) {
             eprintln!("{it:#?}");
             continue;

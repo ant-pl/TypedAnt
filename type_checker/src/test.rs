@@ -24,7 +24,7 @@ mod tests {
 
         tcx.table.lock().unwrap().define_var("a", bigint_id);
 
-        let mut name_resolver = NameResolver::new(0.into(), &file);
+        let mut name_resolver = NameResolver::new(0.into(), file.clone());
         let mut module = TypedModule::new(&mut tcx);
 
         let checker = &mut TypeChecker::new(&mut module, &mut name_resolver);
@@ -63,7 +63,7 @@ mod tests {
     fn test_checker_var_def() {
         let file: Arc<str> = "__test_checker_var_def__".into();
 
-        let mut name_resolver = NameResolver::new(0.into(), &file);
+        let mut name_resolver = NameResolver::new(0.into(), file.clone());
         let mut tcx = TypeContext::new();
         let mut module = TypedModule::new(&mut tcx);
 

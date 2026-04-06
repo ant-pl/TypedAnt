@@ -18,14 +18,14 @@ pub mod tests {
 
     #[test]
     fn test_name_resolver_lookup_name_local() {
-        let file = "__test_name_resolver_lookup_name_local__";
+        let file: std::sync::Arc<str> = "__test_name_resolver_lookup_name_local__".into();
 
         let mut tcx = TypeContext::new();
 
         let root_mod = ModuleNode {
-            file: file.into(),
+            file: file.clone(),
             ast: None,
-            path: vec![file.into()],
+            path: vec![file.clone()],
             typed_module: None,
             exports: HashMap::new(),
             children: HashMap::new(),
@@ -77,14 +77,14 @@ pub mod tests {
 
     #[test]
     fn test_name_resolver_lookup_name_outer() {
-        let file = "__test_name_resolver_lookup_name_outer__";
+        let file: std::sync::Arc<str> = "__test_name_resolver_lookup_name_outer__".into();
 
         let mut tcx = TypeContext::new();
 
         let root_mod = ModuleNode {
-            file: file.into(),
+            file: file.clone(),
             ast: None,
-            path: vec![file.into()],
+            path: vec![file.clone()],
             typed_module: None,
             exports: HashMap::new(),
             children: HashMap::new(),

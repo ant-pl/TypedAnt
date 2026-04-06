@@ -39,11 +39,11 @@ pub struct NameResolver<'a> {
 
     pub loaded_modules: HashMap<PathBuf, ModuleId>,
 
-    pub file: &'a str,
+    pub file: Arc<str>,
 }
 
 impl<'a> NameResolver<'a> {
-    pub fn new(root_module_id: ModuleId, file: &'a str) -> Self {
+    pub fn new(root_module_id: ModuleId, file: Arc<str>) -> Self {
         Self::from_crate(
             Crate {
                 definitions: Vec::new(),
@@ -55,7 +55,7 @@ impl<'a> NameResolver<'a> {
         )
     }
 
-    pub fn from_crate(krate: Crate<'a>, file: &'a str) -> Self {
+    pub fn from_crate(krate: Crate<'a>, file: Arc<str>) -> Self {
         Self {
             krate,
             local_maps: HashMap::new(),
@@ -115,7 +115,7 @@ impl<'a> NameResolver<'a> {
                 unreachable!()
             };
 
-            let target_path = Self::file_path_from_import_path(self.file, &module_full_path)
+            let target_path = Self::file_path_from_import_path(&self.file, &module_full_path)
                 .map_or_else(
                     || {
                         Err(Self::make_err(

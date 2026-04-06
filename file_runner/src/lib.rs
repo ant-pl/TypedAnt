@@ -39,7 +39,7 @@ pub fn run_file(path: &str) {
         }
     };
 
-    let mut name_resolver = NameResolver::new(0.into(), path);
+    let mut name_resolver = NameResolver::new(0.into(), path.into());
     if let Err(it) = name_resolver.resolve(node.clone()) {
         eprintln!("{it:#?}");
         exit(1)
