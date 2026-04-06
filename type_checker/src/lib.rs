@@ -491,14 +491,15 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Expression::Ident(it) => {
                 let ident_name = &it.value;
 
-                if let Some(symbol) = self.tcx().table.lock().unwrap().get(&ident_name) {
+                if let Some(symbol) = self.tcx_ref().table.lock().unwrap().get(&ident_name) {
                     return Ok(TypedExpression::Ident(
                         Ident {
                             token: it.token,
-                            value: it.value,
+                            value: it.value.clone(),
                         },
                         symbol.ty.get_type(),
-                        None,
+                        self.name_resolver
+                            .lookup_name(self.current_mod_id, &it.value),
                     ));
                 } else if let Some(def_id) = self
                     .name_resolver
