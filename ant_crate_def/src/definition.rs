@@ -84,6 +84,7 @@ pub struct FunctionData {
     pub visibility: Visibility,
     pub module_id: ModuleId,
     pub is_variadic: bool,
+    pub params: IndexMap<Arc<str>, TyId>,
     /// 如果是函数声明，这里可能是 None
     pub body: Option<ExprId>,
     pub ast_index: StmtId,
