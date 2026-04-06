@@ -759,6 +759,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     other => self.check_type_expr(other)?,
                 };
 
+                let block_id = self.module.alloc_expr(typed_block);
+
                 let checked_ret_ty_expr = ret_ty_expr.map(|it| self.check_type_expr(*it));
 
                 let ty = Ty::Function {
@@ -783,6 +785,15 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         .lock()
                         .unwrap()
                         .define_var(&name.value, ty_id);
+
+                    if let Some(def_id) = self
+                        .name_resolver
+                        .lookup_name(self.current_mod_id, &name.value)
+                        && let Def::Function(func_data) =
+                            self.name_resolver.krate.get_mut_def(def_id)
+                    {
+                        func_data.body = Some(block_id)
+                    }
                 }
 
                 let typed_generic_params = generics_params
@@ -810,7 +821,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     token,
                     name,
                     params: typed_param_ids,
-                    block: self.module.alloc_expr(typed_block),
+                    block: block_id,
                     ret_ty: if let Some(it) = checked_ret_ty_expr {
                         Some(self.module.alloc_expr(it?))
                     } else {
