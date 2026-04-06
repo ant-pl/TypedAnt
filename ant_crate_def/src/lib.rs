@@ -42,6 +42,10 @@ impl<'a> Crate<'a> {
         &self.definitions[id.0]
     }
 
+    pub fn get_mut_def(&mut self, id: DefId) -> &mut Def {
+        &mut self.definitions[id.0]
+    }
+
     pub fn alloc_def(&mut self, def: Def) -> DefId {
         let id = DefId(self.definitions.len());
 
