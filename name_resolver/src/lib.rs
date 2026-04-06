@@ -1,8 +1,8 @@
 pub mod error;
 pub mod test;
 
-use ant_crate_def::definition::{ConstantData, Def, FunctionData, StructData, Visibility};
 use ant_crate_def::Crate;
+use ant_crate_def::definition::{ConstantData, Def, FunctionData, StructData, Visibility};
 use ant_crate_def::{ModuleNode, NodeOrTyped};
 use ast::expr::Expression;
 use ast::node::Node;
@@ -86,7 +86,17 @@ impl<'a> NameResolver<'a> {
         self.build_path_index();
 
         // 绑定
-        self.resolve_imports(self.krate.root_id, &all)?;
+        let mod_count = self.krate.modules.len();
+        for i in 0..mod_count {
+            let mod_id = ModuleId(i);
+            // 获取该模块的 AST
+            if let Some(NodeOrTyped::Node(Node::Program { statements, .. })) =
+                self.krate.modules[i].ast.clone()
+            {
+                // 解析该模块内部所有的 use 语句
+                self.resolve_imports(mod_id, &collect_all_statements(&statements))?;
+            }
+        }
 
         Ok(())
     }
@@ -144,7 +154,7 @@ impl<'a> NameResolver<'a> {
                     typed_module: None,
                     exports: HashMap::new(),
                     children: HashMap::new(),
-                    file: target_path.to_string_lossy().into()
+                    file: target_path.to_string_lossy().into(),
                 };
 
                 let new_mod_id = self.krate.alloc_mod(mod_node);
@@ -223,12 +233,12 @@ impl<'a> NameResolver<'a> {
                     );
                 }
 
-                Statement::ExpressionStatement(Expression::Function {
-                    token,
-                    name,
-                    ..
-                }) => {
-                    span_assert!(name.is_some(), token, "unsupported top level lambda function");
+                Statement::ExpressionStatement(Expression::Function { token, name, .. }) => {
+                    span_assert!(
+                        name.is_some(),
+                        token,
+                        "unsupported top level lambda function"
+                    );
                     let name = name.clone().unwrap();
 
                     let data = FunctionData {
