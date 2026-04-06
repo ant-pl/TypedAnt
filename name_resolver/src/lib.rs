@@ -192,6 +192,7 @@ impl<'a> NameResolver<'a> {
                         name: name.value.clone(),
                         visibility: Visibility::Public, // 还没写访问控制语法先等着吧
                         module_id,
+                        params: IndexMap::new(),
                         body: None,
                         is_variadic: false, // 非外部函数一律不允许变长
                         ty: 0usize,         // 等 TypeChecker 填
@@ -216,6 +217,7 @@ impl<'a> NameResolver<'a> {
                         name: name.value.clone(),
                         visibility: Visibility::Public, // 还没写访问控制语法先等着吧
                         module_id,
+                        params: IndexMap::new(),
                         body: None,
                         is_variadic: false, // 非外部函数一律不允许变长
                         ty: 0usize,         // 等 TypeChecker 填
