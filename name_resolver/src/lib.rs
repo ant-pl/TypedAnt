@@ -205,6 +205,24 @@ impl<'a> NameResolver<'a> {
                     );
                 }
 
+                Statement::Extern { extern_func_name, .. } => {
+                    let data = FunctionData {
+                        name: extern_func_name.value.clone(),
+                        visibility: Visibility::Public, // 还没写访问控制语法先等着吧
+                        module_id,
+                        params: IndexMap::new(),
+                        body: None,
+                        is_variadic: false, // 非外部函数一律不允许变长
+                        ty: 0usize,         // 等 TypeChecker 填
+                        ast_index: StmtId(i),
+                    };
+
+                    local_symbols.insert(
+                        extern_func_name.value.clone(),
+                        self.krate.alloc_def(Def::Function(data)),
+                    );
+                }
+
                 Statement::ExpressionStatement(Expression::Function {
                     token,
                     name,
