@@ -1,7 +1,8 @@
 # 语法文档
 **该语言不强制分号**
 
-[控制流](control-flow.md)
+[控制流](control_flow.md)
 [字面量](literal.md)
 [变量常量及赋值](variable_and_constant.md)
 [项](items.md)
+[语法规范](grammar_guidelines.md)
