@@ -25,7 +25,7 @@ use crate::type_infer::infer_context::InferContext;
 
 pub struct TypeInfer<'a, 'b, 'c> {
     pub infer_ctx: &'a mut InferContext<'b, 'c>,
-    pub name_resolver: &'a mut NameResolver<'b>,
+    pub name_resolver: &'a NameResolver<'b>,
 
     locals_tyid: HashMap<Arc<str>, TyId>,
 
@@ -37,7 +37,7 @@ pub struct TypeInfer<'a, 'b, 'c> {
 impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     pub fn new(
         infer_ctx: &'a mut InferContext<'b, 'c>,
-        name_resolver: &'a mut NameResolver<'b>,
+        name_resolver: &'a NameResolver<'b>,
     ) -> Self {
         Self {
             infer_ctx,

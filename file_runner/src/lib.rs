@@ -63,7 +63,7 @@ pub fn run_file(path: &str) {
 
     let mut infer_ctx = InferContext::new(&mut module);
 
-    let mut type_infer = TypeInfer::new(&mut infer_ctx, &mut name_resolver);
+    let mut type_infer = TypeInfer::new(&mut infer_ctx, &name_resolver);
 
     match type_infer.unify_all(constraints) {
         Ok(_) => (),
@@ -87,14 +87,14 @@ pub fn run_file(path: &str) {
         "typed statements:\n{:#?}",
         statements
             .iter()
-            .map(|it| type_infer.infer_ctx.module.get_stmt(*it).unwrap().clone())
+            .map(|it| module.get_stmt(*it).unwrap().clone())
             .collect::<Vec<TypedStatement>>()
     );
 
     println!(
         "typed expressions:\n{:#?}",
-        type_infer.infer_ctx.module.typed_exprs
+        module.typed_exprs
     );
 
-    println!("{:#?}", type_infer.infer_ctx.module.tcx_ref());
+    println!("{:#?}", module.tcx_ref());
 }
