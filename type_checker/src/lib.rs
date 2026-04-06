@@ -1309,7 +1309,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     ret_type: ret_ty_expr_typed
                         .as_ref()
                         .map_or_else(|| self.tcx().alloc(Ty::Unit), |it| it.get_type()),
-                    is_variadic: true,
+                    is_variadic: vararg,
                 };
 
                 let func_ty_id = self.tcx().alloc(func_ty.clone());
@@ -1323,12 +1323,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 // 在此填充 Def
                 if let Some(def_id) = self
                     .name_resolver
-                    .lookup_name(self.current_mod_id, &extern_func_name.value)
+                    .lookup_name(self.current_mod_id, &alias.value)
                     && let Def::Function(func_data) = self.name_resolver.krate.get_mut_def(def_id)
                 {
                     func_data.ty = func_ty_id;
                     func_data.params = param_mapping;
-                    func_data.is_variadic = vararg
+                    func_data.is_variadic = vararg;
                 }
 
                 Ok(TypedStatement::Extern {
@@ -2024,6 +2024,54 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.write_back_type(def_id, struct_ty);
                 Ok(struct_ty)
+            }
+
+            Statement::Extern {
+                vararg,
+                alias,
+                params,
+                ret_ty,
+                ..
+            } => {
+                let mut typed_param_ids = vec![];
+                let mut params_type = vec![];
+                let mut param_mapping = IndexMap::new();
+
+                for param in params {
+                    let typed_param = self.check_type_expr(*param)?;
+                    if let TypedExpression::TypeHint(ident, _, ty) = &typed_param {
+                        param_mapping.insert(ident.value.clone(), *ty);
+                    }
+
+                    params_type.push(typed_param.get_type());
+                    typed_param_ids.push(self.module.alloc_expr(typed_param));
+                }
+
+                let ret_ty_expr_typed = if let Some(ret_ty) = ret_ty {
+                    Some(self.check_type_expr(*ret_ty)?)
+                } else {
+                    None
+                };
+
+                let func_ty = Ty::Function {
+                    generics: vec![],
+                    params_type,
+                    ret_type: ret_ty_expr_typed
+                        .as_ref()
+                        .map_or_else(|| self.tcx().alloc(Ty::Unit), |it| it.get_type()),
+                    is_variadic: vararg,
+                };
+
+                let func_ty_id = self.tcx().alloc(func_ty.clone());
+
+                self.tcx()
+                    .table
+                    .lock()
+                    .unwrap()
+                    .define_var(&alias.value, func_ty_id);
+
+                self.write_back_type(def_id, func_ty_id);
+                Ok(func_ty_id)
             }
 
             it => todo!("todo def {it}"),
