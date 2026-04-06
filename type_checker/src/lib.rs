@@ -128,7 +128,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
     }
 
-    fn write_back_type(&mut self, def_id: DefId, ty: TyId) -> CheckResult<()> {
+    fn write_back_type(&mut self, def_id: DefId, ty: TyId) {
         match &mut self.name_resolver.krate.definitions[def_id.0] {
             Def::Constant(data) => data.ty = ty,
             Def::Function(data) => data.ty = ty,
@@ -137,8 +137,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
             _ => {}
         }
-
-        Ok(())
     }
 
     pub fn fill_defs_ty(&mut self) -> CheckResult<()> {
@@ -1815,7 +1813,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Statement::Const { value, .. } => {
                 let typed_expr = self.check_expr(value)?;
                 let ty = typed_expr.get_type();
-                self.write_back_type(def_id, ty)?;
+                self.write_back_type(def_id, ty);
                 Ok(ty)
             }
 
@@ -1868,7 +1866,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     is_variadic: false,
                 });
 
-                self.write_back_type(def_id, func_ty)?;
+                self.write_back_type(def_id, func_ty);
                 Ok(func_ty)
             }
 
@@ -1901,8 +1899,16 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
 
                 let mut params_type = vec![];
+                let mut param_mapping = IndexMap::new();
+
                 for param in params {
-                    params_type.push(self.check_type_expr(*param)?.get_type());
+                    let typed_param = self.check_type_expr(*param)?;
+
+                    if let TypedExpression::TypeHint(name, ..) = &typed_param {
+                        param_mapping.insert(name.value.clone(), typed_param.get_type());
+                    }
+
+                    params_type.push(typed_param.get_type());
                 }
 
                 let ret_ty_id = ret_ty.map_or(Ok(self.tcx().alloc(Ty::Unit)), |ret| {
@@ -1921,7 +1927,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     is_variadic: false,
                 });
 
-                self.write_back_type(def_id, func_ty)?;
+                self.write_back_type(def_id, func_ty);
+
+                if let Def::Function(func_data) = self.name_resolver.krate.get_mut_def(def_id) {
+                    func_data.params = param_mapping
+                }
+
                 Ok(func_ty)
             }
 
@@ -1981,7 +1992,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     impl_traits: IndexMap::new(),
                 });
 
-                self.write_back_type(def_id, struct_ty)?;
+                self.write_back_type(def_id, struct_ty);
                 Ok(struct_ty)
             }
 
