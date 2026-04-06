@@ -170,6 +170,16 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 Some(ty)
             }
 
+            TypedStatement::Struct { name, ty, .. } => {
+                self.tcx().table.lock().unwrap().define_var(&name.value, ty);
+                None
+            }
+
+            TypedStatement::FuncDecl { name, ty, .. } => {
+                self.tcx().table.lock().unwrap().define_var(&name.value, ty);
+                None
+            }
+
             _ => None,
         };
 
