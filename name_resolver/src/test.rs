@@ -54,7 +54,7 @@ pub mod tests {
         let mut local_maps = HashMap::new();
         local_maps.insert("STACK_SIZE".into(), expected_const_stack_size_id);
 
-        let mut name_resolver = NameResolver::from_crate(krate, file);
+        let mut name_resolver = NameResolver::from_crate(krate, file, vec![]);
         name_resolver.local_maps.insert(mod_id, local_maps);
 
         let got_const_stack_size_id = name_resolver.lookup_name(mod_id, "STACK_SIZE");
@@ -149,7 +149,7 @@ pub mod tests {
             },
         );
 
-        let mut name_resolver = NameResolver::from_crate(krate, file);
+        let mut name_resolver = NameResolver::from_crate(krate, file, vec![]);
         name_resolver.resolved_imports = resolved_imports;
         name_resolver
             .local_maps

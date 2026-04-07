@@ -40,6 +40,8 @@ pub struct NameResolver<'a> {
     pub loaded_modules: HashMap<PathBuf, ModuleId>,
 
     pub file: Arc<str>,
+
+    pub search_roots: Vec<PathBuf>,
 }
 
 impl<'a> NameResolver<'a> {
@@ -52,11 +54,30 @@ impl<'a> NameResolver<'a> {
                 root_id: root_module_id,
             },
             file,
+            vec![],
         )
     }
 
-    pub fn from_crate(krate: Crate<'a>, file: Arc<str>) -> Self {
+    pub fn new_with_search_roots(
+        root_module_id: ModuleId,
+        file: Arc<str>,
+        search_roots: Vec<PathBuf>,
+    ) -> Self {
+        Self::from_crate(
+            Crate {
+                definitions: Vec::new(),
+                modules: Vec::new(),
+                path_index: IndexMap::new(),
+                root_id: root_module_id,
+            },
+            file,
+            search_roots,
+        )
+    }
+
+    pub fn from_crate(krate: Crate<'a>, file: Arc<str>, search_roots: Vec<PathBuf>) -> Self {
         Self {
+            search_roots,
             krate,
             local_maps: HashMap::new(),
             resolved_imports: HashMap::new(),
@@ -103,7 +124,12 @@ impl<'a> NameResolver<'a> {
 }
 
 impl<'a> NameResolver<'a> {
-    fn collect(&mut self, mod_id: ModuleId, stmts: &[Statement], current_file: Arc<str>) -> ResolveResult<()> {
+    fn collect(
+        &mut self,
+        mod_id: ModuleId,
+        stmts: &[Statement],
+        current_file: Arc<str>,
+    ) -> ResolveResult<()> {
         self.resolve_module_definitions(mod_id, stmts)?;
 
         for stmt in stmts {
@@ -125,24 +151,28 @@ impl<'a> NameResolver<'a> {
                 unreachable!()
             };
 
-            let target_path = Self::file_path_from_import_path(&current_file, &module_full_path)
-                .map_or_else(
-                    || {
-                        Err(Self::make_err(
-                            Some(&format!(
-                                "unresolved import `{}`",
-                                full_path
-                                    .iter()
-                                    .map(|it| it.to_string())
-                                    .collect::<Vec<_>>()
-                                    .join("::")
-                            )),
-                            NameResolverErrorKind::Unresolvedimport,
-                            full_path.first().unwrap().clone(),
-                        ))
-                    },
-                    |it| Ok(it),
-                )?;
+            let target_path = Self::file_path_from_import_path(
+                &current_file,
+                &module_full_path,
+                self.search_roots.clone(),
+            )
+            .map_or_else(
+                || {
+                    Err(Self::make_err(
+                        Some(&format!(
+                            "unresolved import `{}`",
+                            full_path
+                                .iter()
+                                .map(|it| it.to_string())
+                                .collect::<Vec<_>>()
+                                .join("::")
+                        )),
+                        NameResolverErrorKind::Unresolvedimport,
+                        full_path.first().unwrap().clone(),
+                    ))
+                },
+                |it| Ok(it),
+            )?;
 
             // 如果没加载过，就去加载并解析
             if !self.is_module_loaded(&target_path) {
@@ -359,10 +389,14 @@ impl<'a> NameResolver<'a> {
     }
 
     /// 查找顺序: 当前文件的目录 -> 标准库目录
-    fn file_path_from_import_path<T: ToString>(file: &str, path: &[T]) -> Option<PathBuf> {
+    fn file_path_from_import_path<T: ToString>(
+        file: &str,
+        path: &[T],
+        mut serach_roots: Vec<PathBuf>,
+    ) -> Option<PathBuf> {
         let parts = path.iter().map(|it| it.to_string()).collect::<Vec<_>>();
 
-        let roots = vec![
+        let mut roots = vec![
             PathBuf::from(file)
                 .parent()
                 .unwrap_or(&PathBuf::from("."))
@@ -370,6 +404,8 @@ impl<'a> NameResolver<'a> {
             std::env::current_exe().ok()?.parent()?.join("include"),
             std::env::current_exe().ok()?.parent()?.into(),
         ];
+
+        roots.append(&mut serach_roots);
 
         for root in roots {
             let mut base = root;
