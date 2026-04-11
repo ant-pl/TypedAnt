@@ -45,7 +45,6 @@ pub enum FloatValue {
     F64(BigDecimal),
 }
 
-
 impl Display for FloatValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -172,12 +171,9 @@ impl Display for Expression {
         match self {
             Self::SizeOf(_, expr) => write!(f, "sizeof {expr}"),
             Self::ThreeDot(token) => write!(f, "{}", token.value),
-            Self::GenericInstance {
-                left,
-                paths,
-                ..
-            } => write!(
-                f, "{left}::<{}>",
+            Self::GenericInstance { left, paths, .. } => write!(
+                f,
+                "{left}::<{}>",
                 paths
                     .iter()
                     .map(|it| it.to_string())
@@ -321,7 +317,11 @@ impl Expression {
     pub fn is_literal(&self) -> bool {
         matches!(
             self,
-            Self::Bool { .. } | Self::Int { .. } | Self::StrLiteral { .. } | Self::Float { .. }
+            Self::Bool { .. }
+                | Self::Int { .. }
+                | Self::StrLiteral { .. }
+                | Self::Float { .. }
+                | Self::UnknownTypeInt { .. }
         )
     }
 }

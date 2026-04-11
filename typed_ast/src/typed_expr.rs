@@ -210,7 +210,11 @@ impl TypedExpression {
     pub fn is_literal(&self) -> bool {
         matches!(
             self,
-            Self::Bool { .. } | Self::Int { .. } | Self::StrLiteral { .. } | Self::Float { .. }
+            Self::Bool { .. }
+                | Self::Int { .. }
+                | Self::StrLiteral { .. }
+                | Self::Float { .. }
+                | Self::UnknownTypeInt { .. }
         )
     }
 }
