@@ -42,6 +42,9 @@ pub struct NameResolver<'a> {
     pub file: Arc<str>,
 
     pub search_roots: Vec<PathBuf>,
+
+    /// 从模块名字到模块目录 (到src) 的映射
+    pub mod_name_to_dir: HashMap<Arc<str>, PathBuf>,
 }
 
 impl<'a> NameResolver<'a> {
@@ -55,13 +58,15 @@ impl<'a> NameResolver<'a> {
             },
             file,
             vec![],
+            HashMap::new()
         )
     }
 
-    pub fn new_with_search_roots(
+    pub fn new_with(
         root_module_id: ModuleId,
         file: Arc<str>,
         search_roots: Vec<PathBuf>,
+        mod_name_to_dir: HashMap<Arc<str>, PathBuf>,
     ) -> Self {
         Self::from_crate(
             Crate {
@@ -72,16 +77,23 @@ impl<'a> NameResolver<'a> {
             },
             file,
             search_roots,
+            mod_name_to_dir,
         )
     }
 
-    pub fn from_crate(krate: Crate<'a>, file: Arc<str>, search_roots: Vec<PathBuf>) -> Self {
+    pub fn from_crate(
+        krate: Crate<'a>,
+        file: Arc<str>,
+        search_roots: Vec<PathBuf>,
+        mod_name_to_dir: HashMap<Arc<str>, PathBuf>,
+    ) -> Self {
         Self {
             search_roots,
             krate,
             local_maps: HashMap::new(),
             resolved_imports: HashMap::new(),
             loaded_modules: HashMap::new(),
+            mod_name_to_dir,
             file,
         }
     }
@@ -155,6 +167,7 @@ impl<'a> NameResolver<'a> {
                 &current_file,
                 &module_full_path,
                 self.search_roots.clone(),
+                &self.mod_name_to_dir
             )
             .map_or_else(
                 || {
@@ -393,8 +406,15 @@ impl<'a> NameResolver<'a> {
         file: &str,
         path: &[T],
         mut serach_roots: Vec<PathBuf>,
+
+        // 从模块名字到模块目录 (到src) 的映射
+        mod_name_to_dir: &HashMap<Arc<str>, PathBuf>,
     ) -> Option<PathBuf> {
         let parts = path.iter().map(|it| it.to_string()).collect::<Vec<_>>();
+
+        if parts.is_empty() {
+            return None;
+        }
 
         let mut roots = vec![
             PathBuf::from(file)
@@ -406,6 +426,13 @@ impl<'a> NameResolver<'a> {
         ];
 
         roots.append(&mut serach_roots);
+
+        // 假定模块名为 parts[0] (实际上大部分情况也是这样)
+        // 由于先前已检查 parts 是否为空 到这里不需要检查越界情况
+        let mod_name = parts[0].as_str();
+        if let Some(it) = mod_name_to_dir.get(mod_name) {
+            roots.push(it.clone());
+        }
 
         for root in roots {
             let mut base = root;
