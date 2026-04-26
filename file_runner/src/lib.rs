@@ -63,7 +63,7 @@ pub fn run_file(path: &str) {
 
     let mut infer_ctx = InferContext::new(&mut module);
 
-    let mut type_infer = TypeInfer::new(&mut infer_ctx, name_resolver);
+    let mut type_infer = TypeInfer::new(&mut infer_ctx, &name_resolver);
 
     match type_infer.unify_all(constraints) {
         Ok(_) => (),
@@ -81,22 +81,22 @@ pub fn run_file(path: &str) {
         }
     }
 
-    println!("{:#?}", type_infer.name_resolver.krate);
     
     let TypedNode::Program { statements, .. } = typed_node;
-
+    
     println!(
         "typed statements:\n{:#?}",
         statements
-            .iter()
-            .map(|it| module.get_stmt(*it).unwrap().clone())
-            .collect::<Vec<TypedStatement>>()
+        .iter()
+        .map(|it| module.get_stmt(*it).unwrap().clone())
+        .collect::<Vec<TypedStatement>>()
     );
-
+    
     println!(
         "typed expressions:\n{:#?}",
         module.typed_exprs
     );
-
+    
     println!("{:#?}", module.tcx_ref());
+    println!("{:#?}", name_resolver.krate);
 }

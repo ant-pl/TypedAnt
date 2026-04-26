@@ -206,6 +206,62 @@ pub fn str_to_ty(ty_str: &str) -> Option<Ty> {
     }
 }
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::fmt;
+
+/// 一个专为 TyId 优化的原子容器，支持 Clone, Eq 和内部可变性
+pub struct TyCell {
+    // 底层存 usize。由于是原子类型，即使是 &self 也能修改
+    value: AtomicUsize,
+}
+
+impl TyCell {
+    pub fn new(val: usize) -> Self {
+        Self {
+            value: AtomicUsize::new(val),
+        }
+    }
+
+    #[inline]
+    pub fn get(&self) -> usize {
+        // Relaxed 排序对于单变量的类型 ID 已经足够快且安全
+        self.value.load(Ordering::Relaxed)
+    }
+
+    #[inline]
+    pub fn set(&self, val: usize) {
+        self.value.store(val, Ordering::Relaxed);
+    }
+}
+
+impl Clone for TyCell {
+    fn clone(&self) -> Self {
+        // 克隆时读取当前的值，创建一个新的原子变量
+        Self::new(self.get())
+    }
+}
+
+impl PartialEq for TyCell {
+    fn eq(&self, other: &Self) -> bool {
+        // 比较两者的瞬时值
+        self.get() == other.get()
+    }
+}
+
+impl Eq for TyCell {}
+
+impl fmt::Debug for TyCell {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "TyCell({})", self.get())
+    }
+}
+
+impl From<usize> for TyCell {
+    fn from(value: usize) -> Self {
+        Self::new(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use indexmap::IndexMap;

@@ -87,7 +87,7 @@ pub fn repl() {
 
         let mut infer_ctx = InferContext::new(&mut module);
 
-        let mut type_infer = TypeInfer::new(&mut infer_ctx, name_resolver);
+        let mut type_infer = TypeInfer::new(&mut infer_ctx, &name_resolver);
 
         match type_infer.unify_all(constraints) {
             Ok(_) => (),

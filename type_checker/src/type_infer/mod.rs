@@ -25,7 +25,7 @@ use crate::type_infer::infer_context::InferContext;
 
 pub struct TypeInfer<'a, 'b, 'c> {
     pub infer_ctx: &'a mut InferContext<'b, 'c>,
-    pub name_resolver: NameResolver<'b>,
+    pub name_resolver: &'a NameResolver<'b>,
 
     locals_tyid: HashMap<Arc<str>, TyId>,
 
@@ -37,7 +37,7 @@ pub struct TypeInfer<'a, 'b, 'c> {
 impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     pub fn new(
         infer_ctx: &'a mut InferContext<'b, 'c>,
-        name_resolver: NameResolver<'b>,
+        name_resolver: &'a NameResolver<'b>,
     ) -> Self {
         Self {
             infer_ctx,
@@ -1199,7 +1199,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             
             if let Some(old_ty) = old_ty {
                 let real_ty = self.deep_resolve(old_ty);
-                self.name_resolver.krate.get_mut_def(def_id).set_ty(real_ty);
+                self.name_resolver.krate.get_def(def_id).set_ty(real_ty);
             }
         }
     }

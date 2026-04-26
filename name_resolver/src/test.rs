@@ -45,7 +45,7 @@ pub mod tests {
             name: "STACK_SIZE".into(),
             visibility: Visibility::Private,
             module_id: mod_id,
-            ty: tcx.alloc(Ty::IntTy(IntTy::I32)),
+            ty: tcx.alloc(Ty::IntTy(IntTy::I32)).into(),
             ast_index: StmtId(0),
         });
 
@@ -127,7 +127,7 @@ pub mod tests {
             name: "STACK_SIZE".into(),
             visibility: Visibility::Public,
             module_id: mod_constants_id,
-            ty: stack_size_ty,
+            ty: stack_size_ty.into(),
             ast_index: StmtId(0),
         });
 

@@ -21,7 +21,7 @@ use id::{ExprId, StmtId};
 use std::sync::Arc;
 
 use indexmap::IndexMap;
-use ty::TyId;
+use ty::{TyCell, TyId};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Def {
@@ -48,20 +48,20 @@ impl Def {
     pub fn ty(&self) -> Option<TyId> {
         match self {
             Self::Module(_data) => None,
-            Self::Struct(data) => Some(data.ty),
-            Self::Function(data) => Some(data.ty),
-            Self::Trait(data) => Some(data.ty),
-            Self::Constant(data) => Some(data.ty),
+            Self::Struct(data) => Some(data.ty.get()),
+            Self::Function(data) => Some(data.ty.get()),
+            Self::Trait(data) => Some(data.ty.get()),
+            Self::Constant(data) => Some(data.ty.get()),
         }
     }
 
-    pub fn set_ty(&mut self, new_ty: TyId) {
+    pub fn set_ty(&self, new_ty: TyId) {
         match self {
             Self::Module(_data) => (),
-            Self::Struct(data) => data.ty = new_ty,
-            Self::Function(data) => data.ty = new_ty,
-            Self::Trait(data) => data.ty = new_ty,
-            Self::Constant(data) => data.ty = new_ty,
+            Self::Struct(data) => data.ty.set(new_ty),
+            Self::Function(data) => data.ty.set(new_ty),
+            Self::Trait(data) => data.ty.set(new_ty),
+            Self::Constant(data) => data.ty.set(new_ty),
         }
     }
 }
@@ -85,7 +85,7 @@ pub struct StructData {
     pub generics: Vec<Arc<str>>,
     pub fields: IndexMap<Arc<str>, TyId>,
     pub ast_index: StmtId,
-    pub ty: TyId,
+    pub ty: TyCell,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,7 +98,7 @@ pub struct FunctionData {
     /// 如果是函数声明，这里可能是 None
     pub body: Option<ExprId>,
     pub ast_index: StmtId,
-    pub ty: TyId,
+    pub ty: TyCell,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,7 +108,7 @@ pub struct TraitData {
     pub module_id: ModuleId,
     pub methods: IndexMap<Arc<str>, DefId>, // 指向 Function 定义
     pub ast_index: StmtId,
-    pub ty: TyId,
+    pub ty: TyCell,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,5 +117,5 @@ pub struct ConstantData {
     pub visibility: Visibility,
     pub module_id: ModuleId,
     pub ast_index: StmtId,
-    pub ty: TyId,
+    pub ty: TyCell,
 }

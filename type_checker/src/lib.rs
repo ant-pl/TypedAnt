@@ -129,14 +129,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     }
 
     fn write_back_type(&mut self, def_id: DefId, ty: TyId) {
-        match &mut self.name_resolver.krate.definitions[def_id.0] {
-            Def::Constant(data) => data.ty = ty,
-            Def::Function(data) => data.ty = ty,
-            Def::Trait(data) => data.ty = ty,
-            Def::Struct(data) => data.ty = ty,
-
-            _ => {}
-        }
+        self.name_resolver.krate.definitions[def_id.0].set_ty(ty)
     }
 
     pub fn fill_defs_ty(&mut self) -> CheckResult<()> {
@@ -1327,7 +1320,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     .lookup_name(self.current_mod_id, &alias.value)
                     && let Def::Function(func_data) = self.name_resolver.krate.get_mut_def(def_id)
                 {
-                    func_data.ty = func_ty_id;
+                    func_data.ty = func_ty_id.into();
                     func_data.params = param_mapping;
                     func_data.is_variadic = vararg;
                 }

@@ -234,7 +234,7 @@ impl<'a> NameResolver<'a> {
                         module_id,
                         generics: generics.iter().map(|g| g.to_string().into()).collect(),
                         fields: IndexMap::new(), // TypeChecker 稍后填充
-                        ty: 0usize,              // 同上
+                        ty: 0usize.into(),              // 同上
                         ast_index: StmtId(i),
                     };
 
@@ -250,7 +250,7 @@ impl<'a> NameResolver<'a> {
                         params: IndexMap::new(),
                         body: None,
                         is_variadic: false, // 非外部函数一律不允许变长
-                        ty: 0usize,         // 等 TypeChecker 填
+                        ty: 0usize.into(),         // 等 TypeChecker 填
                         ast_index: StmtId(i),
                     };
 
@@ -268,7 +268,7 @@ impl<'a> NameResolver<'a> {
                         params: IndexMap::new(),
                         body: None,
                         is_variadic: false, // 非外部函数一律不允许变长
-                        ty: 0usize,         // 等 TypeChecker 填
+                        ty: 0usize.into(),         // 等 TypeChecker 填
                         ast_index: StmtId(i),
                     };
 
@@ -293,7 +293,7 @@ impl<'a> NameResolver<'a> {
                         params: IndexMap::new(),
                         body: None,
                         is_variadic: false, // 非外部函数一律不允许变长
-                        ty: 0usize,         // 等 TypeChecker 填
+                        ty: 0usize.into(),         // 等 TypeChecker 填
                         ast_index: StmtId(i),
                     };
 
@@ -308,7 +308,7 @@ impl<'a> NameResolver<'a> {
                         name: name.value.clone(),
                         visibility: Visibility::Public, // 默认公开
                         module_id,
-                        ty: 0, // 占位符，由 TypeChecker 填充
+                        ty: 0.into(), // 占位符，由 TypeChecker 填充
                         ast_index: StmtId(i),
                     };
 
