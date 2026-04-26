@@ -54,6 +54,16 @@ impl Def {
             Self::Constant(data) => Some(data.ty),
         }
     }
+
+    pub fn set_ty(&mut self, new_ty: TyId) {
+        match self {
+            Self::Module(_data) => (),
+            Self::Struct(data) => data.ty = new_ty,
+            Self::Function(data) => data.ty = new_ty,
+            Self::Trait(data) => data.ty = new_ty,
+            Self::Constant(data) => data.ty = new_ty,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
