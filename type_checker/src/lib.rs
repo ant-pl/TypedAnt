@@ -1834,9 +1834,13 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         self.current_mod_id = mod_id_of_def;
 
         let result = match raw_stmt {
-            Statement::Const { value, .. } => {
+            Statement::Const { value, var_type, .. } => {
                 let typed_expr = self.check_expr(value)?;
-                let ty = typed_expr.get_type();
+                let ty = if let Some(ref ty_ident) = var_type {
+                    self.lookup_type_by_name(&ty_ident.value, ty_ident.token.clone())?
+                } else {
+                    typed_expr.get_type()
+                };
                 self.write_back_type(def_id, ty);
                 Ok(ty)
             }
