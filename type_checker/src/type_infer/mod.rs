@@ -25,7 +25,7 @@ use crate::type_infer::infer_context::InferContext;
 
 pub struct TypeInfer<'a, 'b, 'c> {
     pub infer_ctx: &'a mut InferContext<'b, 'c>,
-    pub name_resolver: &'a NameResolver<'b>,
+    pub name_resolver: NameResolver<'b>,
 
     locals_tyid: HashMap<Arc<str>, TyId>,
 
@@ -37,7 +37,7 @@ pub struct TypeInfer<'a, 'b, 'c> {
 impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     pub fn new(
         infer_ctx: &'a mut InferContext<'b, 'c>,
-        name_resolver: &'a NameResolver<'b>,
+        name_resolver: NameResolver<'b>,
     ) -> Self {
         Self {
             infer_ctx,
@@ -210,6 +210,14 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
             TypedStatement::FuncDecl { name, ty, .. } => {
                 self.tcx().table.lock().unwrap().define_var(&name.value, ty);
+                None
+            }
+
+            TypedStatement::Block { statements, .. } => {
+                statements
+                    .iter()
+                    .map(|id| self.infer_stmt(*id))
+                    .collect::<CheckResult<Vec<_>>>()?;
                 None
             }
 
@@ -1182,6 +1190,17 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
 
             self.locals_tyid.insert(local_name, real_ty_id);
+        }
+
+        let def_count = self.name_resolver.krate.definitions.len();
+        for i in 0..def_count {
+            let def_id = id::DefId(i);
+            let old_ty = self.name_resolver.krate.get_def(def_id).ty();
+            
+            if let Some(old_ty) = old_ty {
+                let real_ty = self.deep_resolve(old_ty);
+                self.name_resolver.krate.get_mut_def(def_id).set_ty(real_ty);
+            }
         }
     }
 
