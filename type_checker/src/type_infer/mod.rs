@@ -131,6 +131,13 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                 self.locals_tyid.insert(name.value.clone(), followed);
 
+                if let Some(def_id) = self
+                    .name_resolver
+                    .lookup_name(self.current_mod_id, &name.value)
+                {
+                    self.name_resolver.krate.get_def(def_id).set_ty(followed);
+                }
+
                 Some(ty)
             }
 
@@ -744,9 +751,11 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 new_ret_ty
             }
 
-            TypedExpression::Ident(name, ty, _) => {
+            TypedExpression::Ident(name, ty, def_id) => {
                 if let Some(&current_ty) = self.locals_tyid.get(&name.value) {
                     current_ty
+                } else if let Some(it) = def_id {
+                    self.name_resolver.krate.get_def(it).ty().unwrap_or(ty)
                 } else {
                     ty
                 }
@@ -1196,7 +1205,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         for i in 0..def_count {
             let def_id = id::DefId(i);
             let old_ty = self.name_resolver.krate.get_def(def_id).ty();
-            
+
             if let Some(old_ty) = old_ty {
                 let real_ty = self.deep_resolve(old_ty);
                 self.name_resolver.krate.get_def(def_id).set_ty(real_ty);
