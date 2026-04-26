@@ -42,7 +42,7 @@ mod tests {
 
         let mut infer_ctx = InferContext::new(&mut module);
 
-        let mut type_infer = TypeInfer::new(&mut infer_ctx, &mut name_resolver);
+        let mut type_infer = TypeInfer::new(&mut infer_ctx, name_resolver);
         type_infer.unify_all(constraints).unwrap();
         type_infer.infer().unwrap();
 
@@ -91,7 +91,7 @@ mod tests {
 
         let mut infer_ctx = InferContext::new(&mut module);
 
-        let mut type_infer = TypeInfer::new(&mut infer_ctx, &mut name_resolver);
+        let mut type_infer = TypeInfer::new(&mut infer_ctx, name_resolver);
         type_infer.unify_all(constraints).unwrap();
         type_infer.infer().unwrap();
 
