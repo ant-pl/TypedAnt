@@ -48,6 +48,8 @@ pub enum Statement {
         impl_: Ident,
         for_: Option<Ident>,
         block: Box<Statement>,
+        type_paths: Vec<Box<Expression>>,
+        generics: Vec<Box<Expression>>,
     },
     Use {
         token: Token,
