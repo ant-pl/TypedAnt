@@ -1053,16 +1053,33 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 alias,
                 ty: self.tcx().alloc(Ty::Unit),
             }),
+
             Statement::Impl {
                 token,
                 impl_,
                 for_,
                 block,
+                type_paths,
+                generics,
             } => {
                 let new_impl_ = Ident {
                     token: impl_.token,
                     value: impl_.value,
                 };
+
+                let generic_names = self
+                    .define_generics(&generics)
+                    .into_iter()
+                    .map(|it| it.0)
+                    .collect::<Vec<_>>();
+
+                let typed_generics = generics
+                    .into_iter()
+                    .map(|it| self.check_type_expr(*it))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .map(|it| self.module.alloc_expr(it))
+                    .collect::<Vec<_>>();
 
                 if self
                     .tcx()
@@ -1071,6 +1088,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     .unwrap()
                     .get(&new_impl_.value)
                     .is_none()
+                    && self
+                        .name_resolver
+                        .lookup_name(self.current_mod_id, &new_impl_.value)
+                        .is_none()
                 {
                     return Err(Self::make_err(
                         Some(&format!("cannot find type '{new_impl_}' in this scope")),
@@ -1101,6 +1122,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         new_for_.token.clone(),
                     ));
                 }
+
+                let typed_paths = type_paths
+                    .into_iter()
+                    .map(|it| self.check_type_expr(*it))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .map(|it| self.module.alloc_expr(it))
+                    .collect::<Vec<_>>();
 
                 self.enter_scope(ScopeKind::Class);
 
@@ -1134,11 +1163,15 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     continue;
                 }
 
+                self.remove_generics(&generic_names);
+
                 Ok(TypedStatement::Impl {
                     token,
                     new_fields,
                     impl_: new_impl_,
                     for_: new_for_,
+                    generics: typed_generics,
+                    type_paths: typed_paths,
                     block: self.module.alloc_stmt(typed_block),
                     ty: self.tcx().alloc(Ty::Unit),
                 })
@@ -1151,26 +1184,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 ret_ty: ret_ty_expr,
                 generics_params,
             } => {
-                let mut generic_names = vec![];
-
-                for generics_param in generics_params
-                    .iter()
-                    .filter(|it| matches!(&***it, Expression::Ident(_)))
-                {
-                    let Expression::Ident(it) = &**generics_param else {
-                        unreachable!()
-                    };
-
-                    let ty_id = self.tcx().alloc(Ty::Generic(it.value.clone(), vec![]));
-
-                    self.tcx()
-                        .table
-                        .lock()
-                        .unwrap()
-                        .define_var(&it.value, ty_id);
-
-                    generic_names.push(it.value.clone());
-                }
+                let generic_names = self
+                    .define_generics(&generics_params)
+                    .into_iter()
+                    .map(|it| it.0)
+                    .collect::<Vec<_>>();
 
                 let mut typed_param_ids: Vec<_> = vec![];
 
@@ -1212,7 +1230,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 let checked_ret_ty_expr = ret_ty_expr.map(|it| self.check_type_expr(*it));
 
                 let ty = Ty::Function {
-                    generics: generic_names,
+                    generics: generic_names.clone(),
                     params_type: typed_param_ids
                         .iter()
                         .map(|p| self.get_expr_tyid(*p))
@@ -1243,16 +1261,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     .collect();
 
                 // 移除之前定义的泛型避免污染全局空间
-                generics_params
-                    .iter()
-                    .filter(|it| matches!(&***it, Expression::Ident(_)))
-                    .for_each(|it| {
-                        let Expression::Ident(it) = &**it else {
-                            unreachable!()
-                        };
-
-                        self.tcx().table.lock().unwrap().remove(&it.value);
-                    });
+                self.remove_generics(&generic_names);
 
                 Ok(TypedStatement::FuncDecl {
                     token,
@@ -1348,22 +1357,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     value: name.value.clone(),
                 };
 
-                for generic in generics
-                    .iter()
-                    .filter(|it| matches!(&***it, Expression::Ident(_)))
-                {
-                    let Expression::Ident(it) = &**generic else {
-                        unreachable!()
-                    };
-
-                    let ty_id = self.tcx().alloc(Ty::Generic(it.value.clone(), vec![]));
-
-                    self.tcx()
-                        .table
-                        .lock()
-                        .unwrap()
-                        .define_var(&it.value, ty_id);
-                }
+                let generic_names = self
+                    .define_generics(&generics)
+                    .into_iter()
+                    .map(|it| it.0)
+                    .collect::<Vec<_>>();
 
                 let mut typed_field_ids = vec![];
 
@@ -1379,14 +1377,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     let typed_field = self.check_expr(*field)?;
                     typed_field_ids.push(self.module.alloc_expr(typed_field));
                 }
-
-                let generic_names = generics
-                    .iter()
-                    .map(|g| match &**g {
-                        Expression::Ident(ident) => ident.value.clone(),
-                        _ => todo!("generic param must be ident"),
-                    })
-                    .collect::<Vec<_>>();
 
                 let fields = {
                     let mut m = IndexMap::new();
@@ -1419,7 +1409,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 let ty = Ty::Struct {
                     name: name.value.clone(),
-                    generics: generic_names,
+                    generics: generic_names.clone(),
                     fields,
                     impl_traits: IndexMap::new(),
                 };
@@ -1442,16 +1432,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     .collect();
 
                 // 移除之前定义的泛型避免污染全局空间
-                generics
-                    .iter()
-                    .filter(|it| matches!(&***it, Expression::Ident(_)))
-                    .for_each(|it| {
-                        let Expression::Ident(it) = &**it else {
-                            unreachable!()
-                        };
-
-                        self.tcx().table.lock().unwrap().remove(&it.value);
-                    });
+                self.remove_generics(&generic_names);
 
                 Ok(TypedStatement::Struct {
                     ty: ty_id,
@@ -1461,6 +1442,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     generics: typed_generics,
                 })
             }
+
             Statement::Trait { token, name, block } => {
                 let typed_name = Ident {
                     token: name.token,
@@ -1728,6 +1710,34 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         }
     }
 
+    fn define_generics(&mut self, generics: &[Box<Expression>]) -> Vec<(Arc<str>, Vec<TyId>)> {
+        let mut v = vec![];
+
+        for generic in generics {
+            if let Expression::Ident(it) = &**generic {
+                let ty_id = self.tcx().alloc(Ty::Generic(it.value.clone(), vec![]));
+
+                self.tcx()
+                    .table
+                    .lock()
+                    .unwrap()
+                    .define_var(&it.value, ty_id);
+
+                v.push((it.value.clone(), vec![]));
+            } else if let Expression::TypeHint(..) = &**generic {
+                todo!()
+            };
+        }
+
+        v
+    }
+
+    fn remove_generics(&mut self, generics: &[Arc<str>]) {
+        generics
+            .iter()
+            .for_each(|it| self.tcx().table.lock().unwrap().remove(&it));
+    }
+
     fn get_def_token(&'a self, id: DefId) -> Token {
         let stmt = self.get_raw_stmt(id);
         stmt.token()
@@ -1834,7 +1844,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         self.current_mod_id = mod_id_of_def;
 
         let result = match raw_stmt {
-            Statement::Const { value, var_type, .. } => {
+            Statement::Const {
+                value, var_type, ..
+            } => {
                 let typed_expr = self.check_expr(value)?;
                 let ty = if let Some(ref ty_ident) = var_type {
                     self.lookup_type_by_name(&ty_ident.value, ty_ident.token.clone())?
@@ -2070,6 +2082,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.write_back_type(def_id, func_ty_id);
                 Ok(func_ty_id)
+            }
+
+            Statement::Impl { .. } => {
+                let unit = self.tcx().alloc(Ty::Unit);
+                self.write_back_type(def_id, unit);
+                Ok(unit)
             }
 
             it => todo!("todo def {it}"),
