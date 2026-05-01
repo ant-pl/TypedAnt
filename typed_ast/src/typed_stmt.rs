@@ -85,6 +85,8 @@ pub enum TypedStatement {
         block: StmtId,
         new_fields: IndexMap<Arc<str>, TyId>,
         ty: TyId,
+        type_paths: Vec<ExprId>,
+        generics: Vec<ExprId>,
     },
 }
 
