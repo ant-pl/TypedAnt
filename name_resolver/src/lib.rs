@@ -2,11 +2,13 @@ pub mod error;
 pub mod test;
 
 use ant_crate_def::Crate;
-use ant_crate_def::definition::{ConstantData, Def, FunctionData, StructData, Visibility};
+use ant_crate_def::definition::{
+    ConstantData, Def, FunctionData, ImplData, StructData, Visibility,
+};
 use ant_crate_def::{ModuleNode, NodeOrTyped};
 use ast::expr::Expression;
 use ast::node::Node;
-use ast::stmt::{Statement, collect_all_statements};
+use ast::stmt::Statement;
 use id::{DefId, ModuleId, StmtId};
 use indexmap::IndexMap;
 use lexer::Lexer;
@@ -35,6 +37,9 @@ pub struct NameResolver<'a> {
     /// ModuleId -> (LocalName -> DefId)
     pub local_maps: HashMap<ModuleId, HashMap<Arc<str>, DefId>>,
 
+    /// ModuleId -> (DefId -> Statement)
+    pub ast_maps: HashMap<ModuleId, HashMap<DefId, Statement>>,
+
     pub resolved_imports: HashMap<ModuleId, ModuleScope>,
 
     pub loaded_modules: HashMap<PathBuf, ModuleId>,
@@ -54,11 +59,12 @@ impl<'a> NameResolver<'a> {
                 definitions: Vec::new(),
                 modules: Vec::new(),
                 path_index: IndexMap::new(),
+                impls: IndexMap::new(),
                 root_id: root_module_id,
             },
             file,
             vec![],
-            HashMap::new()
+            HashMap::new(),
         )
     }
 
@@ -72,6 +78,7 @@ impl<'a> NameResolver<'a> {
             Crate {
                 definitions: Vec::new(),
                 modules: Vec::new(),
+                impls: IndexMap::new(),
                 path_index: IndexMap::new(),
                 root_id: root_module_id,
             },
@@ -91,6 +98,7 @@ impl<'a> NameResolver<'a> {
             search_roots,
             krate,
             local_maps: HashMap::new(),
+            ast_maps: HashMap::new(),
             resolved_imports: HashMap::new(),
             loaded_modules: HashMap::new(),
             mod_name_to_dir,
@@ -101,7 +109,7 @@ impl<'a> NameResolver<'a> {
     pub fn resolve(&mut self, node: Node) -> ResolveResult<()> {
         let Node::Program { statements, .. } = &node;
 
-        let all = collect_all_statements(statements);
+        let all = statements.clone();
 
         if let Some(it) = self.krate.modules.get_mut(self.krate.root_id.0) {
             it.ast = Some(NodeOrTyped::Node(node))
@@ -127,7 +135,7 @@ impl<'a> NameResolver<'a> {
                 self.krate.modules[i].ast.clone()
             {
                 // 解析该模块内部所有的 use 语句
-                self.resolve_imports(mod_id, &collect_all_statements(&statements))?;
+                self.resolve_imports(mod_id, &statements)?;
             }
         }
 
@@ -142,7 +150,8 @@ impl<'a> NameResolver<'a> {
         stmts: &[Statement],
         current_file: Arc<str>,
     ) -> ResolveResult<()> {
-        self.resolve_module_definitions(mod_id, stmts)?;
+        self.resolve_module_definitions(mod_id, stmts, None)?;
+        self.fill_back_defs(mod_id, stmts)?;
 
         for stmt in stmts {
             let Statement::Use {
@@ -167,7 +176,7 @@ impl<'a> NameResolver<'a> {
                 &current_file,
                 &module_full_path,
                 self.search_roots.clone(),
-                &self.mod_name_to_dir
+                &self.mod_name_to_dir,
             )
             .map_or_else(
                 || {
@@ -203,16 +212,73 @@ impl<'a> NameResolver<'a> {
                 let new_mod_id = self.krate.alloc_mod(mod_node);
 
                 let Node::Program { statements, .. } = node;
-                let all = collect_all_statements(&statements);
 
                 let next_file: Arc<str> = target_path.to_string_lossy().into();
 
                 self.loaded_modules.insert(target_path, new_mod_id);
 
                 // 递归收集子模块
-                self.collect(new_mod_id, &all, next_file)?;
+                self.collect(new_mod_id, &statements, next_file)?;
             }
         }
+        Ok(())
+    }
+
+    pub fn fill_back_defs(
+        &mut self,
+        module_id: ModuleId,
+        stmts: &[Statement],
+    ) -> ResolveResult<()> {
+        for (i, stmt) in stmts.iter().enumerate() {
+            if let Statement::Impl {
+                generics,
+                impl_,
+                for_,
+                block,
+                ..
+            } = stmt
+            {
+                let target_name = if let Some(for_) = for_ {
+                    &for_.value
+                } else {
+                    &impl_.value
+                };
+
+                let target_def = self.lookup_name(module_id, target_name).ok_or_else(|| {
+                    Self::make_err(
+                        None,
+                        NameResolverErrorKind::TypeNotFound,
+                        if let Some(for_) = for_ {
+                            for_.token.clone()
+                        } else {
+                            impl_.token.clone()
+                        },
+                    )
+                })?;
+
+                let data = ImplData {
+                    visibility: Visibility::Public,
+                    module_id,
+                    generics: generics.iter().map(|g| g.to_string().into()).collect(),
+                    methods: IndexMap::new(),
+                    ty: 0usize.into(),
+                    target_ty: 0usize.into(),
+                    ast_index: StmtId(i),
+                    target_def,
+                };
+
+                let id = self.krate.alloc_impl(Def::Impl(data));
+
+                self.resolve_module_definitions(module_id, &[*block.clone()], Some(id))?;
+
+                self.ast_maps.entry(module_id).or_default().extend({
+                    let mut m = HashMap::new();
+                    m.insert(id, stmt.clone());
+                    m
+                });
+            }
+        }
+
         Ok(())
     }
 
@@ -221,12 +287,17 @@ impl<'a> NameResolver<'a> {
         &mut self,
         module_id: ModuleId,
         stmts: &[Statement],
-    ) -> ResolveResult<()> {
+        parent_def: Option<DefId>,
+    ) -> ResolveResult<Vec<Option<DefId>>> {
         let mut local_symbols = HashMap::new();
+        let mut local_def_to_ast_mappings = HashMap::new();
 
+        let mut r = vec![];
         for (i, stmt) in stmts.iter().enumerate() {
-            match stmt {
-                Statement::Struct { name, generics, .. } => {
+            let id = match stmt {
+                Statement::Impl { .. } => None,
+
+                Statement::Struct { name, generics, .. } => Some({
                     // 构造原始定义数据
                     let data = StructData {
                         name: name.value.clone(),
@@ -234,15 +305,17 @@ impl<'a> NameResolver<'a> {
                         module_id,
                         generics: generics.iter().map(|g| g.to_string().into()).collect(),
                         fields: IndexMap::new(), // TypeChecker 稍后填充
-                        ty: 0usize.into(),              // 同上
+                        ty: 0usize.into(),       // 同上
                         ast_index: StmtId(i),
                     };
 
                     let def_id = self.krate.alloc_def(Def::Struct(data));
                     local_symbols.insert(name.value.clone(), def_id);
-                }
 
-                Statement::FuncDecl { name, .. } => {
+                    def_id
+                }),
+
+                Statement::FuncDecl { name, .. } => Some({
                     let data = FunctionData {
                         name: name.value.clone(),
                         visibility: Visibility::Public, // 还没写访问控制语法先等着吧
@@ -250,17 +323,19 @@ impl<'a> NameResolver<'a> {
                         params: IndexMap::new(),
                         body: None,
                         is_variadic: false, // 非外部函数一律不允许变长
-                        ty: 0usize.into(),         // 等 TypeChecker 填
+                        ty: 0usize.into(),  // 等 TypeChecker 填
                         ast_index: StmtId(i),
+                        parent: parent_def,
                     };
 
-                    local_symbols.insert(
-                        name.value.clone(),
-                        self.krate.alloc_def(Def::Function(data)),
-                    );
-                }
+                    let id = self.krate.alloc_def(Def::Function(data));
 
-                Statement::Extern { alias, .. } => {
+                    local_symbols.insert(name.value.clone(), id);
+
+                    id
+                }),
+
+                Statement::Extern { alias, .. } => Some({
                     let data = FunctionData {
                         name: alias.value.clone(),
                         visibility: Visibility::Public, // 还没写访问控制语法先等着吧
@@ -268,17 +343,21 @@ impl<'a> NameResolver<'a> {
                         params: IndexMap::new(),
                         body: None,
                         is_variadic: false, // 非外部函数一律不允许变长
-                        ty: 0usize.into(),         // 等 TypeChecker 填
+                        ty: 0usize.into(),  // 等 TypeChecker 填
                         ast_index: StmtId(i),
+                        parent: parent_def,
                     };
 
-                    local_symbols.insert(
-                        alias.value.clone(),
-                        self.krate.alloc_def(Def::Function(data)),
-                    );
-                }
+                    let id = self.krate.alloc_def(Def::Function(data));
 
-                Statement::ExpressionStatement(Expression::Function { token, name, .. }) => {
+                    local_symbols.insert(alias.value.clone(), id);
+
+                    id
+                }),
+
+                Statement::ExpressionStatement(Expression::Function {
+                    token, name, block, ..
+                }) => {
                     span_assert!(
                         name.is_some(),
                         token,
@@ -293,17 +372,84 @@ impl<'a> NameResolver<'a> {
                         params: IndexMap::new(),
                         body: None,
                         is_variadic: false, // 非外部函数一律不允许变长
-                        ty: 0usize.into(),         // 等 TypeChecker 填
+                        ty: 0usize.into(),  // 等 TypeChecker 填
                         ast_index: StmtId(i),
+                        parent: parent_def,
                     };
 
-                    local_symbols.insert(
-                        name.value.clone(),
-                        self.krate.alloc_def(Def::Function(data)),
-                    );
+                    self.resolve_module_definitions(
+                        module_id,
+                        &[Statement::ExpressionStatement((**block).clone())],
+                        parent_def,
+                    )?;
+
+                    let id = self.krate.alloc_def(Def::Function(data));
+
+                    if let Some(parent_id) = parent_def
+                        && let Def::Impl(impl_data) = self.krate.get_mut_def(parent_id)
+                    {
+                        impl_data.methods.insert(name.value.clone(), id);
+                    }
+
+                    local_symbols.insert(name.value.clone(), id);
+
+                    Some(id)
                 }
 
-                Statement::Const { name, .. } => {
+                Statement::ExpressionStatement(Expression::If {
+                    consequence,
+                    else_block,
+                    condition,
+                    ..
+                }) => {
+                    self.resolve_module_definitions(
+                        module_id,
+                        &[Statement::ExpressionStatement(*condition.clone())],
+                        parent_def,
+                    )?;
+
+                    self.resolve_module_definitions(
+                        module_id,
+                        &[Statement::ExpressionStatement(*consequence.clone())],
+                        parent_def,
+                    )?;
+
+                    if let Some(else_block) = else_block {
+                        self.resolve_module_definitions(
+                            module_id,
+                            &[Statement::ExpressionStatement(*else_block.clone())],
+                            parent_def,
+                        )?;
+                    }
+
+                    None
+                }
+
+                Statement::While {
+                    condition, block, ..
+                } => {
+                    self.resolve_module_definitions(
+                        module_id,
+                        &[Statement::ExpressionStatement(condition.clone())],
+                        parent_def,
+                    )?;
+
+                    self.resolve_module_definitions(module_id, &[*block.clone()], parent_def)?;
+
+                    None
+                }
+
+                Statement::ExpressionStatement(Expression::Block(_, statements)) => {
+                    self.resolve_module_definitions(module_id, statements, parent_def)?;
+                    None
+                }
+
+                Statement::Block { statements, .. } => {
+                    self.resolve_module_definitions(module_id, statements, parent_def)?;
+                    None
+                }
+
+                Statement::Const { name, value, .. } => {
                     let data = ConstantData {
                         name: name.value.clone(),
                         visibility: Visibility::Public, // 默认公开
@@ -312,18 +458,49 @@ impl<'a> NameResolver<'a> {
                         ast_index: StmtId(i),
                     };
 
+                    self.resolve_module_definitions(
+                        module_id,
+                        &[Statement::ExpressionStatement(value.clone())],
+                        parent_def,
+                    )?;
+
                     let def_id = self.krate.alloc_def(Def::Constant(data));
                     local_symbols.insert(name.value.clone(), def_id);
+
+                    Some(def_id)
+                }
+
+                Statement::Let { value, .. } => {
+                    self.resolve_module_definitions(
+                        module_id,
+                        &[Statement::ExpressionStatement(value.clone())],
+                        parent_def,
+                    )?;
+
+                    None
                 }
 
                 // 处理 Trait, 子模块等...
-                _ => {}
+                _ => None,
+            };
+
+            if let Some(id) = id {
+                local_def_to_ast_mappings.insert(id, stmt.clone());
             }
+
+            r.push(id);
         }
 
-        self.local_maps.insert(module_id, local_symbols);
+        self.local_maps
+            .entry(module_id)
+            .or_default()
+            .extend(local_symbols);
+        self.ast_maps
+            .entry(module_id)
+            .or_default()
+            .extend(local_def_to_ast_mappings);
 
-        Ok(())
+        Ok(r)
     }
 
     pub fn resolve_imports(

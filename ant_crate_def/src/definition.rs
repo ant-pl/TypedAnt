@@ -6,6 +6,7 @@ macro_rules! get_field {
             Self::Function(data) => data.$field,
             Self::Trait(data) => data.$field,
             Self::Constant(data) => data.$field,
+            Self::Impl(data) => data.$field,
         }
     };
 }
@@ -30,6 +31,7 @@ pub enum Def {
     Function(FunctionData),
     Trait(TraitData),
     Constant(ConstantData),
+    Impl(ImplData),
 }
 
 impl Def {
@@ -52,6 +54,7 @@ impl Def {
             Self::Function(data) => Some(data.ty.get()),
             Self::Trait(data) => Some(data.ty.get()),
             Self::Constant(data) => Some(data.ty.get()),
+            Self::Impl(data) => Some(data.ty.get()),
         }
     }
 
@@ -62,6 +65,7 @@ impl Def {
             Self::Function(data) => data.ty.set(new_ty),
             Self::Trait(data) => data.ty.set(new_ty),
             Self::Constant(data) => data.ty.set(new_ty),
+            Self::Impl(data) => data.ty.set(new_ty),
         }
     }
 }
@@ -93,11 +97,13 @@ pub struct FunctionData {
     pub name: Arc<str>,
     pub visibility: Visibility,
     pub module_id: ModuleId,
+    pub ast_index: StmtId,
     pub is_variadic: bool,
     pub params: IndexMap<Arc<str>, TyId>,
+    /// 上层结构的 DefId
+    pub parent: Option<DefId>,
     /// 如果是函数声明，这里可能是 None
     pub body: Option<ExprId>,
-    pub ast_index: StmtId,
     pub ty: TyCell,
 }
 
@@ -118,4 +124,21 @@ pub struct ConstantData {
     pub module_id: ModuleId,
     pub ast_index: StmtId,
     pub ty: TyCell,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImplData {
+    pub visibility: Visibility,
+    pub module_id: ModuleId,
+    pub ast_index: StmtId,
+    /// impl 块定义时的泛型 (即impl<T, ...>)
+    pub generics: Vec<Arc<str>>,
+    /// 在 impl 块中定义的所有方法
+    pub methods: IndexMap<Arc<str>, DefId>,
+    /// 实现目标的类型
+    pub target_ty: TyCell,
+    /// 实现目标的全局定义
+    pub target_def: DefId,
+    /// 即为 unit
+    pub ty: TyCell
 }

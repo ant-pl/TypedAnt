@@ -568,7 +568,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 instantiated_struct_ty
             }
 
-            TypedExpression::FieldAccess(_, obj, field_ident, ty) => {
+            TypedExpression::FieldAccess(_, obj, _field_ident, ty) => {
                 let new_obj_ty = self.infer_expr(obj)?;
                 let obj_ty_followed = self.follow_all(new_obj_ty);
 
@@ -581,10 +581,8 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                             &self.module_ref().get_expr(obj).unwrap().token(),
                         )?;
 
-                        let (generics_defs, fields_defs) = match self.tcx_ref().get(base_id) {
-                            Ty::Struct {
-                                generics, fields, ..
-                            } => (generics, fields),
+                        let generics_defs = match self.tcx_ref().get(base_id) {
+                            Ty::Struct { generics, .. } => generics,
                             _ => unreachable!(),
                         };
 
@@ -594,9 +592,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                             mapping.insert(name.to_string(), args[i]);
                         }
 
-                        // 拿到字段, 并替换
-                        let field_ty = fields_defs.get(&field_ident.value).unwrap();
-                        self.substitute(*field_ty, &mapping)
+                        self.substitute(ty, &mapping)
                     }
 
                     // 普通结构体

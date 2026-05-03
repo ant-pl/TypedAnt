@@ -35,6 +35,7 @@ pub mod tests {
             definitions: vec![],
             modules: vec![],
             path_index: IndexMap::new(),
+            impls: IndexMap::new(),
             root_id: 0.into(),
         };
 
@@ -116,6 +117,7 @@ pub mod tests {
             definitions: vec![],
             modules: vec![],
             path_index: IndexMap::new(),
+            impls: IndexMap::new(),
             root_id: 0.into(),
         };
 

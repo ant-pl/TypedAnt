@@ -60,6 +60,8 @@ pub struct TypeChecker<'a, 'b> {
     compile_as: CompileAs,
 
     builtins_table: Arc<Mutex<TypeTable>>,
+
+    all_statements: Vec<Statement>,
 }
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
@@ -80,6 +82,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             name_resolver,
 
             constraints: vec![],
+
+            all_statements: vec![],
 
             compile_as: CompileAs::AsNone,
 
@@ -117,15 +121,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     }
 
     fn get_raw_stmt(&self, def_id: DefId) -> &Statement {
-        let def = self.name_resolver.krate.get_def(def_id);
-        let (mod_id, ast_idx) = (def.module_id(), def.ast_index());
+        let mod_id = self.name_resolver.krate.get_def(def_id).module_id();
 
-        let mod_node = &self.name_resolver.krate.modules[mod_id.0];
-        if let Some(NodeOrTyped::Node(Node::Program { statements, .. })) = &mod_node.ast {
-            &statements[ast_idx.0]
-        } else {
-            panic!("module has not ast node or be typed")
-        }
+        self.name_resolver
+            .ast_maps
+            .get(&mod_id)
+            .unwrap()
+            .get(&def_id)
+            .unwrap()
     }
 
     fn write_back_type(&mut self, def_id: DefId, ty: TyId) {
@@ -178,7 +181,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
     pub fn check_node(&mut self, node: Node) -> CheckResult<TypedNode> {
         match node {
-            Node::Program { token, statements } => {
+            Node::Program {
+                token,
+                statements,
+                all_statements,
+                ..
+            } => {
+                self.all_statements = all_statements;
+
                 let mut typed_statements = vec![];
 
                 for stmt in statements {
@@ -333,7 +343,41 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 match struct_ty {
                     // 普通结构体（无泛型）
                     Ty::Struct { fields, name, .. } => {
-                        let Some(field_ty) = fields.get(&new_field.value) else {
+                        let field_ty = if let Some(field_ty) = fields.get(&new_field.value) {
+                            *field_ty
+                        } else if let Some(it) =
+                            self.name_resolver.lookup_name(self.current_mod_id, &name)
+                        {
+                            let impls = self.name_resolver.krate.get_impls(it).clone();
+                            let method = impls
+                                .iter()
+                                .filter_map(|it| {
+                                    let Def::Impl(it) = self.name_resolver.krate.get_def(*it)
+                                    else {
+                                        return None;
+                                    };
+
+                                    let Some(it) = it.methods.get(&new_field.value) else {
+                                        return None;
+                                    };
+
+                                    Some(self.resolve_def_type(*it))
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
+
+                            let Some(method) = method.first() else {
+                                return Err(Self::make_err(
+                                    Some(&format!(
+                                        "no method named `{}` found for type `{}` in the current scope",
+                                        new_field.value, name
+                                    )),
+                                    TypeCheckerErrorKind::Other,
+                                    new_field.token.clone(),
+                                ));
+                            };
+
+                            *method
+                        } else {
                             Err(Self::make_err(
                                 Some(&format!(
                                     "field `{}` of struct {name} not found",
@@ -349,7 +393,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             token,
                             typed_struct_expr_id,
                             new_field,
-                            *field_ty,
+                            field_ty,
                         ))
                     }
 
@@ -1067,20 +1111,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     value: impl_.value,
                 };
 
-                let generic_names = self
-                    .define_generics(&generics)
-                    .into_iter()
-                    .map(|it| it.0)
-                    .collect::<Vec<_>>();
-
-                let typed_generics = generics
-                    .into_iter()
-                    .map(|it| self.check_type_expr(*it))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter()
-                    .map(|it| self.module.alloc_expr(it))
-                    .collect::<Vec<_>>();
-
                 if self
                     .tcx()
                     .table
@@ -1123,6 +1153,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     ));
                 }
 
+                let generic_names = self
+                    .define_generics(&generics)
+                    .into_iter()
+                    .map(|it| it.0)
+                    .collect::<Vec<_>>();
+
                 let typed_paths = type_paths
                     .into_iter()
                     .map(|it| self.check_type_expr(*it))
@@ -1135,39 +1171,47 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 let typed_block = self.check_statement(*block)?;
 
-                let table = self.leave_scope().1;
+                self.leave_scope();
 
-                let mut new_fields = IndexMap::new();
+                let typed_generics = generics
+                    .into_iter()
+                    .map(|it| self.check_type_expr(*it))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .map(|it| self.module.alloc_expr(it))
+                    .collect::<Vec<_>>();
 
-                let symbols = self.tcx().table.lock().unwrap().var_map.clone();
+                self.remove_generics(&generic_names);
 
-                for (_, sym) in symbols {
-                    let Ty::Struct {
-                        name: struct_name,
-                        fields,
-                        ..
-                    } = self.tcx().get_mut(sym.ty.get_type())
+                let mut methods = IndexMap::new();
+
+                let TypedStatement::Block { statements, .. } = &typed_block else {
+                    unreachable!()
+                };
+
+                for stmt in statements {
+                    let TypedStatement::ExpressionStatement(_, expr_id, _) =
+                        self.module.get_stmt(*stmt).unwrap()
                     else {
                         continue;
                     };
 
-                    table.lock().unwrap().var_map.iter().for_each(|(k, v)| {
-                        new_fields.insert(k.clone(), v.clone().ty.get_type());
-                    });
+                    let TypedExpression::Function { name, ty, .. } =
+                        self.module.get_expr(*expr_id).unwrap()
+                    else {
+                        continue;
+                    };
 
-                    // impl XXXX {}
-                    if new_for_.is_none() && new_impl_.value == *struct_name {
-                        fields.append(&mut new_fields);
-                    }
+                    let Some(name) = &name else {
+                        continue;
+                    };
 
-                    continue;
+                    methods.insert(name.value.clone(), *ty);
                 }
-
-                self.remove_generics(&generic_names);
 
                 Ok(TypedStatement::Impl {
                     token,
-                    new_fields,
+                    new_fields: methods,
                     impl_: new_impl_,
                     for_: new_for_,
                     generics: typed_generics,
@@ -1525,6 +1569,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     }),
                 })
             }
+
             Statement::While {
                 token,
                 condition,
@@ -1816,6 +1861,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 }
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
+    fn try_found_parent_generic_params(&mut self, parent: DefId) -> Vec<(Arc<str>, Vec<TyId>)> {
+        if let Def::Impl(it) = self.name_resolver.krate.get_def(parent) {
+            return it.generics.iter().map(|it| (it.clone(), vec![])).collect();
+        }
+
+        vec![]
+    }
+
     pub fn resolve_def_type(&mut self, def_id: DefId) -> CheckResult<TyId> {
         let existing_ty = self.name_resolver.krate.get_def(def_id).ty().unwrap_or(0);
 
@@ -1916,26 +1969,34 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 generics_params,
                 ..
             }) => {
+                self.enter_scope(ScopeKind::Function);
+
                 // 这里只解析函数头
-                let mut generics = vec![];
 
-                for generics_param in generics_params
-                    .iter()
-                    .filter(|it| matches!(&***it, Expression::Ident(_)))
+                // 定义函数中的泛型参数
+                let mut generics = self
+                    .define_generics(&generics_params)
+                    .into_iter()
+                    .map(|it| it.0)
+                    .collect::<Vec<_>>();
+
+                // 向上查找是否存在泛型参数
+                if let Def::Function(func_data) = self.name_resolver.krate.get_mut_def(def_id)
+                    && let Some(parent) = func_data.parent
                 {
-                    let Expression::Ident(it) = &**generics_param else {
-                        unreachable!()
-                    };
+                    let mut generic_names = self
+                        .try_found_parent_generic_params(parent)
+                        .into_iter()
+                        .map(|it| it.0)
+                        .collect::<Vec<_>>();
 
-                    let ty_id = self.tcx().alloc(Ty::Generic(it.value.clone(), vec![]));
+                    generic_names.iter().for_each(|it| {
+                        let ty_id = self.tcx().alloc(Ty::Generic(it.clone(), vec![]));
 
-                    generics.push(it.value.clone());
+                        self.tcx().table.lock().unwrap().define_var(&it, ty_id);
+                    });
 
-                    self.tcx()
-                        .table
-                        .lock()
-                        .unwrap()
-                        .define_var(&it.value, ty_id);
+                    generics.append(&mut generic_names);
                 }
 
                 let mut params_type = vec![];
@@ -1956,9 +2017,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 })?;
 
                 // 清理泛型
-                generics.iter().for_each(|it| {
-                    self.tcx().table.lock().unwrap().var_map.remove(it);
-                });
+                self.remove_generics(&generics);
 
                 let func_ty = self.tcx().alloc(Ty::Function {
                     generics,
@@ -1972,6 +2031,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 if let Def::Function(func_data) = self.name_resolver.krate.get_mut_def(def_id) {
                     func_data.params = param_mapping
                 }
+
+                self.leave_scope();
 
                 Ok(func_ty)
             }

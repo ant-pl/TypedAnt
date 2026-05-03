@@ -31,6 +31,10 @@ pub struct ModuleNode<'a> {
 pub struct Crate<'a> {
     pub definitions: Vec<Def>,
 
+    /// 被实现的 ADT 类型到所有实现的定义的映射
+    pub impls: IndexMap<DefId, Vec<DefId>>,
+
+    /// 从模块路径到模块定义的映射
     pub path_index: IndexMap<Vec<Arc<str>>, DefId>,
 
     pub modules: Vec<ModuleNode<'a>>,
@@ -70,5 +74,33 @@ impl<'a> Crate<'a> {
         self.modules.push(module);
 
         id
+    }
+}
+
+impl<'a> Crate<'a> {
+    pub fn get_impls(&'_ self, id: DefId) -> &Vec<DefId> {
+        self.impls.get(&id).unwrap()
+    }
+
+    pub fn get_mut_impls(&mut self, id: DefId) -> &mut Vec<DefId> {
+        self.impls.get_mut(&id).unwrap()
+    }
+
+    pub fn alloc_impl_to_adt(&mut self, impl_def: Def, adt_def: DefId) -> DefId {
+        let id = self.alloc_def(impl_def);
+
+        self.impls.entry(adt_def).or_insert(Vec::new()).push(id);
+
+        id
+    }
+
+    pub fn alloc_impl(&mut self, impl_def: Def) -> DefId {
+        let Def::Impl(it) = &impl_def else {
+            unreachable!()
+        };
+
+        let adt = it.target_def;
+
+        self.alloc_impl_to_adt(impl_def, adt)
     }
 }

@@ -8,7 +8,8 @@ use crate::stmt::Statement;
 pub enum Node {
     Program {
         token: Token,
-        statements: Vec<Statement>
+        statements: Vec<Statement>,
+        all_statements: Vec<Statement>,
     }
 }
 
