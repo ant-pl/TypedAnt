@@ -7,6 +7,7 @@ use token::token::Token;
 pub enum NameResolverErrorKind {
     Unresolvedimport,
     SymbolIsPrivate,
+    TypeNotFound,
     ParserError(ParserErrorKind),
     Other
 }
@@ -16,6 +17,7 @@ impl Display for NameResolverErrorKind {
         let s = match self {
             Self::Unresolvedimport => "unresolved import",
             Self::SymbolIsPrivate => "the symbol is private",
+            Self::TypeNotFound => "type not found",
             Self::ParserError(it) => &it.to_string(),
             Self::Other => "",
         };
