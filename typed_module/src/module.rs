@@ -13,6 +13,7 @@ pub struct TypedModule<'a> {
 }
 
 impl TypedModule<'_> {
+    #[inline(always)]
     pub fn alloc_expr(&mut self, expr: TypedExpression) -> ExprId {
         let id = self.typed_exprs.len();
 
@@ -20,7 +21,8 @@ impl TypedModule<'_> {
 
         id.into()
     }
-
+    
+    #[inline(always)]
     pub fn alloc_stmt(&mut self, stmt: TypedStatement) -> StmtId {
         let id = self.typed_stmts.len();
 

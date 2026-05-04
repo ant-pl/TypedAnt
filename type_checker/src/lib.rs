@@ -300,6 +300,42 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 ty: self.tcx().alloc(Ty::Str),
             }),
 
+            Expression::Ident(it) => {
+                let ident_name = &it.value;
+
+                if let Some(symbol) = self.tcx_ref().table.lock().unwrap().get(&ident_name) {
+                    return Ok(TypedExpression::Ident(
+                        Ident {
+                            token: it.token,
+                            value: it.value.clone(),
+                        },
+                        symbol.ty.get_type(),
+                        self.name_resolver
+                            .lookup_name(self.current_mod_id, &it.value),
+                    ));
+                } else if let Some(def_id) = self
+                    .name_resolver
+                    .lookup_name(self.current_mod_id, &it.value)
+                {
+                    let ty_id = self.resolve_def_type(def_id)?;
+
+                    return Ok(TypedExpression::Ident(
+                        Ident {
+                            token: it.token,
+                            value: it.value,
+                        },
+                        ty_id,
+                        Some(def_id),
+                    ));
+                } else {
+                    Err(Self::make_err(
+                        None,
+                        TypeCheckerErrorKind::VariableNotFound,
+                        it.token,
+                    ))
+                }
+            }
+
             Expression::SizeOf(token, expr) => Ok(TypedExpression::SizeOf(
                 token,
                 {
@@ -350,10 +386,9 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         {
                             let impls = self.name_resolver.krate.get_impls(it).clone();
                             let method = impls
-                                .iter()
+                                .into_iter()
                                 .filter_map(|it| {
-                                    let Def::Impl(it) = self.name_resolver.krate.get_def(*it)
-                                    else {
+                                    let Def::Impl(it) = self.name_resolver.krate.get_def(it) else {
                                         return None;
                                     };
 
@@ -458,24 +493,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
 
             Expression::BuildStruct(token, name, fields) => {
-                // 查 struct 类型
-                let struct_ty_id = self.lookup_type_by_name(&name.value, name.token.clone())?;
-
-                // 取出 struct 的泛型参数和字段定义
-                let def_generics = match self.tcx().get(struct_ty_id).clone() {
-                    Ty::Struct { generics, .. } => generics,
-                    it => {
-                        return Err(Self::make_err(
-                            Some(&format!(
-                                "expected struct, got {}",
-                                display_ty(&it, self.tcx_ref())
-                            )),
-                            TypeCheckerErrorKind::TypeMismatch,
-                            name.token.clone(),
-                        ));
-                    }
-                };
-
                 // typecheck 每个字段
                 let mut typed_field_ids = IndexMap::new();
 
@@ -489,6 +506,24 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         self.module.alloc_expr(typed_val),
                     );
                 }
+
+                // 查 struct 类型
+                let struct_ty_id = self.lookup_type_by_name(&name.value, name.token.clone())?;
+
+                // 取出 struct 的泛型参数和字段定义
+                let def_generics = match self.tcx_ref().get(struct_ty_id) {
+                    Ty::Struct { generics, .. } => generics,
+                    it => {
+                        return Err(Self::make_err(
+                            Some(&format!(
+                                "expected struct, got {}",
+                                display_ty(&it, self.tcx_ref())
+                            )),
+                            TypeCheckerErrorKind::TypeMismatch,
+                            name.token.clone(),
+                        ));
+                    }
+                };
 
                 if def_generics.is_empty() {
                     return Ok(TypedExpression::BuildStruct(
@@ -523,42 +558,6 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     left: self.module.alloc_expr(typed_left),
                     right: self.module.alloc_expr(typed_right),
                 })
-            }
-
-            Expression::Ident(it) => {
-                let ident_name = &it.value;
-
-                if let Some(symbol) = self.tcx_ref().table.lock().unwrap().get(&ident_name) {
-                    return Ok(TypedExpression::Ident(
-                        Ident {
-                            token: it.token,
-                            value: it.value.clone(),
-                        },
-                        symbol.ty.get_type(),
-                        self.name_resolver
-                            .lookup_name(self.current_mod_id, &it.value),
-                    ));
-                } else if let Some(def_id) = self
-                    .name_resolver
-                    .lookup_name(self.current_mod_id, &it.value)
-                {
-                    let ty_id = self.resolve_def_type(def_id)?;
-
-                    return Ok(TypedExpression::Ident(
-                        Ident {
-                            token: it.token,
-                            value: it.value,
-                        },
-                        ty_id,
-                        Some(def_id),
-                    ));
-                } else {
-                    Err(Self::make_err(
-                        None,
-                        TypeCheckerErrorKind::VariableNotFound,
-                        it.token,
-                    ))
-                }
             }
 
             Expression::Infix {
@@ -865,7 +864,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Expression::Call { token, func, args } => {
                 let typed_func = self.check_expr(*func)?;
 
-                let Ty::Function { ret_type, .. } = self.tcx().get(typed_func.get_type()).clone()
+                let Ty::Function { ret_type, .. } = self.tcx_ref().get(typed_func.get_type())
                 else {
                     return Err(Self::make_err(
                         Some("not a function"),
@@ -873,6 +872,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         typed_func.token(),
                     ));
                 };
+
+                let ret_type = *ret_type;
 
                 let mut typed_arg_ids = vec![];
 
