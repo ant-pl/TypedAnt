@@ -230,52 +230,105 @@ impl<'a> NameResolver<'a> {
         stmts: &[Statement],
     ) -> ResolveResult<()> {
         for (i, stmt) in stmts.iter().enumerate() {
-            if let Statement::Impl {
-                generics,
-                impl_,
-                for_,
-                block,
-                ..
-            } = stmt
-            {
-                let target_name = if let Some(for_) = for_ {
-                    &for_.value
-                } else {
-                    &impl_.value
-                };
+            match stmt {
+                Statement::Impl {
+                    generics,
+                    impl_,
+                    for_,
+                    block,
+                    ..
+                } => {
+                    let target_name = if let Some(for_) = for_ {
+                        &for_.value
+                    } else {
+                        &impl_.value
+                    };
 
-                let target_def = self.lookup_name(module_id, target_name).ok_or_else(|| {
-                    Self::make_err(
-                        None,
-                        NameResolverErrorKind::TypeNotFound,
-                        if let Some(for_) = for_ {
-                            for_.token.clone()
-                        } else {
-                            impl_.token.clone()
-                        },
-                    )
-                })?;
+                    let target_def = self.lookup_name(module_id, target_name).ok_or_else(|| {
+                        Self::make_err(
+                            None,
+                            NameResolverErrorKind::TypeNotFound,
+                            if let Some(for_) = for_ {
+                                for_.token.clone()
+                            } else {
+                                impl_.token.clone()
+                            },
+                        )
+                    })?;
 
-                let data = ImplData {
-                    visibility: Visibility::Public,
-                    module_id,
-                    generics: generics.iter().map(|g| g.to_string().into()).collect(),
-                    methods: IndexMap::new(),
-                    ty: 0usize.into(),
-                    target_ty: 0usize.into(),
-                    ast_index: StmtId(i),
-                    target_def,
-                };
+                    let data = ImplData {
+                        visibility: Visibility::Public,
+                        module_id,
+                        generics: generics.iter().map(|g| g.to_string().into()).collect(),
+                        methods: IndexMap::new(),
+                        ty: 0usize.into(),
+                        target_ty: 0usize.into(),
+                        ast_index: StmtId(i),
+                        target_def,
+                    };
 
-                let id = self.krate.alloc_impl(Def::Impl(data));
+                    let id = self.krate.alloc_impl(Def::Impl(data));
 
-                self.resolve_module_definitions(module_id, &[*block.clone()], Some(id))?;
+                    self.resolve_module_definitions(module_id, &[*block.clone()], Some(id))?;
 
-                self.ast_maps.entry(module_id).or_default().extend({
-                    let mut m = HashMap::new();
-                    m.insert(id, stmt.clone());
-                    m
-                });
+                    self.ast_maps.entry(module_id).or_default().extend({
+                        let mut m = HashMap::new();
+                        m.insert(id, stmt.clone());
+                        m
+                    });
+                }
+
+                Statement::ExpressionStatement(Expression::Function { block, .. }) => {
+                    self.fill_back_defs(
+                        module_id,
+                        &[Statement::ExpressionStatement((**block).clone())],
+                    )?;
+                }
+
+                Statement::ExpressionStatement(Expression::If {
+                    consequence,
+                    else_block,
+                    condition,
+                    ..
+                }) => {
+                    self.fill_back_defs(
+                        module_id,
+                        &[Statement::ExpressionStatement(*condition.clone())],
+                    )?;
+
+                    self.fill_back_defs(
+                        module_id,
+                        &[Statement::ExpressionStatement(*consequence.clone())],
+                    )?;
+
+                    if let Some(else_block) = else_block {
+                        self.fill_back_defs(
+                            module_id,
+                            &[Statement::ExpressionStatement(*else_block.clone())],
+                        )?;
+                    }
+                }
+
+                Statement::While {
+                    condition, block, ..
+                } => {
+                    self.fill_back_defs(
+                        module_id,
+                        &[Statement::ExpressionStatement(condition.clone())],
+                    )?;
+
+                    self.fill_back_defs(module_id, &[*block.clone()])?;
+                }
+
+                Statement::ExpressionStatement(Expression::Block(_, statements)) => {
+                    self.fill_back_defs(module_id, statements)?;
+                }
+
+                Statement::Block { statements, .. } => {
+                    self.fill_back_defs(module_id, statements)?;
+                }
+
+                _ => {}
             }
         }
 
