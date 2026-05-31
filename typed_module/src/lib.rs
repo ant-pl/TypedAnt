@@ -42,6 +42,7 @@ pub fn display_ty(ty: &Ty, tcx: &TypeContext) -> String {
             }
         ),
         Ty::Trait { name, .. } => name.to_string(),
+        Ty::Enum { name, .. } => name.to_string(),
         Ty::Function {
             params_type,
             ret_type,

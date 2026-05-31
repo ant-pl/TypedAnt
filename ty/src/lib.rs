@@ -132,6 +132,10 @@ pub enum Ty {
         name: Arc<str>,
         functions: IndexMap<Arc<str>, TyId>,
     },
+    Enum {
+        name: Arc<str>,
+        variants: IndexMap<Arc<str>, TyId>,
+    },
 
     // T, K: Eq, V: Eq + Clone ...
     Generic(Arc<str>, Vec<TyId>),
@@ -167,6 +171,7 @@ impl Display for Ty {
             Self::Unit => write!(f, "Unit"),
             Self::Struct { name, .. } => write!(f, "{name}"),
             Self::Trait { name, .. } => write!(f, "{name}"),
+            Self::Enum { name, .. } => write!(f, "{name}"),
             Self::Function {
                 params_type,
                 ret_type,
