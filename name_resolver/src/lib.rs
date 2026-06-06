@@ -596,7 +596,7 @@ impl<'a> NameResolver<'a> {
 
         // 检查可见性
         let def = self.krate.get_def(def_id);
-        if def.visibility() != Visibility::Public {
+        if *def.visibility() != Visibility::Public {
             return Err(Self::make_err(
                 Some(&format!("symbol `{}` is private", path.last().unwrap())),
                 NameResolverErrorKind::SymbolIsPrivate,
@@ -731,7 +731,7 @@ impl<'a> NameResolver<'a> {
 
         // 外部作用域
         if let Some(id) = self.resolved_imports.get(&current_mod)?.bindings.get(name)
-            && self.krate.get_def(*id).visibility() == Visibility::Public
+            && *self.krate.get_def(*id).visibility() == Visibility::Public
         {
             return Some(*id);
         }

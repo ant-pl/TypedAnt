@@ -11,10 +11,41 @@ macro_rules! get_field {
     };
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+macro_rules! get_field_ref {
+    ($self:expr,$field:ident) => {
+        match $self {
+            Self::Module(data) => &data.$field,
+            Self::Struct(data) => &data.$field,
+            Self::Function(data) => &data.$field,
+            Self::Trait(data) => &data.$field,
+            Self::Constant(data) => &data.$field,
+            Self::Impl(data) => &data.$field,
+        }
+    };
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum VisibilityShorthandKind {
+    Crate,
+    Super,
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Visibility {
     Public,
     Private,
+
+    Restricted {
+        /// 只有这个会被真正用到 剩余皆为补充信息
+        restricted_id: ModuleId,
+
+        /// 路径
+        path: Vec<Arc<str>>,
+
+        /// 完整写法 pub (in path/to/your/module) 或 pub(crate) pub(super) 等
+        shorthand: VisibilityShorthandKind,
+    },
 }
 
 use id::{DefId, ModuleId};
@@ -35,8 +66,8 @@ pub enum Def {
 }
 
 impl Def {
-    pub fn visibility(&self) -> Visibility {
-        get_field!(self, visibility)
+    pub fn visibility(&self) -> &Visibility {
+        get_field_ref!(self, visibility)
     }
 
     pub fn ast_index(&self) -> StmtId {
