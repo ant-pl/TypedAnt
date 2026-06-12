@@ -163,6 +163,12 @@ pub enum Expression {
         left: Box<Expression>,
         paths: Vec<Box<Expression>>,
     },
+    /// 枚举体=>枚举项 语法，如 Option=>Some
+    EnumVariant {
+        token: Token,
+        enum_name: Ident,
+        variant_name: Ident,
+    },
     ThreeDot(Token),
 }
 
@@ -279,6 +285,9 @@ impl Display for Expression {
             Self::Prefix { op, right, .. } => write!(f, "{op}{right}"),
             Self::BoolAnd { left, right, .. } => write!(f, "({left} and {right})",),
             Self::BoolOr { left, right, .. } => write!(f, "({left} or {right})",),
+            Self::EnumVariant { enum_name, variant_name, .. } => {
+                write!(f, "{enum_name}=>{variant_name}")
+            }
         }
     }
 }
@@ -299,6 +308,7 @@ impl GetToken for Expression {
             Expression::Infix { token, .. } => token.clone(),
             Expression::Cast { token, .. } => token.clone(),
             Expression::GenericInstance { token, .. } => token.clone(),
+            Expression::EnumVariant { token, .. } => token.clone(),
             Expression::Prefix { token, .. } => token.clone(),
             Expression::Function { token, .. } => token.clone(),
             Expression::If { token, .. } => token.clone(),

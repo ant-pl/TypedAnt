@@ -3,6 +3,7 @@ macro_rules! get_field {
         match $self {
             Self::Module(data) => data.$field,
             Self::Struct(data) => data.$field,
+            Self::Enum(data) => data.$field,
             Self::Function(data) => data.$field,
             Self::Trait(data) => data.$field,
             Self::Constant(data) => data.$field,
@@ -28,6 +29,7 @@ use ty::{TyCell, TyId};
 pub enum Def {
     Module(ModuleData),
     Struct(StructData),
+    Enum(EnumData),
     Function(FunctionData),
     Trait(TraitData),
     Constant(ConstantData),
@@ -51,6 +53,7 @@ impl Def {
         match self {
             Self::Module(_data) => None,
             Self::Struct(data) => Some(data.ty.get()),
+            Self::Enum(data) => Some(data.ty.get()),
             Self::Function(data) => Some(data.ty.get()),
             Self::Trait(data) => Some(data.ty.get()),
             Self::Constant(data) => Some(data.ty.get()),
@@ -62,6 +65,7 @@ impl Def {
         match self {
             Self::Module(_data) => (),
             Self::Struct(data) => data.ty.set(new_ty),
+            Self::Enum(data) => data.ty.set(new_ty),
             Self::Function(data) => data.ty.set(new_ty),
             Self::Trait(data) => data.ty.set(new_ty),
             Self::Constant(data) => data.ty.set(new_ty),
@@ -88,6 +92,16 @@ pub struct StructData {
     pub module_id: ModuleId,
     pub generics: Vec<Arc<str>>,
     pub fields: IndexMap<Arc<str>, TyId>,
+    pub ast_index: StmtId,
+    pub ty: TyCell,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnumData {
+    pub name: Arc<str>,
+    pub visibility: Visibility,
+    pub module_id: ModuleId,
+    pub variants: Vec<Arc<str>>,
     pub ast_index: StmtId,
     pub ty: TyCell,
 }

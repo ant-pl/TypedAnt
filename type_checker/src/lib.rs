@@ -950,6 +950,51 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             // 如果出现此表达式请考虑parser是否损坏
             Expression::ThreeDot(_) => unreachable!(),
 
+            Expression::EnumVariant { token, enum_name, variant_name } => {
+                // 查找枚举类型
+                let enum_ty_id = self.lookup_type_by_name(&enum_name.value, enum_name.token.clone())?;
+
+                let enum_ty = self.tcx_ref().get(enum_ty_id).clone();
+
+                // 验证这确实是一个枚举类型
+                match enum_ty {
+                    Ty::Enum { variants, .. } => {
+                        // 验证枚举项存在
+                        if !variants.contains(&variant_name.value) {
+                            return Err(Self::make_err(
+                                Some(&format!(
+                                    "variant `{}` not found in enum `{}`",
+                                    variant_name.value, enum_name.value
+                                )),
+                                TypeCheckerErrorKind::Other,
+                                variant_name.token.clone(),
+                            ));
+                        }
+
+                        Ok(TypedExpression::EnumVariant {
+                            token,
+                            enum_name: Ident {
+                                token: enum_name.token,
+                                value: enum_name.value,
+                            },
+                            variant_name: Ident {
+                                token: variant_name.token,
+                                value: variant_name.value,
+                            },
+                            ty: enum_ty_id,
+                        })
+                    }
+                    _ => Err(Self::make_err(
+                        Some(&format!(
+                            "`{}` is not an enum type",
+                            enum_name.value
+                        )),
+                        TypeCheckerErrorKind::TypeMismatch,
+                        enum_name.token.clone(),
+                    )),
+                }
+            }
+
             it => todo!("todo expr: {it}"),
         }
     }
@@ -1485,6 +1530,48 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     name: typed_name,
                     fields: typed_field_ids,
                     generics: typed_generics,
+                })
+            }
+
+            Statement::Enum { token, name, variants } => {
+                let typed_name = Ident {
+                    token: name.token,
+                    value: name.value.clone(),
+                };
+
+                let ty = Ty::Enum {
+                    name: name.value.clone(),
+                    variants: variants.iter().map(|v| v.value.clone()).collect(),
+                };
+
+                let ty_id = self.tcx().alloc(ty.clone());
+
+                self.tcx()
+                    .table
+                    .lock()
+                    .unwrap()
+                    .define_var(&typed_name.value, ty_id);
+
+                // 在此填充 Def
+                if let Some(def_id) = self
+                    .name_resolver
+                    .lookup_name(self.current_mod_id, &name.value)
+                    && let Def::Enum(enum_data) = self.name_resolver.krate.get_mut_def(def_id)
+                {
+                    enum_data.ty.set(ty_id);
+                }
+
+                Ok(TypedStatement::Enum {
+                    ty: ty_id,
+                    token,
+                    name: typed_name,
+                    variants: variants
+                        .iter()
+                        .map(|v| Ident {
+                            token: v.token.clone(),
+                            value: v.value.clone(),
+                        })
+                        .collect(),
                 })
             }
 

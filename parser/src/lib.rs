@@ -21,6 +21,7 @@ use crate::{
         parse_cast::parse_cast,
         parse_const::parse_const,
         parse_extern::parse_extern,
+        parse_enum_variant::parse_enum_variant,
         parse_field_access::parse_field_access,
         parse_func::parse_func,
         parse_grouped_expr::parse_grouped_expr,
@@ -38,6 +39,7 @@ use crate::{
         parse_sizeof::parse_sizeof,
         parse_str::parse_str,
         parse_struct::parse_struct,
+        parse_enum::parse_enum,
         parse_trait::parse_trait,
         parse_turbo_fish::parse_turbo_fish,
         parse_type_hint::parse_type_hint,
@@ -122,6 +124,7 @@ impl Parser {
         m.insert(TokenType::Dot, parse_field_access);
         m.insert(TokenType::As, parse_cast);
         m.insert(TokenType::TwoColon, parse_turbo_fish);
+        m.insert(TokenType::FatArrow, parse_enum_variant);
     }
 
     fn init_statement_parse_fn_map(m: &mut HashMap<TokenType, StmtParseFn>) {
@@ -135,6 +138,7 @@ impl Parser {
         m.insert(TokenType::Impl, parse_impl);
         m.insert(TokenType::Trait, parse_trait);
         m.insert(TokenType::Struct, parse_struct);
+        m.insert(TokenType::Enum, parse_enum);
     }
 
     pub fn new(tokens: Vec<Token>) -> Self {

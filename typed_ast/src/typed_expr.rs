@@ -117,6 +117,13 @@ pub enum TypedExpression {
         paths: Vec<ExprId>,
         ty: TyId,
     },
+    /// 枚举体=>枚举项 语法，如 Option=>Some
+    EnumVariant {
+        token: Token,
+        enum_name: Ident,
+        variant_name: Ident,
+        ty: TyId,
+    },
 }
 
 impl GetType for TypedExpression {
@@ -144,6 +151,7 @@ impl GetType for TypedExpression {
             Self::BoolOr { ty, .. } => *ty,
             Self::TypePath { ty, .. } => *ty,
             Self::SizeOf(_, _, ty) => *ty,
+            Self::EnumVariant { ty, .. } => *ty,
         }
     }
 }
@@ -173,6 +181,7 @@ impl SetType for TypedExpression {
             Self::BoolOr { ty, .. } => *ty = new_ty,
             Self::TypePath { ty, .. } => *ty = new_ty,
             Self::SizeOf(_, _, ty) => *ty = new_ty,
+            Self::EnumVariant { ty, .. } => *ty = new_ty,
         }
     }
 }
@@ -202,6 +211,7 @@ impl GetToken for TypedExpression {
             TypedExpression::BoolAnd { token, .. } => token.clone(),
             TypedExpression::BoolOr { token, .. } => token.clone(),
             TypedExpression::TypePath { token, .. } => token.clone(),
+            TypedExpression::EnumVariant { token, .. } => token.clone(),
         }
     }
 }

@@ -128,6 +128,10 @@ pub enum Ty {
         fields: IndexMap<Arc<str>, TyId>,
         impl_traits: IndexMap<Arc<str>, TyId>,
     },
+    Enum {
+        name: Arc<str>,
+        variants: Vec<Arc<str>>,
+    },
     Trait {
         name: Arc<str>,
         functions: IndexMap<Arc<str>, TyId>,
@@ -166,6 +170,17 @@ impl Display for Ty {
             Self::Bool => write!(f, "bool"),
             Self::Unit => write!(f, "Unit"),
             Self::Struct { name, .. } => write!(f, "{name}"),
+            Self::Enum { name, variants } => {
+                write!(
+                    f,
+                    "{name}::{{{}}}",
+                    variants
+                        .iter()
+                        .map(|it| it.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            }
             Self::Trait { name, .. } => write!(f, "{name}"),
             Self::Function {
                 params_type,

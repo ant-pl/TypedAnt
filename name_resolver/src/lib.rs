@@ -3,7 +3,7 @@ pub mod test;
 
 use ant_crate_def::Crate;
 use ant_crate_def::definition::{
-    ConstantData, Def, FunctionData, ImplData, StructData, Visibility,
+    ConstantData, Def, EnumData, FunctionData, ImplData, StructData, Visibility,
 };
 use ant_crate_def::{ModuleNode, NodeOrTyped};
 use ast::expr::Expression;
@@ -363,6 +363,22 @@ impl<'a> NameResolver<'a> {
                     };
 
                     let def_id = self.krate.alloc_def(Def::Struct(data));
+                    local_symbols.insert(name.value.clone(), def_id);
+
+                    def_id
+                }),
+
+                Statement::Enum { name, variants, .. } => Some({
+                    let data = EnumData {
+                        name: name.value.clone(),
+                        visibility: Visibility::Public,
+                        module_id,
+                        variants: variants.iter().map(|v| v.value.clone()).collect(),
+                        ty: 0usize.into(), // TypeChecker 稍后填充
+                        ast_index: StmtId(i),
+                    };
+
+                    let def_id = self.krate.alloc_def(Def::Enum(data));
                     local_symbols.insert(name.value.clone(), def_id);
 
                     def_id

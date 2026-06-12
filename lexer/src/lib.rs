@@ -354,18 +354,16 @@ impl Lexer {
             token.value = self.cur_char.to_string().into();
         }
 
+        // 特殊处理 => token
+        if self.cur_char == '=' && self.peek_char() == '>' {
+            token.token_type = TokenType::FatArrow;
+            token.value = "=>".into();
+            self.read_char(); // 跳过 >
+            self.read_char(); // 继续前进
+            return token;
+        }
+
         match self.cur_char {
-            '=' => {
-                let peek_char = self.peek_char();
-
-                if peek_char == '=' {
-                    token.token_type = TokenType::Eq;
-                    token.value = format!("{}{}", self.cur_char, peek_char).into();
-
-                    self.read_char();
-                }
-            }
-
             '!' => {
                 let peek_char = self.peek_char();
                 if peek_char == '=' {
