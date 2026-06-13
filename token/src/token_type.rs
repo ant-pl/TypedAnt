@@ -78,11 +78,9 @@ pub enum TokenType {
     Extern,
     Trait,
     Impl,
-    Enum,
     As,
     AddrOf,
-    /// =>
-    FatArrow,
+    Enum,
     Eof,
 }
 
@@ -91,14 +89,13 @@ impl TokenType {
     pub fn to_string(&self) -> &'static str {
         match self {
             TokenType::Struct => "struct",
+            TokenType::Enum => "enum",
             TokenType::Sizeof => "sizeof",
             TokenType::Const => "const",
             TokenType::Impl => "impl",
             TokenType::Trait => "trait",
-            TokenType::Enum => "enum",
             TokenType::Extern => "extern",
             TokenType::As => "as",
-            TokenType::FatArrow => "=>",
             TokenType::Colon => ":",
             TokenType::ThreeDot => "...",
             TokenType::Dot => ".",
@@ -197,7 +194,6 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     "CONST" => TokenType::Const,
     "VAR" => TokenType::Var,
     "TRAIT" => TokenType::Trait,
-    "ENUM" => TokenType::Enum,
     "<" => TokenType::Lt,
     ">" => TokenType::Gt,
     ";" => TokenType::Semicolon,
@@ -209,7 +205,6 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     ")" => TokenType::RParen,
     "IF" => TokenType::If,
     "AS" => TokenType::As,
-    "=>" => TokenType::FatArrow,
     "SIZEOF" => TokenType::Sizeof,
     "AND" => TokenType::BoolAnd,
     "OR" => TokenType::BoolOr,
@@ -228,6 +223,7 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     "NEW" => TokenType::New,
     "IMPORT" => TokenType::Import,
     "STRUCT" => TokenType::Struct,
+    "ENUM" => TokenType::Enum,
     "FROM" => TokenType::From,
     "LET" => TokenType::Let,
     "::" => TokenType::TwoColon,

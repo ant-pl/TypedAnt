@@ -29,4 +29,3 @@ pub mod parse_sizeof;
 pub mod parse_prefix;
 pub mod parse_type_path;
 pub mod parse_cast;
-pub mod parse_enum_variant;

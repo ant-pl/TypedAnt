@@ -101,7 +101,8 @@ pub struct EnumData {
     pub name: Arc<str>,
     pub visibility: Visibility,
     pub module_id: ModuleId,
-    pub variants: Vec<Arc<str>>,
+    pub generics: Vec<Arc<str>>,
+    pub variants: IndexMap<Arc<str>, TyId>,
     pub ast_index: StmtId,
     pub ty: TyCell,
 }

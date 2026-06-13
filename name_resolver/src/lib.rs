@@ -368,13 +368,14 @@ impl<'a> NameResolver<'a> {
                     def_id
                 }),
 
-                Statement::Enum { name, variants, .. } => Some({
+                Statement::Enum { name, generics, .. } => Some({
                     let data = EnumData {
                         name: name.value.clone(),
                         visibility: Visibility::Public,
                         module_id,
-                        variants: variants.iter().map(|v| v.value.clone()).collect(),
-                        ty: 0usize.into(), // TypeChecker 稍后填充
+                        generics: generics.iter().map(|g| g.to_string().into()).collect(),
+                        variants: IndexMap::new(),
+                        ty: 0usize.into(),
                         ast_index: StmtId(i),
                     };
 

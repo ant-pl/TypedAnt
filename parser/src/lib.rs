@@ -21,7 +21,6 @@ use crate::{
         parse_cast::parse_cast,
         parse_const::parse_const,
         parse_extern::parse_extern,
-        parse_enum_variant::parse_enum_variant,
         parse_field_access::parse_field_access,
         parse_func::parse_func,
         parse_grouped_expr::parse_grouped_expr,
@@ -124,7 +123,6 @@ impl Parser {
         m.insert(TokenType::Dot, parse_field_access);
         m.insert(TokenType::As, parse_cast);
         m.insert(TokenType::TwoColon, parse_turbo_fish);
-        m.insert(TokenType::FatArrow, parse_enum_variant);
     }
 
     fn init_statement_parse_fn_map(m: &mut HashMap<TokenType, StmtParseFn>) {

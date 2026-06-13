@@ -40,6 +40,13 @@ pub enum TypedExpression {
     SizeOf(Token, ExprId, TyId),
     BuildStruct(Token, Ident, IndexMap<Ident, ExprId>, TyId),
     FieldAccess(Token, ExprId, Ident, TyId),
+    EnumVariant {
+        token: Token,
+        enum_name: Ident,
+        variant: Ident,
+        args: Vec<ExprId>,
+        ty: TyId,
+    },
     Infix {
         token: Token,
         op: Arc<str>,
@@ -82,6 +89,16 @@ pub enum TypedExpression {
         else_block: Option<ExprId>,
         ty: TyId,
     },
+    IfLet {
+        token: Token,
+        enum_name: Ident,
+        variant: Ident,
+        bindings: Vec<Ident>,
+        scrutinee: ExprId,
+        consequence: ExprId,
+        else_block: Option<ExprId>,
+        ty: TyId,
+    },
     Assign {
         token: Token,
         left: ExprId,
@@ -117,19 +134,13 @@ pub enum TypedExpression {
         paths: Vec<ExprId>,
         ty: TyId,
     },
-    /// 枚举体=>枚举项 语法，如 Option=>Some
-    EnumVariant {
-        token: Token,
-        enum_name: Ident,
-        variant_name: Ident,
-        ty: TyId,
-    },
 }
 
 impl GetType for TypedExpression {
     fn get_type(&self) -> TyId {
         match self {
             Self::FieldAccess(_, _, _, field_ty) => field_ty.clone(),
+            Self::EnumVariant { ty, .. } => *ty,
             Self::StrLiteral { ty, .. } => *ty,
             Self::UnknownTypeInt { ty, .. } => *ty,
             Self::Int { ty, .. } => *ty,
@@ -144,6 +155,7 @@ impl GetType for TypedExpression {
             Self::Prefix { ty, .. } => *ty,
             Self::TypeHint(_, _, ty) => *ty,
             Self::If { ty, .. } => *ty,
+            Self::IfLet { ty, .. } => *ty,
             Self::BuildStruct(_, _, _, ty) => *ty,
             Self::Call { ret_ty, .. } => *ret_ty,
             Self::Assign { ty, .. } => *ty,
@@ -151,7 +163,6 @@ impl GetType for TypedExpression {
             Self::BoolOr { ty, .. } => *ty,
             Self::TypePath { ty, .. } => *ty,
             Self::SizeOf(_, _, ty) => *ty,
-            Self::EnumVariant { ty, .. } => *ty,
         }
     }
 }
@@ -160,6 +171,7 @@ impl SetType for TypedExpression {
     fn set_type(&mut self, new_ty: TyId) {
         match self {
             Self::FieldAccess(_, _, _, field_ty) => *field_ty = new_ty,
+            Self::EnumVariant { ty, .. } => *ty = new_ty,
             Self::StrLiteral { ty, .. } => *ty = new_ty,
             Self::UnknownTypeInt { ty, .. } => *ty = new_ty,
             Self::Int { ty, .. } => *ty = new_ty,
@@ -174,6 +186,7 @@ impl SetType for TypedExpression {
             Self::Prefix { ty, .. } => *ty = new_ty,
             Self::TypeHint(_, _, ty) => *ty = new_ty,
             Self::If { ty, .. } => *ty = new_ty,
+            Self::IfLet { ty, .. } => *ty = new_ty,
             Self::BuildStruct(_, _, _, ty) => *ty = new_ty,
             Self::Call { ret_ty, .. } => *ret_ty = new_ty,
             Self::Assign { ty, .. } => *ty = new_ty,
@@ -181,7 +194,6 @@ impl SetType for TypedExpression {
             Self::BoolOr { ty, .. } => *ty = new_ty,
             Self::TypePath { ty, .. } => *ty = new_ty,
             Self::SizeOf(_, _, ty) => *ty = new_ty,
-            Self::EnumVariant { ty, .. } => *ty = new_ty,
         }
     }
 }
@@ -200,18 +212,19 @@ impl GetToken for TypedExpression {
             TypedExpression::BuildStruct(token, ..) => token.clone(),
             TypedExpression::SizeOf(token, ..) => token.clone(),
             TypedExpression::FieldAccess(token, ..) => token.clone(),
+            TypedExpression::EnumVariant { token, .. } => token.clone(),
             TypedExpression::Infix { token, .. } => token.clone(),
             TypedExpression::Cast { token, .. } => token.clone(),
             TypedExpression::Prefix { token, .. } => token.clone(),
             TypedExpression::Function { token, .. } => token.clone(),
             TypedExpression::Call { token, .. } => token.clone(),
             TypedExpression::If { token, .. } => token.clone(),
+            TypedExpression::IfLet { token, .. } => token.clone(),
             TypedExpression::Assign { token, .. } => token.clone(),
             TypedExpression::StrLiteral { token, .. } => token.clone(),
             TypedExpression::BoolAnd { token, .. } => token.clone(),
             TypedExpression::BoolOr { token, .. } => token.clone(),
             TypedExpression::TypePath { token, .. } => token.clone(),
-            TypedExpression::EnumVariant { token, .. } => token.clone(),
         }
     }
 }

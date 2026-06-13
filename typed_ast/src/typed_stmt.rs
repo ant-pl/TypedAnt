@@ -51,8 +51,9 @@ pub enum TypedStatement {
     Enum {
         token: Token,
         name: Ident,
-        variants: Vec<Ident>,
+        variants: Vec<ExprId>,
         ty: TyId,
+        generics: Vec<ExprId>,
     },
     Use {
         token: Token,

@@ -41,7 +41,8 @@ pub enum Statement {
     Enum {
         token: Token,
         name: Ident,
-        variants: Vec<Ident>,
+        variants: Vec<Box<Expression>>,
+        generics: Vec<Box<Expression>>,
     },
     Trait {
         token: Token,
@@ -178,14 +179,37 @@ impl Display for Statement {
                     )
                 }
             ),
-            Self::Enum { name, variants, .. } => write!(
+            Self::Enum {
+                name,
+                variants,
+                generics,
+                ..
+            } => write!(
                 f,
-                "enum {name} {{{}}}",
-                variants
-                    .iter()
-                    .map(|it| it.value.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
+                "enum {name}{} {}",
+                if generics.is_empty() {
+                    "".to_string()
+                } else {
+                    "<".to_owned()
+                        + &generics
+                            .iter()
+                            .map(|it| it.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                        + ">"
+                },
+                if variants.is_empty() {
+                    "{}".to_string()
+                } else {
+                    format!(
+                        "\n{}\n",
+                        variants
+                            .iter()
+                            .map(|it| "\t".to_owned() + &it.to_string())
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    )
+                }
             ),
             Self::Trait { name, block, .. } => write!(f, "trait {name} {block}"),
             Self::Impl {

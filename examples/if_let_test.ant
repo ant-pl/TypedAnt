@@ -1,0 +1,12 @@
+extern "C" func printf(s: str, ...) -> i32;
+enum Color { Red, Green, Blue(i64) }
+
+func main() -> i32 {
+    let c = Color::Blue(42i64);
+    if let Color::Blue(x) = c {
+        printf("Blue with value %lld\n", x)
+    } else {
+        printf("not Blue\n")
+    };
+    0i32
+}
