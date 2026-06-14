@@ -81,6 +81,8 @@ pub enum TokenType {
     As,
     AddrOf,
     Enum,
+    Match,
+    FatArrow, // =>
     Eof,
 }
 
@@ -167,6 +169,8 @@ impl TokenType {
             TokenType::NumberSign => "#",
             TokenType::Break => "break",
             TokenType::Continue => "continue",
+            TokenType::Match => "match",
+            TokenType::FatArrow => "=>",
         }
     }
 }
@@ -232,6 +236,8 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     "#" => TokenType::NumberSign,
     "BREAK" => TokenType::Break,
     "CONTINUE" => TokenType::Continue,
+    "MATCH" => TokenType::Match,
+    "=>" => TokenType::FatArrow,
     "\0" => TokenType::Eof,
 };
 
