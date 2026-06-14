@@ -12,6 +12,34 @@ macro_rules! get_field {
     };
 }
 
+macro_rules! get_field_ref {
+    ($self:expr,$field:ident) => {
+        match $self {
+            Self::Module(data) => &data.$field,
+            Self::Struct(data) => &data.$field,
+            Self::Enum(data) => &data.$field,
+            Self::Function(data) => &data.$field,
+            Self::Trait(data) => &data.$field,
+            Self::Constant(data) => &data.$field,
+            Self::Impl(data) => &data.$field,
+        }
+    };
+}
+
+macro_rules! get_field_mut {
+    ($self:expr,$field:ident) => {
+        match $self {
+            Self::Module(data) => &mut data.$field,
+            Self::Struct(data) => &mut data.$field,
+            Self::Enum(data) => &mut data.$field,
+            Self::Function(data) => &mut data.$field,
+            Self::Trait(data) => &mut data.$field,
+            Self::Constant(data) => &mut data.$field,
+            Self::Impl(data) => &mut data.$field,
+        }
+    };
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Visibility {
     Public,
