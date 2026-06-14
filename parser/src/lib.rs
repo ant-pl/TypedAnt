@@ -38,6 +38,7 @@ use crate::{
         parse_sizeof::parse_sizeof,
         parse_str::parse_str,
         parse_struct::parse_struct,
+        parse_enum::parse_enum,
         parse_trait::parse_trait,
         parse_turbo_fish::parse_turbo_fish,
         parse_type_hint::parse_type_hint,
@@ -135,6 +136,7 @@ impl Parser {
         m.insert(TokenType::Impl, parse_impl);
         m.insert(TokenType::Trait, parse_trait);
         m.insert(TokenType::Struct, parse_struct);
+        m.insert(TokenType::Enum, parse_enum);
     }
 
     pub fn new(tokens: Vec<Token>) -> Self {

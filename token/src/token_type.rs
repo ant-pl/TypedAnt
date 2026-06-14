@@ -80,6 +80,7 @@ pub enum TokenType {
     Impl,
     As,
     AddrOf,
+    Enum,
     Eof,
 }
 
@@ -88,6 +89,7 @@ impl TokenType {
     pub fn to_string(&self) -> &'static str {
         match self {
             TokenType::Struct => "struct",
+            TokenType::Enum => "enum",
             TokenType::Sizeof => "sizeof",
             TokenType::Const => "const",
             TokenType::Impl => "impl",
@@ -221,6 +223,7 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     "NEW" => TokenType::New,
     "IMPORT" => TokenType::Import,
     "STRUCT" => TokenType::Struct,
+    "ENUM" => TokenType::Enum,
     "FROM" => TokenType::From,
     "LET" => TokenType::Let,
     "::" => TokenType::TwoColon,

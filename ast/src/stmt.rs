@@ -38,6 +38,12 @@ pub enum Statement {
         fields: Vec<Box<Expression>>,
         generics: Vec<Box<Expression>>,
     },
+    Enum {
+        token: Token,
+        name: Ident,
+        variants: Vec<Box<Expression>>,
+        generics: Vec<Box<Expression>>,
+    },
     Trait {
         token: Token,
         name: Ident,
@@ -173,6 +179,38 @@ impl Display for Statement {
                     )
                 }
             ),
+            Self::Enum {
+                name,
+                variants,
+                generics,
+                ..
+            } => write!(
+                f,
+                "enum {name}{} {}",
+                if generics.is_empty() {
+                    "".to_string()
+                } else {
+                    "<".to_owned()
+                        + &generics
+                            .iter()
+                            .map(|it| it.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                        + ">"
+                },
+                if variants.is_empty() {
+                    "{}".to_string()
+                } else {
+                    format!(
+                        "\n{}\n",
+                        variants
+                            .iter()
+                            .map(|it| "\t".to_owned() + &it.to_string())
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    )
+                }
+            ),
             Self::Trait { name, block, .. } => write!(f, "trait {name} {block}"),
             Self::Impl {
                 impl_, block, for_, ..
@@ -234,6 +272,7 @@ impl GetToken for Statement {
             Statement::Let { token, .. } => token.clone(),
             Statement::Const { token, .. } => token.clone(),
             Statement::Struct { token, .. } => token.clone(),
+            Statement::Enum { token, .. } => token.clone(),
             Statement::Trait { token, .. } => token.clone(),
             Statement::Extern { token, .. } => token.clone(),
             Statement::Impl { token, .. } => token.clone(),
@@ -265,6 +304,7 @@ pub fn collect_all_statements(top_statements: &[Statement]) -> Vec<Statement> {
             Statement::Let { value, .. } => collect_if_block(value),
             Statement::Const { value, .. } => collect_if_block(value),
             Statement::Struct { .. } => {}
+            Statement::Enum { .. } => {}
             Statement::Trait { block, .. } => collect(all, *block),
             Statement::Impl { block, .. } => collect(all, *block),
             Statement::Use { .. } => {}

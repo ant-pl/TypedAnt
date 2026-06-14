@@ -41,6 +41,14 @@ pub fn display_ty(ty: &Ty, tcx: &TypeContext) -> String {
                 String::new()
             }
         ),
+        Ty::Enum { name, generics, .. } => format!(
+            "{name}{}",
+            if !generics.is_empty() {
+                format!("<{}>", generics.join(", "))
+            } else {
+                String::new()
+            }
+        ),
         Ty::Trait { name, .. } => name.to_string(),
         Ty::Function {
             params_type,

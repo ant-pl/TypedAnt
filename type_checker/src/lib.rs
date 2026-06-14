@@ -20,7 +20,7 @@ use id::{DefId, ExprId, ModuleId, StmtId};
 use indexmap::IndexMap;
 use name_resolver::NameResolver;
 use token::token::Token;
-use ty::{Ty, TyId};
+use ty::{Ty, TyId, IntTy};
 use typed_ast::{
     GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident, typed_node::TypedNode,
     typed_stmt::TypedStatement,
@@ -334,6 +334,60 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         it.token,
                     ))
                 }
+            }
+
+            Expression::EnumVariant {
+                token,
+                enum_name,
+                variant,
+                args,
+            } => {
+                let enum_ty_id = self.lookup_type_by_name(&enum_name.value, token.clone())?;
+
+                let enum_ty = self.tcx_ref().get(enum_ty_id).clone();
+                if !matches!(enum_ty, Ty::Enum { .. }) {
+                    return Err(Self::make_err(
+                        Some(&format!(
+                            "`{}` is not an enum type; cannot use `::` variant access",
+                            enum_name.value
+                        )),
+                        TypeCheckerErrorKind::Other,
+                        token,
+                    ));
+                }
+
+                if let Ty::Enum { variants, .. } = &enum_ty {
+                    if !variants.is_empty() && !variants.contains_key(&*variant.value) {
+                        return Err(Self::make_err(
+                            Some(&format!(
+                                "variant `{}` not found in enum `{}`",
+                                variant.value, enum_name.value
+                            )),
+                            TypeCheckerErrorKind::Other,
+                            variant.token.clone(),
+                        ));
+                    }
+                }
+
+                let mut typed_arg_ids = vec![];
+                for arg in args {
+                    let typed_arg = self.check_expr(arg)?;
+                    typed_arg_ids.push(self.module.alloc_expr(typed_arg));
+                }
+
+                Ok(TypedExpression::EnumVariant {
+                    token,
+                    enum_name: Ident {
+                        token: enum_name.token.clone(),
+                        value: enum_name.value.clone(),
+                    },
+                    variant: Ident {
+                        token: variant.token.clone(),
+                        value: variant.value.clone(),
+                    },
+                    args: typed_arg_ids,
+                    ty: enum_ty_id,
+                })
             }
 
             Expression::SizeOf(token, expr) => Ok(TypedExpression::SizeOf(
@@ -700,6 +754,202 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 })
             }
 
+            Expression::IfLet {
+                token,
+                pattern,
+                scrutinee,
+                consequence,
+                else_block,
+            } => {
+                // 从 pattern 中提取 enum 变体信息和绑定名称
+                // 支持两种形式:
+                // 1. Expression::EnumVariant { enum_name, variant, .. } → 无绑定
+                // 2. Expression::Call { func: Expression::EnumVariant { enum_name, variant, .. }, args } → 有绑定
+                struct PatternInfo {
+                    enum_name: ast::expressions::ident::Ident,
+                    variant: ast::expressions::ident::Ident,
+                    binding_args: Vec<Expression>,
+                }
+
+                let PatternInfo {
+                    enum_name: inner_enum_name,
+                    variant: inner_variant,
+                    binding_args,
+                } = match *pattern {
+                    Expression::EnumVariant {
+                        enum_name,
+                        variant,
+                        args,
+                        ..
+                    } => PatternInfo {
+                        enum_name,
+                        variant,
+                        binding_args: args,
+                    },
+                    Expression::Call { func, args, .. } => {
+                        if let Expression::EnumVariant {
+                            enum_name,
+                            variant,
+                            ..
+                        } = *func
+                        {
+                            let mut flat_args: Vec<Expression> = vec![];
+                            for arg in args {
+                                flat_args.push(*arg);
+                            }
+                            PatternInfo {
+                                enum_name,
+                                variant,
+                                binding_args: flat_args,
+                            }
+                        } else {
+                            return Err(Self::make_err(
+                                Some("`if let` pattern must be an enum variant"),
+                                TypeCheckerErrorKind::Other,
+                                token,
+                            ));
+                        }
+                    }
+                    _ => {
+                        return Err(Self::make_err(
+                            Some("`if let` pattern must be an enum variant"),
+                            TypeCheckerErrorKind::Other,
+                            token,
+                        ));
+                    }
+                };
+
+                // 验证 enum 类型和变体存在
+                let enum_ty_id =
+                    self.lookup_type_by_name(&inner_enum_name.value, token.clone())?;
+                let enum_ty = self.tcx_ref().get(enum_ty_id).clone();
+
+                if !matches!(enum_ty, Ty::Enum { .. }) {
+                    return Err(Self::make_err(
+                        Some(&format!(
+                            "`{}` is not an enum type; cannot use `::` variant access",
+                            inner_enum_name.value
+                        )),
+                        TypeCheckerErrorKind::Other,
+                        token,
+                    ));
+                }
+
+                if let Ty::Enum { variants, .. } = &enum_ty {
+                    if !variants.is_empty()
+                        && !variants.contains_key(&*inner_variant.value)
+                    {
+                        return Err(Self::make_err(
+                            Some(&format!(
+                                "variant `{}` not found in enum `{}`",
+                                inner_variant.value, inner_enum_name.value
+                            )),
+                            TypeCheckerErrorKind::Other,
+                            inner_variant.token.clone(),
+                        ));
+                    }
+                }
+
+                // 类型检查 scrutinee（被匹配的值），确保是枚举类型
+                let typed_scrutinee = self.check_expr_as_val(*scrutinee)?;
+                let scrutinee_ty_id = typed_scrutinee.get_type();
+
+                // 检查 scrutinee 类型与枚举类型匹配
+                if scrutinee_ty_id != enum_ty_id {
+                    return Err(Self::make_err(
+                        Some(&format!(
+                            "mismatched types: expected `{}`, got `{}`",
+                            display_ty(&enum_ty, self.tcx_ref()),
+                            display_ty(&self.tcx_ref().get(scrutinee_ty_id).clone(), self.tcx_ref())
+                        )),
+                        TypeCheckerErrorKind::TypeMismatch,
+                        typed_scrutinee.token(),
+                    ));
+                }
+
+                // 提取绑定名称
+                let mut binding_idents: Vec<Ident> = vec![];
+                for raw_arg in &binding_args {
+                    if let Expression::Ident(ast_ident) = raw_arg {
+                        binding_idents.push(Ident {
+                            token: ast_ident.token.clone(),
+                            value: ast_ident.value.clone(),
+                        });
+                    } else {
+                        return Err(Self::make_err(
+                            Some("binding pattern must be an identifier"),
+                            TypeCheckerErrorKind::Other,
+                            raw_arg.token(),
+                        ));
+                    }
+                }
+
+                // 进入新作用域，定义绑定变量
+                self.enter_scope(ScopeKind::Function);
+
+                let payload_ty = self.tcx().alloc(Ty::IntTy(IntTy::I64));
+                for binding in &binding_idents {
+                    self.tcx()
+                        .table
+                        .lock()
+                        .unwrap()
+                        .define_var(&binding.value, payload_ty);
+                }
+
+                // 类型检查 consequence
+                let typed_consequence = if self.compile_as == CompileAs::AsValue {
+                    self.check_expr_as_val(*consequence)?
+                } else {
+                    self.check_expr(*consequence)?
+                };
+
+                // 离开作用域
+                self.leave_scope();
+
+                // 类型检查 else 块（可选）
+                let typed_else_block = match else_block {
+                    Some(it) => Some({
+                        let expr = if self.compile_as == CompileAs::AsValue {
+                            self.check_expr_as_val(*it)
+                        } else {
+                            self.check_expr(*it)
+                        }?;
+                        self.module.alloc_expr(expr)
+                    }),
+                    None => {
+                        let consequence_ty = typed_consequence.get_type();
+
+                        if self.compile_as == CompileAs::AsValue
+                            && self.tcx().get(consequence_ty) != &Ty::Unit
+                        {
+                            return Err(Self::make_err(
+                                Some("`if let` may be missing an `else` clause"),
+                                TypeCheckerErrorKind::Other,
+                                token,
+                            ));
+                        }
+                        None
+                    }
+                };
+
+                Ok(TypedExpression::IfLet {
+                    token,
+                    ty: typed_consequence.get_type(),
+                    enum_name: Ident {
+                        token: inner_enum_name.token.clone(),
+                        value: inner_enum_name.value.clone(),
+                    },
+                    variant: Ident {
+                        token: inner_variant.token.clone(),
+                        value: inner_variant.value.clone(),
+                    },
+                    bindings: binding_idents,
+                    scrutinee: self.module.alloc_expr(typed_scrutinee),
+                    consequence: self.module.alloc_expr(typed_consequence),
+                    else_block: typed_else_block,
+                })
+            }
+
             Expression::Function {
                 token,
                 name,
@@ -864,6 +1114,29 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Expression::Call { token, func, args } => {
                 let typed_func = self.check_expr(*func)?;
 
+                // 特殊处理: EnumVariant(args) 作为带参数的枚举变体构造
+                if let TypedExpression::EnumVariant {
+                    enum_name,
+                    variant,
+                    ty: enum_ty_id,
+                    ..
+                } = &typed_func
+                {
+                let mut typed_arg_ids = vec![];
+                for arg in args {
+                    let typed_arg = self.check_expr(*arg)?;
+                    typed_arg_ids.push(self.module.alloc_expr(typed_arg));
+                }
+
+                return Ok(TypedExpression::EnumVariant {
+                    token,
+                    enum_name: enum_name.clone(),
+                    variant: variant.clone(),
+                    args: typed_arg_ids,
+                    ty: *enum_ty_id,
+                });
+                }
+
                 let Ty::Function { ret_type, .. } = self.tcx_ref().get(typed_func.get_type())
                 else {
                     return Err(Self::make_err(
@@ -993,7 +1266,30 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
             }
 
-            Expression::Prefix { token, op, right } => {
+            Expression::EnumVariant {
+                token,
+                enum_name,
+                variant,
+                ..
+            } => {
+                let enum_ty_id = self.lookup_type_by_name(&enum_name.value, token.clone())?;
+                Ok(TypedExpression::EnumVariant {
+                    token,
+                    enum_name: Ident {
+                        token: enum_name.token.clone(),
+                        value: enum_name.value.clone(),
+                    },
+                    variant: Ident {
+                        token: variant.token.clone(),
+                        value: variant.value.clone(),
+                    },
+                    args: vec![],
+                    ty: enum_ty_id,
+                })
+            }
+
+            Expression::Prefix {
+ token, op, right } => {
                 let inner_t = self.check_type_expr(*right)?; // 递归解析
 
                 Ok(TypedExpression::Prefix {
@@ -1484,6 +1780,135 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     token,
                     name: typed_name,
                     fields: typed_field_ids,
+                    generics: typed_generics,
+                })
+            }
+
+            Statement::Enum {
+                token,
+                name,
+                variants,
+                generics,
+            } => {
+                let typed_name = Ident {
+                    token: name.token,
+                    value: name.value.clone(),
+                };
+
+                let generic_names = self
+                    .define_generics(&generics)
+                    .into_iter()
+                    .map(|it| it.0)
+                    .collect::<Vec<_>>();
+
+                // 预先收集 variants 信息（用于验证）
+                let mut enum_variants: IndexMap<Arc<str>, TyId> = IndexMap::new();
+                for variant in &variants {
+                    match &**variant {
+                        Expression::Ident(it) => {
+                            enum_variants
+                                .insert(it.value.clone().into(), self.tcx().alloc(Ty::Unit));
+                        }
+                        Expression::Call { func, .. } => {
+                            if let Expression::Ident(it) = &**func {
+                                enum_variants.insert(
+                                    it.value.clone().into(),
+                                    self.tcx().alloc(Ty::Unit),
+                                );
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                // 构建枚举类型（已填充 variants）
+                let ty_id = self.tcx().alloc(Ty::Enum {
+                    name: name.value.clone(),
+                    generics: generic_names.clone(),
+                    variants: enum_variants,
+                    impl_traits: IndexMap::new(),
+                });
+
+                self.tcx()
+                    .table
+                    .lock()
+                    .unwrap()
+                    .define_var(&typed_name.value, ty_id);
+
+                let mut typed_variant_ids = vec![];
+
+                for variant in variants {
+                    let typed_variant = match *variant {
+                        Expression::Ident(ident) => TypedExpression::Ident(
+                            Ident {
+                                token: ident.token,
+                                value: ident.value,
+                            },
+                            ty_id,
+                            None,
+                        ),
+                        Expression::Call {
+                            token,
+                            func,
+                            args,
+                        } => {
+                            let Expression::Ident(func_ident) = *func else {
+                                return Err(Self::make_err(
+                                    Some(&format!("invalid enum variant name")),
+                                    TypeCheckerErrorKind::Other,
+                                    token,
+                                ));
+                            };
+                            let mut arg_ids = vec![];
+                            for arg in args {
+                                let typed_arg = self.check_type_expr(*arg)?;
+                                arg_ids.push(self.module.alloc_expr(typed_arg));
+                            }
+                            let call_func_id = self.module.alloc_expr(
+                                TypedExpression::Ident(
+                                    Ident {
+                                        token: func_ident.token,
+                                        value: func_ident.value,
+                                    },
+                                    ty_id,
+                                    None,
+                                ),
+                            );
+                            TypedExpression::Call {
+                                token,
+                                func: call_func_id,
+                                args: arg_ids,
+                                func_ty: ty_id,
+                                ret_ty: ty_id,
+                            }
+                        }
+                        other => {
+                            return Err(Self::make_err(
+                                Some(&format!("unsupported enum variant: {other}")),
+                                TypeCheckerErrorKind::Other,
+                                other.token(),
+                            ));
+                        }
+                    };
+                    typed_variant_ids.push(self.module.alloc_expr(typed_variant));
+                }
+
+                let typed_generics = generics
+                    .clone()
+                    .into_iter()
+                    .map(|it| self.check_expr(*it))
+                    .collect::<CheckResult<Vec<TypedExpression>>>()?
+                    .into_iter()
+                    .map(|it| self.module.alloc_expr(it))
+                    .collect();
+
+                self.remove_generics(&generic_names);
+
+                Ok(TypedStatement::Enum {
+                    ty: ty_id,
+                    token,
+                    name: typed_name,
+                    variants: typed_variant_ids,
                     generics: typed_generics,
                 })
             }
@@ -2096,6 +2521,72 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.write_back_type(def_id, struct_ty);
                 Ok(struct_ty)
+            }
+
+            Statement::Enum {
+                name: enum_name,
+                generics: raw_generics,
+                variants: raw_variants,
+                ..
+            } => {
+                for generic in raw_generics
+                    .iter()
+                    .filter(|it| matches!(&***it, Expression::Ident(_)))
+                {
+                    let Expression::Ident(it) = &**generic else {
+                        unreachable!()
+                    };
+
+                    let ty_id = self.tcx().alloc(Ty::Generic(it.value.clone(), vec![]));
+
+                    self.tcx()
+                        .table
+                        .lock()
+                        .unwrap()
+                        .define_var(&it.value, ty_id);
+                }
+
+                raw_generics
+                    .iter()
+                    .filter(|it| matches!(&***it, Expression::Ident(_)))
+                    .for_each(|it| {
+                        let Expression::Ident(it) = &**it else {
+                            unreachable!()
+                        };
+
+                        self.tcx().table.lock().unwrap().remove(&it.value);
+                    });
+
+                let generics: Vec<Arc<str>> =
+                    raw_generics.iter().map(|g| g.to_string().into()).collect();
+
+                // 填充 variants 映射，便于后续访问 Color::Red 时做验证
+                let mut variants: IndexMap<Arc<str>, TyId> = IndexMap::new();
+                for v in raw_variants {
+                    match &*v {
+                        Expression::Ident(it) => {
+                            variants
+                                .insert(it.value.clone().into(), self.tcx().alloc(Ty::Unit));
+                        }
+                        Expression::Call { func, .. } => {
+                            if let Expression::Ident(it) = &**func {
+                                variants.insert(
+                                    it.value.clone().into(), self.tcx().alloc(Ty::Unit));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                let enum_ty = self.tcx().alloc(Ty::Enum {
+                    name: enum_name.value.clone(),
+                    generics,
+                    variants,
+                    impl_traits: IndexMap::new(),
+                });
+
+                self.write_back_type(def_id, enum_ty);
+                Ok(enum_ty)
             }
 
             Statement::Extern {

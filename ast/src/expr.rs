@@ -98,6 +98,12 @@ pub enum Expression {
     Block(Token, Vec<Statement>),
     BuildStruct(Token, Ident, IndexMap<Ident, Expression>),
     FieldAccess(Token, Box<Expression>, Ident),
+    EnumVariant {
+        token: Token,
+        enum_name: Ident,
+        variant: Ident,
+        args: Vec<Expression>,
+    },
     SizeOf(Token, Box<Expression>),
     Infix {
         token: Token,
@@ -126,6 +132,13 @@ pub enum Expression {
     If {
         token: Token,
         condition: Box<Expression>,
+        consequence: Box<Expression>,
+        else_block: Option<Box<Expression>>,
+    },
+    IfLet {
+        token: Token,
+        pattern: Box<Expression>,
+        scrutinee: Box<Expression>,
         consequence: Box<Expression>,
         else_block: Option<Box<Expression>>,
     },
@@ -190,6 +203,7 @@ impl Display for Expression {
                     .join("\n")
             ),
             Self::FieldAccess(_, obj, field) => write!(f, "{obj}.{field}"),
+            Self::EnumVariant { enum_name, variant, .. } => write!(f, "{enum_name}::{variant}"),
             Self::StrLiteral { value, .. } => write!(f, "\"{value}\""),
             Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
@@ -214,6 +228,21 @@ impl Display for Expression {
             } => write!(
                 f,
                 "if {condition} {consequence}{}",
+                if let Some(it) = else_block {
+                    format!(" else {it}")
+                } else {
+                    "".to_string()
+                }
+            ),
+            Self::IfLet {
+                pattern,
+                scrutinee,
+                consequence,
+                else_block,
+                ..
+            } => write!(
+                f,
+                "if let {pattern} = {scrutinee} {consequence}{}",
                 if let Some(it) = else_block {
                     format!(" else {it}")
                 } else {
@@ -295,6 +324,7 @@ impl GetToken for Expression {
             Expression::Block(token, _) => token.clone(),
             Expression::BuildStruct(token, ..) => token.clone(),
             Expression::FieldAccess(token, ..) => token.clone(),
+            Expression::EnumVariant { token, .. } => token.clone(),
             Expression::TypePath { token, .. } => token.clone(),
             Expression::Infix { token, .. } => token.clone(),
             Expression::Cast { token, .. } => token.clone(),
@@ -302,6 +332,7 @@ impl GetToken for Expression {
             Expression::Prefix { token, .. } => token.clone(),
             Expression::Function { token, .. } => token.clone(),
             Expression::If { token, .. } => token.clone(),
+            Expression::IfLet { token, .. } => token.clone(),
             Expression::Call { token, .. } => token.clone(),
             Expression::Assign { token, .. } => token.clone(),
             Expression::StrLiteral { token, .. } => token.clone(),

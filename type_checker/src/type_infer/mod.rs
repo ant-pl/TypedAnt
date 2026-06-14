@@ -215,6 +215,11 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 None
             }
 
+            TypedStatement::Enum { name, ty, .. } => {
+                self.tcx().table.lock().unwrap().define_var(&name.value, ty);
+                None
+            }
+
             TypedStatement::FuncDecl { name, ty, .. } => {
                 self.tcx().table.lock().unwrap().define_var(&name.value, ty);
                 None
@@ -352,6 +357,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             TypedExpression::Bool { ty, .. } => ty,
             TypedExpression::UnknownTypeInt { .. } => self.infer_ctx.alloc_infer_int(),
             TypedExpression::TypeHint(_, expr, _) => self.infer_expr(expr)?,
+            TypedExpression::EnumVariant { ty, .. } => ty,
 
             TypedExpression::Cast {
                 val, cast_to, ty, ..
@@ -407,6 +413,34 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                 let then_block_ty = self.infer_expr(consequence)?;
 
+                if let Some(it) = else_block.and_then(|it| {
+                    Some((
+                        self.infer_expr(it),
+                        self.module_ref().get_expr(it).unwrap().token(),
+                    ))
+                }) {
+                    let else_block_ty = it.0?;
+                    let token = it.1;
+                    self.unify(then_block_ty, else_block_ty, token)?;
+                }
+
+                then_block_ty
+            }
+
+            TypedExpression::IfLet {
+                scrutinee,
+                consequence,
+                else_block,
+                ty: _,
+                ..
+            } => {
+                // 推导 scrutinee 的类型
+                let _ = self.infer_expr(scrutinee)?;
+
+                // 推导 consequence 的类型
+                let then_block_ty = self.infer_expr(consequence)?;
+
+                // 如果有 else 块，确保两边类型一致
                 if let Some(it) = else_block.and_then(|it| {
                     Some((
                         self.infer_expr(it),
