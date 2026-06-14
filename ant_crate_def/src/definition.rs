@@ -41,7 +41,6 @@ macro_rules! get_field_mut {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum VisibilityShorthandKind {
     Crate,
     Super,
