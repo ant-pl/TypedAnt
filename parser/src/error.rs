@@ -17,6 +17,7 @@ pub enum ParserErrorKind {
     NotExpectedTokenType,
     PrefixParseFnNotFound,
     InfixParseFnNotFound,
+    ExpectedItem,
     StmtParseFnNotFound,
     ExpectedType,
     ExpectedNothing,
@@ -36,6 +37,7 @@ impl Display for ParserErrorKind {
             Self::InfixParseFnNotFound => "infix parse fn not found",
             Self::StmtParseFnNotFound => "statement parse fn not found",
             Self::ExpectedType => "expected type",
+            Self::ExpectedItem => "expected item",
             Self::ParseIntError(err) => match err {
                 ParseIntErrorKind::Empty => "cannot parse integer from empty string",
                 ParseIntErrorKind::InvalidDigit => "invalid digit found in string",
