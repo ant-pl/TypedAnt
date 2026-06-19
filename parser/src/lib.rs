@@ -20,6 +20,7 @@ use crate::{
         parse_call::parse_call,
         parse_cast::parse_cast,
         parse_const::parse_const,
+        parse_enum::parse_enum,
         parse_extern::parse_extern,
         parse_field_access::parse_field_access,
         parse_func::parse_func,
@@ -38,12 +39,12 @@ use crate::{
         parse_sizeof::parse_sizeof,
         parse_str::parse_str,
         parse_struct::parse_struct,
-        parse_enum::parse_enum,
         parse_trait::parse_trait,
         parse_turbo_fish::parse_turbo_fish,
         parse_type_hint::parse_type_hint,
         parse_type_path::parse_type_path,
         parse_use::parse_use,
+        parse_visibility::parse_visibility,
         parse_while::parse_while,
     },
     precedence::{Precedence, get_token_precedence},
@@ -126,6 +127,8 @@ impl Parser {
     }
 
     fn init_statement_parse_fn_map(m: &mut HashMap<TokenType, StmtParseFn>) {
+        m.insert(TokenType::Public, parse_visibility);
+
         m.insert(TokenType::Const, parse_const); // const a = 1
         m.insert(TokenType::Let, parse_let); // let a = 1
         m.insert(TokenType::Use, parse_use);
@@ -455,17 +458,45 @@ impl Parser {
         ))
     }
 
+    pub fn expect_cur_token_in(&self, expected_tokens: &[TokenType]) -> ParseResult<()> {
+        if expected_tokens.contains(&self.cur_token.token_type) {
+            return Ok(());
+        }
+
+        Err(self.make_error(
+            ParserErrorKind::NotExpectedTokenType,
+            Some(
+                format!(
+                    "expected cur token: {:?}, got: {:#?}",
+                    expected_tokens, self.cur_token.token_type
+                )
+                .into(),
+            ),
+        ))
+    }
+
+    pub fn expect_peek_token_in(&self, expected_tokens: &[TokenType]) -> ParseResult<()> {
+        if expected_tokens.contains(&self.peek_token.token_type) {
+            return Ok(());
+        }
+
+        Err(self.make_error(
+            ParserErrorKind::NotExpectedTokenType,
+            Some(
+                format!(
+                    "expected peek token: {:?}, got: {:#?}",
+                    expected_tokens, self.peek_token.token_type
+                )
+                .into(),
+            ),
+        ))
+    }
+
     pub fn unexpect_token_err(&self, expected: TokenType, got: Token) -> ParseResult<()> {
         Err(ParserError {
             token: got.clone(),
             kind: ParserErrorKind::NotExpectedTokenType,
-            message: Some(
-                format!(
-                    "expected token: {:#?}, got: {:#?}",
-                    expected, got
-                )
-                .into(),
-            ),
+            message: Some(format!("expected token: {:#?}, got: {:#?}", expected, got).into()),
         })
     }
 }
