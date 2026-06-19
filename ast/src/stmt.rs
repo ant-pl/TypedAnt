@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use token::token::Token;
 
-use crate::{expr::Expression, expressions::ident::Ident, node::GetToken};
+use crate::{expr::Expression, expressions::{ident::Ident, visibility_expr::VisibilityNode}, node::GetToken};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
@@ -31,12 +31,14 @@ pub enum Statement {
         name: Ident,
         var_type: Option<Ident>,
         value: Expression,
+        visibility: Option<VisibilityNode>,
     },
     Struct {
         token: Token,
         name: Ident,
         fields: Vec<Box<Expression>>,
         generics: Vec<Box<Expression>>,
+        visibility: Option<VisibilityNode>,
     },
     Enum {
         token: Token,
@@ -48,6 +50,7 @@ pub enum Statement {
         token: Token,
         name: Ident,
         block: Box<Statement>,
+        visibility: Option<VisibilityNode>,
     },
     Impl {
         token: Token,

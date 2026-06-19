@@ -4,7 +4,7 @@ use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use token::token::Token;
 
-use crate::{expressions::ident::Ident, node::GetToken, stmt::Statement};
+use crate::{expressions::{ident::Ident, visibility_expr::VisibilityNode}, node::GetToken, stmt::Statement};
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy, Hash)]
 pub enum IntValue {
@@ -128,6 +128,7 @@ pub enum Expression {
         generics_params: Vec<Box<Expression>>,
         block: Box<Expression>,
         ret_ty: Option<Box<Expression>>,
+        visibility: Option<VisibilityNode>,
     },
     If {
         token: Token,
