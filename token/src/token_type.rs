@@ -54,6 +54,7 @@ pub enum TokenType {
     Then,
     Else,
     Func,
+    Crate,
     Comma,
     Class,
     Struct,
@@ -68,6 +69,7 @@ pub enum TokenType {
     Import,
     From,
     Const,
+    Super,
     Let,
     TwoColon,
     Comment,
@@ -89,6 +91,8 @@ impl TokenType {
     pub fn to_string(&self) -> &'static str {
         match self {
             TokenType::Struct => "struct",
+            TokenType::Super => "super",
+            TokenType::Crate => "crate",
             TokenType::Enum => "enum",
             TokenType::Sizeof => "sizeof",
             TokenType::Const => "const",
@@ -224,6 +228,8 @@ pub static TOKEN_TYPE_MAP: phf::Map<&'static str, TokenType> = phf_map! {
     "IMPORT" => TokenType::Import,
     "STRUCT" => TokenType::Struct,
     "ENUM" => TokenType::Enum,
+    "CRATE" => TokenType::Crate,
+    "SUPER" => TokenType::Super,
     "FROM" => TokenType::From,
     "LET" => TokenType::Let,
     "::" => TokenType::TwoColon,
