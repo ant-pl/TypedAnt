@@ -20,7 +20,7 @@ use id::{DefId, ExprId, ModuleId, StmtId};
 use indexmap::IndexMap;
 use name_resolver::NameResolver;
 use token::token::Token;
-use ty::{Ty, TyId, IntTy};
+use ty::{IntTy, Ty, TyId};
 use typed_ast::{
     GetType, typed_expr::TypedExpression, typed_expressions::ident::Ident, typed_node::TypedNode,
     typed_stmt::TypedStatement,
@@ -788,9 +788,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     },
                     Expression::Call { func, args, .. } => {
                         if let Expression::EnumVariant {
-                            enum_name,
-                            variant,
-                            ..
+                            enum_name, variant, ..
                         } = *func
                         {
                             let mut flat_args: Vec<Expression> = vec![];
@@ -820,8 +818,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 };
 
                 // 验证 enum 类型和变体存在
-                let enum_ty_id =
-                    self.lookup_type_by_name(&inner_enum_name.value, token.clone())?;
+                let enum_ty_id = self.lookup_type_by_name(&inner_enum_name.value, token.clone())?;
                 let enum_ty = self.tcx_ref().get(enum_ty_id).clone();
 
                 if !matches!(enum_ty, Ty::Enum { .. }) {
@@ -836,9 +833,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 }
 
                 if let Ty::Enum { variants, .. } = &enum_ty {
-                    if !variants.is_empty()
-                        && !variants.contains_key(&*inner_variant.value)
-                    {
+                    if !variants.is_empty() && !variants.contains_key(&*inner_variant.value) {
                         return Err(Self::make_err(
                             Some(&format!(
                                 "variant `{}` not found in enum `{}`",
@@ -860,7 +855,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         Some(&format!(
                             "mismatched types: expected `{}`, got `{}`",
                             display_ty(&enum_ty, self.tcx_ref()),
-                            display_ty(&self.tcx_ref().get(scrutinee_ty_id).clone(), self.tcx_ref())
+                            display_ty(
+                                &self.tcx_ref().get(scrutinee_ty_id).clone(),
+                                self.tcx_ref()
+                            )
                         )),
                         TypeCheckerErrorKind::TypeMismatch,
                         typed_scrutinee.token(),
@@ -957,6 +955,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 block,
                 ret_ty: ret_ty_expr,
                 generics_params,
+                visibility,
             } => {
                 let mut generic_names = vec![];
 
@@ -1122,19 +1121,19 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     ..
                 } = &typed_func
                 {
-                let mut typed_arg_ids = vec![];
-                for arg in args {
-                    let typed_arg = self.check_expr(*arg)?;
-                    typed_arg_ids.push(self.module.alloc_expr(typed_arg));
-                }
+                    let mut typed_arg_ids = vec![];
+                    for arg in args {
+                        let typed_arg = self.check_expr(*arg)?;
+                        typed_arg_ids.push(self.module.alloc_expr(typed_arg));
+                    }
 
-                return Ok(TypedExpression::EnumVariant {
-                    token,
-                    enum_name: enum_name.clone(),
-                    variant: variant.clone(),
-                    args: typed_arg_ids,
-                    ty: *enum_ty_id,
-                });
+                    return Ok(TypedExpression::EnumVariant {
+                        token,
+                        enum_name: enum_name.clone(),
+                        variant: variant.clone(),
+                        args: typed_arg_ids,
+                        ty: *enum_ty_id,
+                    });
                 }
 
                 let Ty::Function { ret_type, .. } = self.tcx_ref().get(typed_func.get_type())
@@ -1288,8 +1287,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 })
             }
 
-            Expression::Prefix {
- token, op, right } => {
+            Expression::Prefix { token, op, right } => {
                 let inner_t = self.check_type_expr(*right)?; // 递归解析
 
                 Ok(TypedExpression::Prefix {
@@ -1692,6 +1690,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 name,
                 fields,
                 generics,
+                visibility,
             } => {
                 let typed_name = Ident {
                     token: name.token,
@@ -1811,10 +1810,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         }
                         Expression::Call { func, .. } => {
                             if let Expression::Ident(it) = &**func {
-                                enum_variants.insert(
-                                    it.value.clone().into(),
-                                    self.tcx().alloc(Ty::Unit),
-                                );
+                                enum_variants
+                                    .insert(it.value.clone().into(), self.tcx().alloc(Ty::Unit));
                             }
                         }
                         _ => {}
@@ -1847,11 +1844,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             ty_id,
                             None,
                         ),
-                        Expression::Call {
-                            token,
-                            func,
-                            args,
-                        } => {
+                        Expression::Call { token, func, args } => {
                             let Expression::Ident(func_ident) = *func else {
                                 return Err(Self::make_err(
                                     Some(&format!("invalid enum variant name")),
@@ -1864,16 +1857,14 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                                 let typed_arg = self.check_type_expr(*arg)?;
                                 arg_ids.push(self.module.alloc_expr(typed_arg));
                             }
-                            let call_func_id = self.module.alloc_expr(
-                                TypedExpression::Ident(
-                                    Ident {
-                                        token: func_ident.token,
-                                        value: func_ident.value,
-                                    },
-                                    ty_id,
-                                    None,
-                                ),
-                            );
+                            let call_func_id = self.module.alloc_expr(TypedExpression::Ident(
+                                Ident {
+                                    token: func_ident.token,
+                                    value: func_ident.value,
+                                },
+                                ty_id,
+                                None,
+                            ));
                             TypedExpression::Call {
                                 token,
                                 func: call_func_id,
@@ -1913,7 +1904,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 })
             }
 
-            Statement::Trait { token, name, block } => {
+            Statement::Trait {
+                token,
+                name,
+                block,
+                visibility,
+            } => {
                 let typed_name = Ident {
                     token: name.token,
                     value: name.value.clone(),
@@ -2082,6 +2078,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 name,
                 var_type,
                 value,
+                visibility,
             } => {
                 // 检查表达式是否为字面量
                 if !value.is_literal() {
@@ -2565,13 +2562,12 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 for v in raw_variants {
                     match &*v {
                         Expression::Ident(it) => {
-                            variants
-                                .insert(it.value.clone().into(), self.tcx().alloc(Ty::Unit));
+                            variants.insert(it.value.clone().into(), self.tcx().alloc(Ty::Unit));
                         }
                         Expression::Call { func, .. } => {
                             if let Expression::Ident(it) = &**func {
-                                variants.insert(
-                                    it.value.clone().into(), self.tcx().alloc(Ty::Unit));
+                                variants
+                                    .insert(it.value.clone().into(), self.tcx().alloc(Ty::Unit));
                             }
                         }
                         _ => {}
