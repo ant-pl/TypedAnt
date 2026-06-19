@@ -1,9 +1,20 @@
-use ast::{expressions::ident::Ident, stmt::Statement};
+use ast::{
+    expressions::{ident::Ident, visibility_expr::VisibilityNode},
+    stmt::Statement,
+};
 use token::token_type::TokenType;
 
 use crate::{ParseResult, Parser, parse_functions::parse_type_hint::parse_type_hint};
 
+#[inline(always)]
 pub fn parse_struct(parser: &mut Parser) -> ParseResult<Statement> {
+    parse_struct_with(parser, None)
+}
+
+pub fn parse_struct_with(
+    parser: &mut Parser,
+    visibility: Option<VisibilityNode>,
+) -> ParseResult<Statement> {
     let mut generics = vec![];
 
     let token = parser.cur_token.clone();
@@ -44,5 +55,6 @@ pub fn parse_struct(parser: &mut Parser) -> ParseResult<Statement> {
         name,
         fields,
         generics,
+        visibility,
     })
 }

@@ -1,9 +1,20 @@
-use ast::{expressions::ident::Ident, stmt::Statement};
+use ast::{
+    expressions::{ident::Ident, visibility_expr::VisibilityNode},
+    stmt::Statement,
+};
 use token::token_type::TokenType;
 
 use crate::{ParseResult, Parser, error::ParserErrorKind, precedence::Precedence};
 
+#[inline(always)]
 pub fn parse_const(parser: &mut Parser) -> ParseResult<Statement> {
+    parse_const_with(parser, None)
+}
+
+pub fn parse_const_with(
+    parser: &mut Parser,
+    visibility: Option<VisibilityNode>,
+) -> ParseResult<Statement> {
     let token = parser.cur_token.clone(); // token 'const'
 
     parser.next_token(); // 离开 'const'
@@ -28,7 +39,7 @@ pub fn parse_const(parser: &mut Parser) -> ParseResult<Statement> {
             token: parser.peek_token.clone(),
             value: parser.peek_token.value.clone(),
         });
-    
+
         parser.next_token(); // 前进到类型标识符
         parser.next_token(); // 离开类型标识符
     }
@@ -43,5 +54,11 @@ pub fn parse_const(parser: &mut Parser) -> ParseResult<Statement> {
         parser.next_token();
     }
 
-    Ok(Statement::Const { token, name, var_type, value })
+    Ok(Statement::Const {
+        token,
+        name,
+        var_type,
+        value,
+        visibility,
+    })
 }

@@ -1,9 +1,17 @@
-use ast::expr::Expression;
+use ast::{expr::Expression, expressions::visibility_expr::VisibilityNode};
 use token::token_type::TokenType;
 
 use crate::{ParseResult, Parser, precedence::Precedence};
 
+#[inline(always)]
 pub fn parse_func(parser: &mut Parser) -> ParseResult<Expression> {
+    parse_func_with(parser, None)
+}
+
+pub fn parse_func_with(
+    parser: &mut Parser,
+    visibility: Option<VisibilityNode>,
+) -> ParseResult<Expression> {
     let token = parser.cur_token.clone();
 
     let name = if parser.peek_token_is(TokenType::Ident) {
@@ -53,5 +61,6 @@ pub fn parse_func(parser: &mut Parser) -> ParseResult<Expression> {
         block,
         ret_ty: ret_type,
         generics_params,
+        visibility,
     })
 }
