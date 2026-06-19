@@ -457,12 +457,12 @@ impl Parser {
 
     pub fn unexpect_token_err(&self, expected: TokenType, got: Token) -> ParseResult<()> {
         Err(ParserError {
-            token: got,
+            token: got.clone(),
             kind: ParserErrorKind::NotExpectedTokenType,
             message: Some(
                 format!(
                     "expected token: {:#?}, got: {:#?}",
-                    expected, self.peek_token.token_type
+                    expected, got
                 )
                 .into(),
             ),
