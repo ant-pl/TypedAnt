@@ -51,14 +51,14 @@ pub enum VisibilityShorthandKind {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Visibility {
     Public,
-    Private,
+    Inherited,
 
     Restricted {
         /// 只有这个会被真正用到 剩余皆为补充信息
         restricted_id: ModuleId,
 
         /// 路径
-        path: Vec<Arc<str>>,
+        path: Vec<Token>,
 
         /// 完整写法 pub (in path/to/your/module) 或 pub(crate) pub(super) 等
         shorthand: VisibilityShorthandKind,
@@ -67,6 +67,7 @@ pub enum Visibility {
 
 use id::{DefId, ModuleId};
 use id::{ExprId, StmtId};
+use token::token::Token;
 use std::sync::Arc;
 
 use indexmap::IndexMap;
