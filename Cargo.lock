@@ -59,6 +59,7 @@ dependencies = [
  "ast",
  "id",
  "indexmap",
+ "token",
  "ty",
  "typed_ast",
  "typed_module",
