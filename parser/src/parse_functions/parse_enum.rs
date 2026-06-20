@@ -1,9 +1,20 @@
-use ast::{expressions::ident::Ident, stmt::Statement};
+use ast::{
+    expressions::{ident::Ident, visibility_expr::VisibilityNode},
+    stmt::Statement,
+};
 use token::token_type::TokenType;
 
 use crate::{ParseResult, Parser};
 
+#[inline(always)]
 pub fn parse_enum(parser: &mut Parser) -> ParseResult<Statement> {
+    parse_enum_with(parser, None)
+}
+
+pub fn parse_enum_with(
+    parser: &mut Parser,
+    visibility: Option<VisibilityNode>,
+) -> ParseResult<Statement> {
     let token = parser.cur_token.clone();
 
     parser.expect_peek(TokenType::Ident)?;
@@ -34,5 +45,6 @@ pub fn parse_enum(parser: &mut Parser) -> ParseResult<Statement> {
         name,
         variants,
         generics,
+        visibility,
     })
 }
