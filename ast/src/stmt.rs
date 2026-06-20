@@ -45,6 +45,7 @@ pub enum Statement {
         name: Ident,
         variants: Vec<Box<Expression>>,
         generics: Vec<Box<Expression>>,
+        visibility: Option<VisibilityNode>,
     },
     Trait {
         token: Token,
