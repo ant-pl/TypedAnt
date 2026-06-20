@@ -1,11 +1,18 @@
 use ast::{
-    expressions::visibility_expr::{VisibilityNode, VisibilityNodeKind, VisibilityNodeShorthandKind},
+    expressions::visibility_expr::{
+        VisibilityNode, VisibilityNodeKind, VisibilityNodeShorthandKind,
+    },
     stmt::Statement,
 };
 use token::token_type::TokenType;
 
 use crate::{
-    ParseResult, Parser, error::ParserErrorKind, parse_functions::{parse_const::parse_const_with, parse_struct::parse_struct_with, parse_trait::parse_trait_with},
+    ParseResult, Parser,
+    error::ParserErrorKind,
+    parse_functions::{
+        parse_const::parse_const_with, parse_enum::parse_enum_with, parse_func::parse_func_with,
+        parse_struct::parse_struct_with, parse_trait::parse_trait_with,
+    },
 };
 
 pub fn parse_restricted_visibility(parser: &mut Parser) -> ParseResult<VisibilityNodeKind> {
@@ -61,7 +68,7 @@ pub fn parse_visibility(parser: &mut Parser) -> ParseResult<Statement> {
 
     let visibility = VisibilityNode {
         token,
-        visibility: visibility_node_kind
+        visibility: visibility_node_kind,
     };
 
     parser.next_token();
@@ -70,6 +77,11 @@ pub fn parse_visibility(parser: &mut Parser) -> ParseResult<Statement> {
         TokenType::Struct => parse_struct_with(parser, Some(visibility)),
         TokenType::Trait => parse_trait_with(parser, Some(visibility)),
         TokenType::Const => parse_const_with(parser, Some(visibility)),
+        TokenType::Enum => parse_enum_with(parser, Some(visibility)),
+        TokenType::Func => Ok(Statement::ExpressionStatement(parse_func_with(
+            parser,
+            Some(visibility),
+        )?)),
 
         _ => Err({
             parser.next_token();
