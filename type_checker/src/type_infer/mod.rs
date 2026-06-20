@@ -111,7 +111,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let expr_ty = self.infer_expr(id)?;
 
                 let ty = if let Some(ref ty_ident) = var_type {
-                    match self.tcx().table.lock().unwrap().get(&ty_ident.value) {
+                    match self.tcx().table.read().unwrap().get(&ty_ident.value) {
                         Some(it) => it.ty.get_type(),
                         None => {
                             return Err(Self::make_err(
@@ -151,7 +151,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 let expr_ty = self.infer_expr(id)?;
 
                 let ty = if let Some(ref ty_ident) = var_type {
-                    match self.tcx().table.lock().unwrap().get(&ty_ident.value) {
+                    match self.tcx().table.read().unwrap().get(&ty_ident.value) {
                         Some(it) => it.ty.get_type(),
                         None => {
                             return Err(Self::make_err(
@@ -211,17 +211,17 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
 
             TypedStatement::Struct { name, ty, .. } => {
-                self.tcx().table.lock().unwrap().define_var(&name.value, ty);
+                self.tcx().table.write().unwrap().define_var(&name.value, ty);
                 None
             }
 
             TypedStatement::Enum { name, ty, .. } => {
-                self.tcx().table.lock().unwrap().define_var(&name.value, ty);
+                self.tcx().table.write().unwrap().define_var(&name.value, ty);
                 None
             }
 
             TypedStatement::FuncDecl { name, ty, .. } => {
-                self.tcx().table.lock().unwrap().define_var(&name.value, ty);
+                self.tcx().table.write().unwrap().define_var(&name.value, ty);
                 None
             }
 
@@ -829,7 +829,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
     fn resolve_type_by_name(&self, name: &str, token: &Token) -> CheckResult<TyId> {
         //  先查局部符号表
-        if let Some(symbol) = self.tcx_ref().table.lock().unwrap().get(name) {
+        if let Some(symbol) = self.tcx_ref().table.read().unwrap().get(name) {
             return Ok(symbol.ty.get_type());
         }
 

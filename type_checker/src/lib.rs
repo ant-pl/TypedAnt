@@ -6,7 +6,7 @@ pub mod type_infer;
 
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
 };
 
 use ant_crate_def::{NodeOrTyped, definition::Def};
@@ -59,7 +59,7 @@ pub struct TypeChecker<'a, 'b> {
 
     compile_as: CompileAs,
 
-    builtins_table: Arc<Mutex<TypeTable>>,
+    builtins_table: Arc<RwLock<TypeTable>>,
 
     all_statements: Vec<Statement>,
 }
@@ -72,7 +72,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         };
 
         Self {
-            builtins_table: Arc::new(Mutex::new(TypeTable::new().init(module.tcx_mut()))),
+            builtins_table: Arc::new(RwLock::new(TypeTable::new().init(module.tcx_mut()))),
 
             resolving_defs: HashSet::new(),
 
@@ -94,7 +94,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
     fn reset_to_builtins(&mut self) {
         // 以内置类型表为父级，创建一个新的空表
-        self.module.tcx_mut().table = Arc::new(Mutex::new(TypeTable::with_outer(
+        self.module.tcx_mut().table = Arc::new(RwLock::new(TypeTable::with_outer(
             self.builtins_table.clone(),
         )));
     }
@@ -151,11 +151,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             }
 
             let module = &self.name_resolver.krate.modules[i];
-            let Some(NodeOrTyped::Node(node)) = module.ast.clone() else {
+            let Some(NodeOrTyped::Node(ref node)) = module.ast else {
                 continue;
             };
 
-            let typed_node = self.check_module(node, ModuleId(i))?;
+            let typed_node = self.check_module(node.clone(), ModuleId(i))?;
 
             let module = &mut self.name_resolver.krate.modules[i];
             module.ast = Some(NodeOrTyped::Typed(typed_node));
@@ -303,7 +303,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Expression::Ident(it) => {
                 let ident_name = &it.value;
 
-                if let Some(symbol) = self.tcx_ref().table.lock().unwrap().get(&ident_name) {
+                if let Some(symbol) = self.tcx_ref().table.read().unwrap().get(&ident_name) {
                     return Ok(TypedExpression::Ident(
                         Ident {
                             token: it.token,
@@ -344,7 +344,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             } => {
                 let enum_ty_id = self.lookup_type_by_name(&enum_name.value, token.clone())?;
 
-                let enum_ty = self.tcx_ref().get(enum_ty_id).clone();
+                let enum_ty = self.tcx_ref().get(enum_ty_id);
                 if !matches!(enum_ty, Ty::Enum { .. }) {
                     return Err(Self::make_err(
                         Some(&format!(
@@ -492,7 +492,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         let base_ty = self
                             .tcx()
                             .table
-                            .lock()
+                            .read()
                             .unwrap()
                             .get(&base)
                             .unwrap()
@@ -889,7 +889,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 for binding in &binding_idents {
                     self.tcx()
                         .table
-                        .lock()
+                        .write()
                         .unwrap()
                         .define_var(&binding.value, payload_ty);
                 }
@@ -971,7 +971,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                     self.tcx()
                         .table
-                        .lock()
+                        .write()
                         .unwrap()
                         .define_var(&it.value, ty_id);
 
@@ -1014,7 +1014,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                     self.tcx()
                         .table
-                        .lock()
+                        .write()
                         .unwrap()
                         .define_var(&name.value, ty_id);
                 }
@@ -1030,7 +1030,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             if let TypedExpression::TypeHint(name, _, ty) = typed_param {
                                 self.tcx()
                                     .table
-                                    .lock()
+                                    .write()
                                     .unwrap()
                                     .define_var(&name.value, ty.clone());
                             }
@@ -1092,7 +1092,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             unreachable!()
                         };
 
-                        self.tcx().table.lock().unwrap().remove(&it.value);
+                        self.tcx().table.write().unwrap().remove(&it.value);
                     });
 
                 Ok(TypedExpression::Function {
@@ -1233,7 +1233,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
             Expression::Ident(it) => {
                 let ident_name = &it.value;
 
-                if let Some(symbol) = self.tcx().table.lock().unwrap().get(&ident_name) {
+                if let Some(symbol) = self.tcx().table.read().unwrap().get(&ident_name) {
                     return Ok(TypedExpression::Ident(
                         Ident {
                             token: it.token,
@@ -1409,7 +1409,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 if self
                     .tcx()
                     .table
-                    .lock()
+                    .write()
                     .unwrap()
                     .get(&new_impl_.value)
                     .is_none()
@@ -1436,7 +1436,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     && self
                         .tcx()
                         .table
-                        .lock()
+                        .read()
                         .unwrap()
                         .get(&new_for_.value)
                         .is_none()
@@ -1562,7 +1562,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.tcx()
                     .table
-                    .lock()
+                    .write()
                     .unwrap()
                     .define_var(&name.value, func_ty_id);
 
@@ -1586,7 +1586,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.tcx()
                     .table
-                    .lock()
+                    .write()
                     .unwrap()
                     .define_var(&name.value, ty_id);
 
@@ -1658,7 +1658,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.tcx()
                     .table
-                    .lock()
+                    .write()
                     .unwrap()
                     .define_var(&alias.value, func_ty_id);
 
@@ -1758,7 +1758,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.tcx()
                     .table
-                    .lock()
+                    .write()
                     .unwrap()
                     .define_var(&typed_name.value, ty_id);
 
@@ -1829,7 +1829,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.tcx()
                     .table
-                    .lock()
+                    .write()
                     .unwrap()
                     .define_var(&typed_name.value, ty_id);
 
@@ -1975,7 +1975,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.tcx()
                     .table
-                    .lock()
+                    .write()
                     .unwrap()
                     .define_var(&typed_name.value, ty_id);
 
@@ -2035,7 +2035,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 // 如果有类型标注尝试获取类型 否则直接获取表达式的值
                 let ty = if let Some(ref ty_ident) = var_type {
-                    match self.tcx().table.lock().unwrap().get(&ty_ident.value) {
+                    match self.tcx().table.read().unwrap().get(&ty_ident.value) {
                         Some(it) => it.ty.get_type(),
                         None => {
                             return Err(Self::make_err(
@@ -2051,7 +2051,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.tcx()
                     .table
-                    .lock()
+                    .write()
                     .unwrap()
                     .define_var(&name.value, ty.clone());
 
@@ -2095,7 +2095,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 // 如果有类型标注尝试获取类型 否则直接获取表达式的值
                 let ty = if let Some(ref ty_ident) = var_type {
-                    match self.tcx().table.lock().unwrap().get(&ty_ident.value) {
+                    match self.tcx().table.read().unwrap().get(&ty_ident.value) {
                         Some(it) => it.ty.get_type(),
                         None => {
                             return Err(Self::make_err(
@@ -2111,7 +2111,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.tcx()
                     .table
-                    .lock()
+                    .write()
                     .unwrap()
                     .define_var(&name.value, ty.clone());
 
@@ -2188,7 +2188,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.tcx()
                     .table
-                    .lock()
+                    .write()
                     .unwrap()
                     .define_var(&it.value, ty_id);
 
@@ -2204,7 +2204,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     fn remove_generics(&mut self, generics: &[Arc<str>]) {
         generics
             .iter()
-            .for_each(|it| self.tcx().table.lock().unwrap().remove(&it));
+            .for_each(|it| self.tcx().table.write().unwrap().remove(&it));
     }
 
     fn get_def_token(&'a self, id: DefId) -> Token {
@@ -2226,7 +2226,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     }
 
     pub fn enter_scope(&mut self, kind: ScopeKind) {
-        self.tcx().table = Arc::new(Mutex::new(TypeTable::with_outer(self.tcx().table.clone())));
+        self.tcx().table = Arc::new(RwLock::new(TypeTable::with_outer(self.tcx().table.clone())));
 
         self.scope_index += 1;
 
@@ -2252,11 +2252,11 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
         self.module.tcx_ref()
     }
 
-    pub fn leave_scope(&mut self) -> (CheckScope, Arc<Mutex<TypeTable>>) {
+    pub fn leave_scope(&mut self) -> (CheckScope, Arc<RwLock<TypeTable>>) {
         let before_enter_scope_table = self
             .tcx()
             .table
-            .lock()
+            .read()
             .unwrap()
             .outer
             .clone()
@@ -2357,7 +2357,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                     self.tcx()
                         .table
-                        .lock()
+                        .write()
                         .unwrap()
                         .define_var(&it.value, ty_id);
                 }
@@ -2373,7 +2373,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 // 清理泛型
                 generics.iter().for_each(|it| {
-                    self.tcx().table.lock().unwrap().var_map.remove(it);
+                    self.tcx().table.write().unwrap().var_map.remove(it);
                 });
 
                 let func_ty = self.tcx().alloc(Ty::Function {
@@ -2417,7 +2417,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                     generic_names.iter().for_each(|it| {
                         let ty_id = self.tcx().alloc(Ty::Generic(it.clone(), vec![]));
 
-                        self.tcx().table.lock().unwrap().define_var(&it, ty_id);
+                        self.tcx().table.write().unwrap().define_var(&it, ty_id);
                     });
 
                     generics.append(&mut generic_names);
@@ -2479,7 +2479,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                     self.tcx()
                         .table
-                        .lock()
+                        .write()
                         .unwrap()
                         .define_var(&it.value, ty_id);
                 }
@@ -2503,7 +2503,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             unreachable!()
                         };
 
-                        self.tcx().table.lock().unwrap().remove(&it.value);
+                        self.tcx().table.write().unwrap().remove(&it.value);
                     });
 
                 // 处理泛型名
@@ -2539,7 +2539,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                     self.tcx()
                         .table
-                        .lock()
+                        .write()
                         .unwrap()
                         .define_var(&it.value, ty_id);
                 }
@@ -2552,7 +2552,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                             unreachable!()
                         };
 
-                        self.tcx().table.lock().unwrap().remove(&it.value);
+                        self.tcx().table.write().unwrap().remove(&it.value);
                     });
 
                 let generics: Vec<Arc<str>> =
@@ -2626,7 +2626,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 self.tcx()
                     .table
-                    .lock()
+                    .write()
                     .unwrap()
                     .define_var(&alias.value, func_ty_id);
 
@@ -2652,7 +2652,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 impl<'a, 'b> TypeChecker<'a, 'b> {
     pub fn lookup_type_by_name(&mut self, name: &str, token: Token) -> CheckResult<TyId> {
         // 查局部符号表
-        if let Some(symbol) = self.tcx().table.lock().unwrap().get(name) {
+        if let Some(symbol) = self.tcx().table.read().unwrap().get(name) {
             return Ok(symbol.ty.get_type());
         }
 

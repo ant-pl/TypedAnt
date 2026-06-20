@@ -22,7 +22,7 @@ mod tests {
 
         let bigint_id = tcx.alloc(Ty::BigInt);
 
-        tcx.table.lock().unwrap().define_var("a", bigint_id);
+        tcx.table.write().unwrap().define_var("a", bigint_id);
 
         let mut name_resolver = NameResolver::new(0.into(), file.clone());
         let mut module = TypedModule::new(&mut tcx);
@@ -105,7 +105,7 @@ mod tests {
         assert!(ident.value == "a".into());
         assert!(tcx.get(ty) == &Ty::BigInt);
 
-        let get_symbol_result = tcx.table.lock().unwrap().get("a");
+        let get_symbol_result = tcx.table.read().unwrap().get("a");
         let get_symbol_result_ref = get_symbol_result.as_ref();
 
         assert!(get_symbol_result.is_some());

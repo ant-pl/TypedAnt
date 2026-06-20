@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use ty::{Ty, TyId};
 
@@ -7,7 +7,7 @@ use crate::type_table::TypeTable;
 #[derive(Clone)]
 pub struct TypeContext {
     pub types: Vec<Ty>,
-    pub table: Arc<Mutex<TypeTable>>,
+    pub table: Arc<RwLock<TypeTable>>,
 }
 
 impl std::fmt::Debug for TypeContext {
@@ -52,12 +52,12 @@ impl TypeContext {
     pub fn new() -> Self {
         let mut me = Self {
             types: vec![],
-            table: Arc::new(Mutex::new(TypeTable::new())),
+            table: Arc::new(RwLock::new(TypeTable::new())),
         };
 
         let new_table = TypeTable::new().init(&mut me);
 
-        me.table = Arc::new(Mutex::new(new_table));
+        me.table = Arc::new(RwLock::new(new_table));
 
         me
     }

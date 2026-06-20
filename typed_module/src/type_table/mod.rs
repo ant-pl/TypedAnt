@@ -2,11 +2,11 @@ pub mod test;
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
 };
 
-use typed_ast::GetType;
 use ty::{FloatTy, IntTy, Ty, TyId};
+use typed_ast::GetType;
 
 use crate::ty_context::TypeContext;
 
@@ -38,7 +38,7 @@ pub struct Symbol {
 
 #[derive(Debug, Clone)]
 pub struct TypeTable {
-    pub outer: Option<Arc<Mutex<TypeTable>>>,
+    pub outer: Option<Arc<RwLock<TypeTable>>>,
 
     pub var_map: HashMap<Arc<str>, Symbol>,
 }
@@ -76,7 +76,7 @@ impl TypeTable {
 }
 
 impl TypeTable {
-    pub fn with_outer(outer: Arc<Mutex<TypeTable>>) -> Self {
+    pub fn with_outer(outer: Arc<RwLock<TypeTable>>) -> Self {
         Self {
             outer: Some(outer),
             var_map: HashMap::new(),
@@ -98,7 +98,7 @@ impl TypeTable {
         }
 
         if let Some(outer) = &self.outer {
-            return outer.lock().unwrap().get(name);
+            return outer.read().unwrap().get(name);
         }
 
         None
