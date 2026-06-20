@@ -20,6 +20,7 @@ pub enum NodeOrTyped {
 #[derive(Debug, Default)]
 pub struct ModuleNode<'a> {
     pub file: Arc<str>,
+    pub parent: Option<ModuleId>,
     pub path: Vec<Arc<str>>,      // 从父路径一直到当前路径 (包含当前路径)
     pub ast: Option<NodeOrTyped>, // 模块 AST
     pub typed_module: Option<TypedModule<'a>>, // 类型检查后的结果
@@ -102,5 +103,28 @@ impl<'a> Crate<'a> {
         let adt = it.target_def;
 
         self.alloc_impl_to_adt(impl_def, adt)
+    }
+}
+
+impl<'a> Crate<'a> {
+    /// 检查 a 是否为 b 的后代或者相等
+    pub fn is_eq_or_succ_module(&self, mod_a_id: ModuleId, mod_b_id: ModuleId) -> bool {
+        mod_a_id == mod_b_id || {
+            let mut cur_mod_id = mod_a_id;
+
+            while let Some(id) = self
+                .modules
+                .get(cur_mod_id.0)
+                .and_then(|it| it.parent.clone())
+            {
+                if id == mod_b_id {
+                    return true
+                }
+
+                cur_mod_id = id
+            }
+
+            return false
+        }
     }
 }
