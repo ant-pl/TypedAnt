@@ -4,9 +4,13 @@ pub mod test;
 use ant_crate_def::Crate;
 use ant_crate_def::definition::{
     ConstantData, Def, EnumData, FunctionData, ImplData, StructData, Visibility,
+    VisibilityShorthandKind,
 };
 use ant_crate_def::{ModuleNode, NodeOrTyped};
 use ast::expr::Expression;
+use ast::expressions::visibility_expr::{
+    VisibilityNode, VisibilityNodeKind, VisibilityNodeShorthandKind,
+};
 use ast::node::Node;
 use ast::stmt::Statement;
 use id::{DefId, ModuleId, StmtId};
@@ -204,6 +208,7 @@ impl<'a> NameResolver<'a> {
                     path: module_full_path.iter().map(|it| it.value.clone()).collect(),
                     ast: Some(NodeOrTyped::Node(node.clone())),
                     typed_module: None,
+                    parent: Some(mod_id),
                     exports: HashMap::new(),
                     children: HashMap::new(),
                     file: target_path.to_string_lossy().into(),
@@ -350,11 +355,20 @@ impl<'a> NameResolver<'a> {
             let id = match stmt {
                 Statement::Impl { .. } => None,
 
-                Statement::Struct { name, generics, .. } => Some({
+                Statement::Struct {
+                    name,
+                    generics,
+                    visibility,
+                    ..
+                } => Some({
                     // 构造原始定义数据
                     let data = StructData {
                         name: name.value.clone(),
-                        visibility: Visibility::Public, // 还没写访问控制语法先等着吧
+                        visibility: visibility
+                            .as_ref()
+                            .map_or(Ok(Visibility::Inherited), |it| {
+                                self.resovle_visibility(it, module_id)
+                            })?,
                         module_id,
                         generics: generics.iter().map(|g| g.to_string().into()).collect(),
                         fields: IndexMap::new(), // TypeChecker 稍后填充
@@ -368,10 +382,19 @@ impl<'a> NameResolver<'a> {
                     def_id
                 }),
 
-                Statement::Enum { name, generics, .. } => Some({
+                Statement::Enum {
+                    name,
+                    generics,
+                    visibility,
+                    ..
+                } => Some({
                     let data = EnumData {
                         name: name.value.clone(),
-                        visibility: Visibility::Public,
+                        visibility: visibility
+                            .as_ref()
+                            .map_or(Ok(Visibility::Inherited), |it| {
+                                self.resovle_visibility(it, module_id)
+                            })?,
                         module_id,
                         generics: generics.iter().map(|g| g.to_string().into()).collect(),
                         variants: IndexMap::new(),
@@ -388,7 +411,7 @@ impl<'a> NameResolver<'a> {
                 Statement::FuncDecl { name, .. } => Some({
                     let data = FunctionData {
                         name: name.value.clone(),
-                        visibility: Visibility::Public, // 还没写访问控制语法先等着吧
+                        visibility: Visibility::Public,
                         module_id,
                         params: IndexMap::new(),
                         body: None,
@@ -408,7 +431,7 @@ impl<'a> NameResolver<'a> {
                 Statement::Extern { alias, .. } => Some({
                     let data = FunctionData {
                         name: alias.value.clone(),
-                        visibility: Visibility::Public, // 还没写访问控制语法先等着吧
+                        visibility: Visibility::Public,
                         module_id,
                         params: IndexMap::new(),
                         body: None,
@@ -426,7 +449,11 @@ impl<'a> NameResolver<'a> {
                 }),
 
                 Statement::ExpressionStatement(Expression::Function {
-                    token, name, block, ..
+                    token,
+                    name,
+                    block,
+                    visibility,
+                    ..
                 }) => {
                     span_assert!(
                         name.is_some(),
@@ -437,7 +464,11 @@ impl<'a> NameResolver<'a> {
 
                     let data = FunctionData {
                         name: name.value.clone(),
-                        visibility: Visibility::Public, // 还没写访问控制语法先等着吧
+                        visibility: visibility
+                            .as_ref()
+                            .map_or(Ok(Visibility::Inherited), |it| {
+                                self.resovle_visibility(it, module_id)
+                            })?,
                         module_id,
                         params: IndexMap::new(),
                         body: None,
@@ -519,10 +550,19 @@ impl<'a> NameResolver<'a> {
                     None
                 }
 
-                Statement::Const { name, value, .. } => {
+                Statement::Const {
+                    name,
+                    value,
+                    visibility,
+                    ..
+                } => {
                     let data = ConstantData {
                         name: name.value.clone(),
-                        visibility: Visibility::Public, // 默认公开
+                        visibility: visibility
+                            .as_ref()
+                            .map_or(Ok(Visibility::Inherited), |it| {
+                                self.resovle_visibility(it, module_id)
+                            })?,
                         module_id,
                         ty: 0.into(), // 占位符，由 TypeChecker 填充
                         ast_index: StmtId(i),
@@ -591,6 +631,72 @@ impl<'a> NameResolver<'a> {
 }
 
 impl<'a> NameResolver<'a> {
+    pub fn resovle_visibility(
+        &self,
+        visibility_node: &VisibilityNode,
+        current_mod: ModuleId,
+    ) -> ResolveResult<Visibility> {
+        match &visibility_node.visibility {
+            VisibilityNodeKind::Inherited => Ok(Visibility::Inherited),
+            VisibilityNodeKind::Public => Ok(Visibility::Public),
+            VisibilityNodeKind::Restricted { path, shorthand } => match shorthand {
+                VisibilityNodeShorthandKind::Crate => Ok(Visibility::Restricted {
+                    restricted_id: self.krate.root_id,
+                    path: path.clone(),
+                    shorthand: VisibilityShorthandKind::Crate,
+                }),
+
+                VisibilityNodeShorthandKind::Super => {
+                    let parent_id = self.krate.modules[current_mod.0].parent.ok_or_else(|| {
+                        Self::make_err(
+                            Some("there are too many leading `super` keywords"),
+                            NameResolverErrorKind::Other,
+                            path.first().unwrap().clone(),
+                        )
+                    })?;
+
+                    Ok(Visibility::Restricted {
+                        restricted_id: parent_id,
+                        path: path.clone(),
+                        shorthand: VisibilityShorthandKind::Super,
+                    })
+                }
+
+                VisibilityNodeShorthandKind::None => {
+                    let path_str = path.iter().map(|it| it.value.clone()).collect::<Vec<_>>();
+                    let def_id =
+                        self.krate
+                            .path_index
+                            .get(&path_str)
+                            .copied()
+                            .ok_or_else(|| {
+                                Self::make_err(
+                                    Some(&format!("unresolved import `{}`", path_str.join("::"))),
+                                    NameResolverErrorKind::Unresolvedimport,
+                                    path.first().unwrap().clone(),
+                                )
+                            })?;
+
+                    let Def::Module(mod_data) = self.krate.get_def(def_id) else {
+                        return Err(Self::make_err(
+                            Some(&format!("unresolved import `{}`", path_str.join("::"))),
+                            NameResolverErrorKind::Unresolvedimport,
+                            path.first().unwrap().clone(),
+                        ));
+                    };
+
+                    let restricted_id = mod_data.module_id;
+
+                    Ok(Visibility::Restricted {
+                        restricted_id: restricted_id,
+                        path: path.clone(),
+                        shorthand: VisibilityShorthandKind::None,
+                    })
+                }
+            },
+        }
+    }
+
     pub fn resolve_use(
         &mut self,
         current_module_id: ModuleId,
@@ -612,8 +718,7 @@ impl<'a> NameResolver<'a> {
         })?;
 
         // 检查可见性
-        let def = self.krate.get_def(def_id);
-        if *def.visibility() != Visibility::Public {
+        if !self.is_accessable_def(current_module_id, def_id) {
             return Err(Self::make_err(
                 Some(&format!("symbol `{}` is private", path.last().unwrap())),
                 NameResolverErrorKind::SymbolIsPrivate,
@@ -738,6 +843,20 @@ impl<'a> NameResolver<'a> {
 }
 
 impl<'a> NameResolver<'a> {
+    pub fn is_accessable_def(&self, current_mod: ModuleId, def_id: DefId) -> bool {
+        let def = self.krate.get_def(def_id);
+
+        match def.visibility() {
+            Visibility::Public => true,
+            Visibility::Inherited => self
+                .krate
+                .is_eq_or_succ_module(current_mod, def.module_id()),
+            Visibility::Restricted { restricted_id, .. } => {
+                self.krate.is_eq_or_succ_module(current_mod, *restricted_id)
+            }
+        }
+    }
+
     pub fn lookup_name(&self, current_mod: ModuleId, name: &str) -> Option<DefId> {
         // 局部作用域
         if let Some(it) = self.local_maps.get(&current_mod)
@@ -748,7 +867,7 @@ impl<'a> NameResolver<'a> {
 
         // 外部作用域
         if let Some(id) = self.resolved_imports.get(&current_mod)?.bindings.get(name)
-            && *self.krate.get_def(*id).visibility() == Visibility::Public
+            && self.is_accessable_def(current_mod, *id)
         {
             return Some(*id);
         }

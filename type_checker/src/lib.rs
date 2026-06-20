@@ -955,7 +955,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 block,
                 ret_ty: ret_ty_expr,
                 generics_params,
-                visibility,
+                ..
             } => {
                 let mut generic_names = vec![];
 
@@ -1690,7 +1690,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 name,
                 fields,
                 generics,
-                visibility,
+                ..
             } => {
                 let typed_name = Ident {
                     token: name.token,
@@ -1788,6 +1788,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 name,
                 variants,
                 generics,
+                ..
             } => {
                 let typed_name = Ident {
                     token: name.token,
@@ -1908,7 +1909,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 token,
                 name,
                 block,
-                visibility,
+                ..
             } => {
                 let typed_name = Ident {
                     token: name.token,
@@ -2078,7 +2079,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 name,
                 var_type,
                 value,
-                visibility,
+                ..
             } => {
                 // 检查表达式是否为字面量
                 if !value.is_literal() {

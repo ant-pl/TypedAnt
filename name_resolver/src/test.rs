@@ -27,6 +27,7 @@ pub mod tests {
             ast: None,
             path: vec![file.clone()],
             typed_module: None,
+            parent: None,
             exports: HashMap::new(),
             children: HashMap::new(),
         };
@@ -44,7 +45,7 @@ pub mod tests {
 
         let test_const_stack_size = Def::Constant(ConstantData {
             name: "STACK_SIZE".into(),
-            visibility: Visibility::Private,
+            visibility: Visibility::Inherited,
             module_id: mod_id,
             ty: tcx.alloc(Ty::IntTy(IntTy::I32)).into(),
             ast_index: StmtId(0),
@@ -85,6 +86,7 @@ pub mod tests {
         let root_mod = ModuleNode {
             file: file.clone(),
             ast: None,
+            parent: None,
             path: vec![file.clone()],
             typed_module: None,
             exports: HashMap::new(),
@@ -98,6 +100,7 @@ pub mod tests {
             ast: None,
             path: vec!["constants".into()],
             typed_module: None,
+            parent: None,
             exports: {
                 let mut map = HashMap::new();
                 map.insert(
