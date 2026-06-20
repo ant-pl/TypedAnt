@@ -1,4 +1,4 @@
-use std::{fmt::Display, sync::Arc};
+use std::fmt::Display;
 
 use token::token::Token;
 
@@ -14,7 +14,7 @@ pub enum VisibilityNodeKind {
     Public,
 
     Restricted {
-        path: Vec<Arc<str>>,
+        path: Vec<Token>,
 
         /// 完整写法 pub (in path/to/your/module) 或 pub(crate) pub(super) 等
         shorthand: VisibilityNodeShorthandKind,
@@ -31,7 +31,13 @@ impl Display for VisibilityNodeKind {
             Self::Public => String::from("pub"),
             Self::Restricted { path, shorthand } => match shorthand {
                 VisibilityNodeShorthandKind::None => {
-                    format!("pub (in {})", path.join("::"))
+                    format!(
+                        "pub (in {})",
+                        path.iter()
+                            .map(|it| it.value.clone())
+                            .collect::<Vec<_>>()
+                            .join("::")
+                    )
                 }
 
                 VisibilityNodeShorthandKind::Crate => String::from("pub(crate)"),
