@@ -718,7 +718,7 @@ impl<'a> NameResolver<'a> {
         })?;
 
         // 检查可见性
-        if !self.is_accessable_def(current_module_id, def_id) {
+        if !self.is_accessible_def(current_module_id, def_id) {
             return Err(Self::make_err(
                 Some(&format!("symbol `{}` is private", path.last().unwrap())),
                 NameResolverErrorKind::SymbolIsPrivate,
@@ -843,7 +843,7 @@ impl<'a> NameResolver<'a> {
 }
 
 impl<'a> NameResolver<'a> {
-    pub fn is_accessable_def(&self, current_mod: ModuleId, def_id: DefId) -> bool {
+    pub fn is_accessible_def(&self, current_mod: ModuleId, def_id: DefId) -> bool {
         let def = self.krate.get_def(def_id);
 
         match def.visibility() {
@@ -867,7 +867,7 @@ impl<'a> NameResolver<'a> {
 
         // 外部作用域
         if let Some(id) = self.resolved_imports.get(&current_mod)?.bindings.get(name)
-            && self.is_accessable_def(current_mod, *id)
+            && self.is_accessible_def(current_mod, *id)
         {
             return Some(*id);
         }
