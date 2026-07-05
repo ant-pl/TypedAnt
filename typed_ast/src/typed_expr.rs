@@ -40,11 +40,10 @@ pub enum TypedExpression {
     SizeOf(Token, ExprId, TyId),
     BuildStruct(Token, Ident, IndexMap<Ident, ExprId>, TyId),
     FieldAccess(Token, ExprId, Ident, TyId),
-    EnumVariant {
+    StaticMemberAccess {
         token: Token,
-        enum_name: Ident,
-        variant: Ident,
-        args: Vec<ExprId>,
+        left: ExprId,
+        right: Ident,
         ty: TyId,
     },
     Infix {
@@ -140,7 +139,7 @@ impl GetType for TypedExpression {
     fn get_type(&self) -> TyId {
         match self {
             Self::FieldAccess(_, _, _, field_ty) => field_ty.clone(),
-            Self::EnumVariant { ty, .. } => *ty,
+            Self::StaticMemberAccess { ty, .. } => *ty,
             Self::StrLiteral { ty, .. } => *ty,
             Self::UnknownTypeInt { ty, .. } => *ty,
             Self::Int { ty, .. } => *ty,
@@ -171,7 +170,7 @@ impl SetType for TypedExpression {
     fn set_type(&mut self, new_ty: TyId) {
         match self {
             Self::FieldAccess(_, _, _, field_ty) => *field_ty = new_ty,
-            Self::EnumVariant { ty, .. } => *ty = new_ty,
+            Self::StaticMemberAccess { ty, .. } => *ty = new_ty,
             Self::StrLiteral { ty, .. } => *ty = new_ty,
             Self::UnknownTypeInt { ty, .. } => *ty = new_ty,
             Self::Int { ty, .. } => *ty = new_ty,
@@ -212,7 +211,7 @@ impl GetToken for TypedExpression {
             TypedExpression::BuildStruct(token, ..) => token.clone(),
             TypedExpression::SizeOf(token, ..) => token.clone(),
             TypedExpression::FieldAccess(token, ..) => token.clone(),
-            TypedExpression::EnumVariant { token, .. } => token.clone(),
+            TypedExpression::StaticMemberAccess { token, .. } => token.clone(),
             TypedExpression::Infix { token, .. } => token.clone(),
             TypedExpression::Cast { token, .. } => token.clone(),
             TypedExpression::Prefix { token, .. } => token.clone(),
