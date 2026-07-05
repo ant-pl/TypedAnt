@@ -2,7 +2,11 @@ use std::fmt::Display;
 
 use token::token::Token;
 
-use crate::{expr::Expression, expressions::{ident::Ident, visibility_expr::VisibilityNode}, node::GetToken};
+use crate::{
+    expr::Expression,
+    expressions::{ident::Ident, visibility_expr::VisibilityNode},
+    node::GetToken,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
@@ -313,12 +317,12 @@ pub fn collect_all_statements(top_statements: &[Statement]) -> Vec<Statement> {
             Statement::Impl { block, .. } => collect(all, *block),
             Statement::Use { .. } => {}
             Statement::Extern { .. } => {}
-            Statement::FuncDecl { .. } => {},
+            Statement::FuncDecl { .. } => {}
         }
-        
+
         all.push(stmt);
     }
-    
+
     for stmt in top_statements {
         collect(&mut all, stmt.clone());
     }
