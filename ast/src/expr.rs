@@ -4,7 +4,11 @@ use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use token::token::Token;
 
-use crate::{expressions::{ident::Ident, visibility_expr::VisibilityNode}, node::GetToken, stmt::Statement};
+use crate::{
+    expressions::{ident::Ident, visibility_expr::VisibilityNode},
+    node::GetToken,
+    stmt::Statement,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy, Hash)]
 pub enum IntValue {
@@ -98,18 +102,17 @@ pub enum Expression {
     Block(Token, Vec<Statement>),
     BuildStruct(Token, Ident, IndexMap<Ident, Expression>),
     FieldAccess(Token, Box<Expression>, Ident),
-    EnumVariant {
-        token: Token,
-        enum_name: Ident,
-        variant: Ident,
-        args: Vec<Expression>,
-    },
     SizeOf(Token, Box<Expression>),
     Infix {
         token: Token,
         op: Arc<str>,
         left: Box<Expression>,
         right: Box<Expression>,
+    },
+    StaticMemberAccess {
+        token: Token,
+        left: Box<Expression>,
+        right: Ident,
     },
     Cast {
         token: Token,
@@ -204,7 +207,6 @@ impl Display for Expression {
                     .join("\n")
             ),
             Self::FieldAccess(_, obj, field) => write!(f, "{obj}.{field}"),
-            Self::EnumVariant { enum_name, variant, .. } => write!(f, "{enum_name}::{variant}"),
             Self::StrLiteral { value, .. } => write!(f, "\"{value}\""),
             Self::Assign { left, right, .. } => write!(f, "{left} = {right}"),
             Self::Call { func, args, .. } => write!(
@@ -305,6 +307,7 @@ impl Display for Expression {
             Self::Infix {
                 op, left, right, ..
             } => write!(f, "({left}{op}{right})"),
+            Self::StaticMemberAccess { left, right, .. } => write!(f, "({left}::{right})"),
             Self::Cast { val, cast_to, .. } => write!(f, "({val} as {cast_to})"),
             Self::Prefix { op, right, .. } => write!(f, "{op}{right}"),
             Self::BoolAnd { left, right, .. } => write!(f, "({left} and {right})",),
@@ -325,8 +328,8 @@ impl GetToken for Expression {
             Expression::Block(token, _) => token.clone(),
             Expression::BuildStruct(token, ..) => token.clone(),
             Expression::FieldAccess(token, ..) => token.clone(),
-            Expression::EnumVariant { token, .. } => token.clone(),
             Expression::TypePath { token, .. } => token.clone(),
+            Expression::StaticMemberAccess { token, .. } => token.clone(),
             Expression::Infix { token, .. } => token.clone(),
             Expression::Cast { token, .. } => token.clone(),
             Expression::GenericInstance { token, .. } => token.clone(),
