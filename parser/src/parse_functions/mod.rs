@@ -30,3 +30,5 @@ pub mod parse_prefix;
 pub mod parse_type_path;
 pub mod parse_cast;
 pub mod parse_visibility;
+pub mod parse_static_member_access;
+pub mod parse_static_member_access_or_turbo_fish;
