@@ -9,12 +9,14 @@ pub enum TypeCheckerErrorKind {
     NotAConstant,
     TypeMismatch,
     InvalidCast,
+    SyntaxError,
     Other,
 }
 
 impl Display for TypeCheckerErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
+            TypeCheckerErrorKind::SyntaxError => "syntax error",
             TypeCheckerErrorKind::VariableNotFound => "variable not found",
             TypeCheckerErrorKind::TypeNotFound => "type not found",
             TypeCheckerErrorKind::TypeMismatch => "type mismatch",
