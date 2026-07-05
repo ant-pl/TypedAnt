@@ -37,10 +37,10 @@ use crate::{
         parse_prefix::parse_prefix,
         parse_return::parse_return,
         parse_sizeof::parse_sizeof,
+        parse_static_member_access_or_turbo_fish::parse_static_member_access_or_turbo_fish,
         parse_str::parse_str,
         parse_struct::parse_struct,
         parse_trait::parse_trait,
-        parse_turbo_fish::parse_turbo_fish,
         parse_type_hint::parse_type_hint,
         parse_type_path::parse_type_path,
         parse_use::parse_use,
@@ -123,7 +123,10 @@ impl Parser {
         m.insert(TokenType::Assign, parse_assign);
         m.insert(TokenType::Dot, parse_field_access);
         m.insert(TokenType::As, parse_cast);
-        m.insert(TokenType::TwoColon, parse_turbo_fish);
+        m.insert(
+            TokenType::TwoColon,
+            parse_static_member_access_or_turbo_fish,
+        );
     }
 
     fn init_statement_parse_fn_map(m: &mut HashMap<TokenType, StmtParseFn>) {
