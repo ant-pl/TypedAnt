@@ -211,17 +211,29 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             }
 
             TypedStatement::Struct { name, ty, .. } => {
-                self.tcx().table.write().unwrap().define_var(&name.value, ty);
+                self.tcx()
+                    .table
+                    .write()
+                    .unwrap()
+                    .define_var(&name.value, ty);
                 None
             }
 
             TypedStatement::Enum { name, ty, .. } => {
-                self.tcx().table.write().unwrap().define_var(&name.value, ty);
+                self.tcx()
+                    .table
+                    .write()
+                    .unwrap()
+                    .define_var(&name.value, ty);
                 None
             }
 
             TypedStatement::FuncDecl { name, ty, .. } => {
-                self.tcx().table.write().unwrap().define_var(&name.value, ty);
+                self.tcx()
+                    .table
+                    .write()
+                    .unwrap()
+                    .define_var(&name.value, ty);
                 None
             }
 
@@ -357,7 +369,38 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
             TypedExpression::Bool { ty, .. } => ty,
             TypedExpression::UnknownTypeInt { .. } => self.infer_ctx.alloc_infer_int(),
             TypedExpression::TypeHint(_, expr, _) => self.infer_expr(expr)?,
-            TypedExpression::EnumVariant { ty, .. } => ty,
+
+            TypedExpression::StaticMemberAccess { ty, .. } => {
+                let ty = self.follow_all(ty);
+                let base_ty = self.tcx_ref().get(ty).clone();
+
+                match base_ty {
+                    // 通用的泛型特化逻辑：如果被访问的成员类型包含了 Generic 参数，进行统一替换
+                    Ty::AppliedGeneric(name, args) => {
+                        let has_generics = args
+                            .iter()
+                            .any(|&arg| matches!(self.tcx_ref().get(arg), Ty::Generic(..)));
+
+                        if has_generics {
+                            let mut instantiated_args = vec![];
+                            for &arg in &args {
+                                if let Ty::Generic(..) = self.tcx_ref().get(arg) {
+                                    instantiated_args.push(self.infer_ctx.alloc_infer_ty());
+                                } else {
+                                    instantiated_args.push(arg);
+                                }
+                            }
+
+                            self.tcx()
+                                .alloc(Ty::AppliedGeneric(name.clone(), instantiated_args))
+                        } else {
+                            ty
+                        }
+                    }
+
+                    _ => ty,
+                }
+            }
 
             TypedExpression::Cast {
                 val, cast_to, ty, ..
@@ -432,24 +475,82 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 consequence,
                 else_block,
                 ty: _,
+                enum_name,
+                variant,
+                bindings,
                 ..
             } => {
                 // 推导 scrutinee 的类型
-                let _ = self.infer_expr(scrutinee)?;
+                let scrutinee_ty = self.infer_expr(scrutinee)?;
+                let scrutinee_token = self.module_ref().get_expr(scrutinee).unwrap().token();
+
+                // 查找 Enum 的泛型形参名
+                let enum_ty_id = self.resolve_type_by_name(&enum_name.value, &enum_name.token)?;
+                let (enum_generics, &variant_ty_id) = match self.tcx_ref().get(enum_ty_id) {
+                    Ty::Enum {
+                        generics, variants, ..
+                    } => (generics.clone(), variants.get(&*variant.value).unwrap()),
+                    _ => unreachable!(),
+                };
+
+                // 实例化泛型
+                let generics_names: Vec<_> =
+                    enum_generics.iter().map(|it| it.to_string()).collect();
+                let instantiated_variant_ty_id = self.instantiate(variant_ty_id, &generics_names);
+                let instantiated_variant_ty =
+                    self.tcx_ref().get(instantiated_variant_ty_id).clone();
+
+                // 提取出预期枚举类型和 payload 实参类型
+                let (expected_enum_ty, actual_payload_types) = match instantiated_variant_ty {
+                    // 有参变体（TypeChecker阶段会构造一个变体构造器 故为 Ty::Function）
+                    Ty::Function {
+                        params_type,
+                        ret_type,
+                        ..
+                    } => (ret_type, params_type),
+
+                    // 无参变体
+                    _ => (instantiated_variant_ty_id, vec![]),
+                };
+
+                // 预期类型和被匹配的类型合一
+                self.unify(expected_enum_ty, scrutinee_ty, scrutinee_token)?;
+
+                if bindings.len() != actual_payload_types.len() {
+                    return Err(Self::make_err(
+                        Some(&format!(
+                            "pattern bindings mismatch: variant `{}` expects {} arguments, but found {}",
+                            variant.value,
+                            actual_payload_types.len(),
+                            bindings.len()
+                        )),
+                        TypeCheckerErrorKind::Other,
+                        variant.token.clone(),
+                    ));
+                }
+
+                // 将变体绑定的实际类型绑定到局部作用域
+                for (i, binding) in bindings.iter().enumerate() {
+                    let actual_ty = actual_payload_types[i];
+                    self.locals_tyid.insert(binding.value.clone(), actual_ty);
+                }
 
                 // 推导 consequence 的类型
                 let then_block_ty = self.infer_expr(consequence)?;
 
+                // 卸载变体绑定
+                for binding in &bindings {
+                    self.locals_tyid.remove(&binding.value);
+                }
+
                 // 如果有 else 块，确保两边类型一致
-                if let Some(it) = else_block.and_then(|it| {
+                if let Some((else_block_ty, token)) = else_block.and_then(|it| {
                     Some((
                         self.infer_expr(it),
                         self.module_ref().get_expr(it).unwrap().token(),
                     ))
                 }) {
-                    let else_block_ty = it.0?;
-                    let token = it.1;
-                    self.unify(then_block_ty, else_block_ty, token)?;
+                    self.unify(then_block_ty, else_block_ty?, token)?;
                 }
 
                 then_block_ty
@@ -859,7 +960,10 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     }
 
     /// 核心：统一两个类型。如果失败，利用 Token 抛出 TypeChecker 错误
-    pub fn unify(&mut self, t1: TyId, t2: TyId, token: Token) -> CheckResult<()> {
+    pub fn unify(&mut self, expected: TyId, got: TyId, token: Token) -> CheckResult<()> {
+        let t1 = expected;
+        let t2 = got;
+
         let t1 = self.follow_all(t1);
         let t2 = self.follow_all(t2);
 
@@ -963,15 +1067,15 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     }
 
     // 辅助方法：生成符合你定义的错误结构
-    fn make_mismatch_error(&mut self, t1: TyId, t2: TyId, token: Token) -> TypeCheckerError {
+    fn make_mismatch_error(&mut self, expected: TyId, got: TyId, token: Token) -> TypeCheckerError {
         TypeCheckerError {
             kind: TypeCheckerErrorKind::TypeMismatch,
             token,
             message: Some(
                 format!(
                     "expected `{}`, got {}",
-                    display_ty(self.tcx_ref().get(t1), self.tcx_ref()),
-                    display_ty(self.tcx_ref().get(t2), self.tcx_ref()),
+                    display_ty(self.tcx_ref().get(expected), self.tcx_ref()),
+                    display_ty(self.tcx_ref().get(got), self.tcx_ref()),
                 )
                 .into(),
             ),
