@@ -369,7 +369,7 @@ impl Lexer {
             '!' => {
                 let peek_char = self.peek_char();
                 if peek_char == '=' {
-                    token.token_type = TokenType::Eq;
+                    token.token_type = TokenType::NotEq;
                     token.value = format!("{}{}", self.cur_char, peek_char).into();
 
                     self.read_char();
