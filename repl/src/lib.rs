@@ -69,13 +69,15 @@ pub fn repl() {
             continue;
         };
 
+        let table_cloned = ty_ctx.table.clone();
+
         let mut module = TypedModule::new(&mut ty_ctx);
 
         let mut checker = TypeChecker::new(&mut module, &mut name_resolver);
 
         let typed_node;
 
-        match checker.check_all(node) {
+        match checker.check_all(node, Some(table_cloned)) {
             Ok(it) => typed_node = it,
             Err(err) => {
                 eprintln!("{err:#?}");
