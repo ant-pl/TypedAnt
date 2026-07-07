@@ -166,6 +166,15 @@ impl<'a> NameResolver<'a> {
             };
 
             span_assert!(!full_path.is_empty(), token, "can't import empty path");
+
+            if full_path.len() < 2 {
+                return Err(Self::make_err(
+                    Some("cannot import item without module path"),
+                    NameResolverErrorKind::Other,
+                    full_path.first().unwrap().clone(),
+                ));
+            }
+
             span_assert!(
                 full_path.len() > 1,
                 token,
