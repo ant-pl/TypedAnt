@@ -175,12 +175,6 @@ impl<'a> NameResolver<'a> {
                 ));
             }
 
-            span_assert!(
-                full_path.len() > 1,
-                token,
-                "can't import item without module path"
-            );
-
             let [module_full_path @ .., _item] = full_path.as_slice() else {
                 unreachable!()
             };
