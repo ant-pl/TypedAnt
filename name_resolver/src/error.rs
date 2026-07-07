@@ -9,6 +9,7 @@ pub enum NameResolverErrorKind {
     SymbolIsPrivate,
     TypeNotFound,
     ParserError(ParserErrorKind),
+    SyntaxError,
     Other
 }
 
@@ -18,6 +19,7 @@ impl Display for NameResolverErrorKind {
             Self::Unresolvedimport => "unresolved import",
             Self::SymbolIsPrivate => "the symbol is private",
             Self::TypeNotFound => "type not found",
+            Self::SyntaxError => "syntax error",
             Self::ParserError(it) => &it.to_string(),
             Self::Other => "",
         };
