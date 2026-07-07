@@ -67,8 +67,8 @@ pub enum Visibility {
 
 use id::{DefId, ModuleId};
 use id::{ExprId, StmtId};
-use token::token::Token;
 use std::sync::Arc;
+use token::token::Token;
 
 use indexmap::IndexMap;
 use ty::{TyCell, TyId};
@@ -95,6 +95,18 @@ impl Def {
 
     pub fn module_id(&self) -> ModuleId {
         get_field!(self, module_id)
+    }
+
+    pub fn name(&self) -> Option<Arc<str>> {
+        match self {
+            Self::Module(data) => Some(data.name.clone()),
+            Self::Struct(data) => Some(data.name.clone()),
+            Self::Enum(data) => Some(data.name.clone()),
+            Self::Function(data) => Some(data.name.clone()),
+            Self::Trait(data) => Some(data.name.clone()),
+            Self::Constant(data) => Some(data.name.clone()),
+            Self::Impl(_data) => None,
+        }
     }
 
     pub fn ty(&self) -> Option<TyId> {
@@ -203,5 +215,5 @@ pub struct ImplData {
     /// 实现目标的全局定义
     pub target_def: DefId,
     /// 即为 unit
-    pub ty: TyCell
+    pub ty: TyCell,
 }
