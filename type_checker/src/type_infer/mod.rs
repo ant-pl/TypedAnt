@@ -681,10 +681,14 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
                 }
 
                 // 构造这一次实例化的真正类型 (比如 Vec<?0>)
-                let instantiated_struct_ty = self.tcx().alloc(Ty::AppliedGeneric(
-                    ident.value.clone().into(),
-                    arg_infer_ids,
-                ));
+                let instantiated_struct_ty = if def_generics.is_empty() {
+                    ty
+                } else {
+                    self.tcx().alloc(Ty::AppliedGeneric(
+                        ident.value.clone().into(),
+                        arg_infer_ids,
+                    ))
+                };
 
                 // 递归推导并统一字段类型
                 for (field_ident, val_id) in fields {
