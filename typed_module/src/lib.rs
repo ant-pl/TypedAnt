@@ -49,6 +49,14 @@ pub fn display_ty(ty: &Ty, tcx: &TypeContext) -> String {
                 String::new()
             }
         ),
+        Ty::Tuple(tyids) => format!(
+            "({})",
+            tyids
+                .iter()
+                .map(|it| display_ty(tcx.get(*it), tcx))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
         Ty::Trait { name, .. } => name.to_string(),
         Ty::Function {
             params_type,

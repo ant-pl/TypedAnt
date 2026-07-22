@@ -260,6 +260,7 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
         let ty = match expr {
             TypedExpression::TypeHint(_, expr, _) => self.infer_type_expr(expr)?,
+            TypedExpression::Unit(_, ty) => ty,
 
             TypedExpression::Prefix { right, token, .. } => {
                 let op = token.value.clone();
@@ -923,6 +924,17 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
 
                 specialized_ty
             }
+
+            TypedExpression::Tuple(_, it, _) => {
+                let infered_exprs = it
+                    .iter()
+                    .map(|it| self.infer_expr(*it))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                self.tcx().alloc(Ty::Tuple(infered_exprs))
+            }
+        
+            TypedExpression::Unit(_, ty) => ty,
 
             _ => todo!("todo expr"),
         };

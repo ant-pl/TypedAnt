@@ -307,6 +307,24 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                 value,
                 ty: self.tcx().alloc(Ty::Str),
             }),
+            Expression::Unit(token) => Ok(TypedExpression::Unit(token, self.tcx().alloc(Ty::Unit))),
+            
+            Expression::Tuple(token, exprs) => {
+                let mut expr_ids = vec![];
+                let mut expr_tyids = vec![];
+
+                for expr in exprs {
+                    let expr = self.check_expr_as_val(*expr)?;
+                    expr_tyids.push(expr.get_type());
+                    expr_ids.push(self.module.alloc_expr(expr));
+                }
+
+                Ok(TypedExpression::Tuple(
+                    token,
+                    expr_ids,
+                    self.tcx().alloc(Ty::Tuple(expr_tyids))
+                ))
+            }
 
             Expression::Ident(it) => {
                 let ident_name = &it.value;
@@ -1220,6 +1238,8 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     /// Ident, Prefix (*), TypeHint
     pub fn check_type_expr(&mut self, expr: Expression) -> CheckResult<TypedExpression> {
         match expr {
+            Expression::Unit(token) => Ok(TypedExpression::Unit(token, self.tcx().alloc(Ty::Unit))),
+            
             Expression::Ident(it) => {
                 let ty_id = self.lookup_type_by_name(&it.value, it.token.clone())?;
 
