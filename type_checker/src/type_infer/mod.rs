@@ -928,25 +928,32 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
         return Ok(ty);
     }
 
-    fn resolve_type_by_name(&self, name: &str, token: &Token) -> CheckResult<TyId> {
-        //  先查局部符号表
+    fn resolve_type_by_name(&mut self, name: &str, token: &Token) -> CheckResult<TyId> {
+        let mut tyid: Option<_> = None;
+
         if let Some(symbol) = self.tcx_ref().table.read().unwrap().get(name) {
-            return Ok(symbol.ty.get_type());
+            //  先查局部符号表
+            tyid = Some(symbol.ty.get_type());
         }
 
-        // 使用 NameResolver 查找
         if let Some(def_id) = self.name_resolver.lookup_name(self.current_mod_id, name) {
+            // 后用 NameResolver 查找
             let def = self.name_resolver.krate.get_def(def_id);
             if let Some(ty) = def.ty() {
-                return Ok(ty);
+                tyid = Some(ty);
             }
         }
 
-        Err(TypeCheckerError {
-            kind: TypeCheckerErrorKind::TypeNotFound,
-            token: token.clone(),
-            message: Some(format!("type `{}` not found during inference", name).into()),
-        })
+        if tyid.is_none() {
+            return Err(TypeCheckerError {
+                kind: TypeCheckerErrorKind::TypeNotFound,
+                token: token.clone(),
+                message: Some(format!("type `{}` not found during inference", name).into()),
+            });
+        }
+
+        // 我们此前已经检查了 tyid 是否为 none 所以这里可以放心 unwrap
+        Ok(self.canonicalize_type(tyid.unwrap()))
     }
 
     pub fn unify_all(&mut self, constraints: Vec<Constraint>) -> CheckResult<()> {
@@ -1147,6 +1154,29 @@ impl<'c, 'b, 'a> TypeInfer<'a, 'b, 'c> {
     #[allow(unused)]
     fn get_stmt_tyid(&self, stmtid: StmtId) -> TyId {
         self.infer_ctx.module.get_stmt(stmtid).unwrap().get_type()
+    }
+
+    fn canonicalize_type(&mut self, ty_id: TyId) -> TyId {
+        let ty = self.tcx_ref().get(ty_id).clone();
+        match ty {
+            Ty::Struct { name, generics, .. } => {
+                if generics.is_empty() {
+                    self.tcx().alloc(Ty::AppliedGeneric(name, vec![]))
+                } else {
+                    ty_id
+                }
+            }
+
+            Ty::Enum { name, generics, .. } => {
+                if generics.is_empty() {
+                    self.tcx().alloc(Ty::AppliedGeneric(name, vec![]))
+                } else {
+                    ty_id
+                }
+            }
+
+            _ => ty_id,
+        }
     }
 
     /// 替换泛型到推导类型
