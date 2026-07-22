@@ -36,7 +36,9 @@ pub enum TypedExpression {
     },
     Ident(Ident, TyId, Option<DefId>),
     Block(Token, Vec<StmtId>, TyId),
+    Unit(Token, TyId),
     TypeHint(Ident, ExprId, TyId),
+    Tuple(Token, Vec<ExprId>, TyId),
     SizeOf(Token, ExprId, TyId),
     BuildStruct(Token, Ident, IndexMap<Ident, ExprId>, TyId),
     FieldAccess(Token, ExprId, Ident, TyId),
@@ -162,6 +164,8 @@ impl GetType for TypedExpression {
             Self::BoolOr { ty, .. } => *ty,
             Self::TypePath { ty, .. } => *ty,
             Self::SizeOf(_, _, ty) => *ty,
+            Self::Unit(_, ty) => *ty,
+            Self::Tuple(_, _, ty) => *ty,
         }
     }
 }
@@ -193,6 +197,8 @@ impl SetType for TypedExpression {
             Self::BoolOr { ty, .. } => *ty = new_ty,
             Self::TypePath { ty, .. } => *ty = new_ty,
             Self::SizeOf(_, _, ty) => *ty = new_ty,
+            Self::Tuple(_, _, ty) => *ty = new_ty,
+            Self::Unit(_, ty) => *ty = new_ty,
         }
     }
 }
@@ -206,10 +212,12 @@ impl GetToken for TypedExpression {
             TypedExpression::Float { token, .. } => token.clone(),
             TypedExpression::GenericInstance { token, .. } => token.clone(),
             TypedExpression::Ident(ident, ..) => ident.token.clone(),
+            TypedExpression::Unit(token, ..) => token.clone(),
             TypedExpression::Block(token, ..) => token.clone(),
             TypedExpression::TypeHint(ident, ..) => ident.token.clone(),
             TypedExpression::BuildStruct(token, ..) => token.clone(),
             TypedExpression::SizeOf(token, ..) => token.clone(),
+            TypedExpression::Tuple(token, ..) => token.clone(),
             TypedExpression::FieldAccess(token, ..) => token.clone(),
             TypedExpression::StaticMemberAccess { token, .. } => token.clone(),
             TypedExpression::Infix { token, .. } => token.clone(),

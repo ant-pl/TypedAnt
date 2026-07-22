@@ -180,12 +180,24 @@ pub enum Expression {
         left: Box<Expression>,
         paths: Vec<Box<Expression>>,
     },
+    Unit(Token),
+    Tuple(Token, Vec<Box<Expression>>),
     ThreeDot(Token),
 }
 
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Unit(_) => write!(f, "()"),
+            Self::Tuple(_, exprs) => write!(
+                f,
+                "({})",
+                exprs
+                    .iter()
+                    .map(|it| it.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             Self::SizeOf(_, expr) => write!(f, "sizeof {expr}"),
             Self::ThreeDot(token) => write!(f, "{}", token.value),
             Self::GenericInstance { left, paths, .. } => write!(
@@ -344,6 +356,8 @@ impl GetToken for Expression {
             Expression::BoolOr { token, .. } => token.clone(),
             Expression::ThreeDot(token) => token.clone(),
             Expression::SizeOf(token, _) => token.clone(),
+            Expression::Unit(token) => token.clone(),
+            Expression::Tuple(token, _) => token.clone(),
         }
     }
 }
