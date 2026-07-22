@@ -150,6 +150,7 @@ pub enum Ty {
     IntTy(IntTy),
     FloatTy(FloatTy),
     Ptr(TyId),
+    Tuple(Vec<TyId>),
     Bool,
     Unit,
     Str,
@@ -160,6 +161,15 @@ impl Display for Ty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unknown => write!(f, "unknown"),
+            Self::Tuple(tyids) => write!(
+                f,
+                "({})",
+                tyids
+                    .iter()
+                    .map(|it| it.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             Self::Ptr(it) => write!(f, "*{it}"),
             Self::Infer(it) => write!(f, "Infer({it})"),
             Self::InferInt(it) => write!(f, "InferInt({it})"),
@@ -213,8 +223,8 @@ pub fn str_to_ty(ty_str: &str) -> Option<Ty> {
     }
 }
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::fmt;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// 一个专为 TyId 优化的原子容器，支持 Clone, Eq 和内部可变性
 pub struct TyCell {
