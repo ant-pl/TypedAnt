@@ -24,7 +24,6 @@ use crate::{
         parse_extern::parse_extern,
         parse_field_access::parse_field_access,
         parse_func::parse_func,
-        parse_grouped_expr::parse_grouped_expr,
         parse_ident::parse_ident,
         parse_if::parse_if,
         parse_impl::parse_impl,
@@ -41,6 +40,7 @@ use crate::{
         parse_str::parse_str,
         parse_struct::parse_struct,
         parse_trait::parse_trait,
+        parse_tuple::parse_tuple,
         parse_type_hint::parse_type_hint,
         parse_type_path::parse_type_path,
         parse_use::parse_use,
@@ -101,7 +101,7 @@ impl Parser {
         m.insert(TokenType::Asterisk, parse_prefix);
         m.insert(TokenType::AddrOf, parse_prefix);
 
-        m.insert(TokenType::LParen, parse_grouped_expr);
+        m.insert(TokenType::LParen, parse_tuple);
     }
 
     fn init_infix_parse_fn_map(m: &mut HashMap<TokenType, InfixParseFn>) {

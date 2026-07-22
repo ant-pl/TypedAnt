@@ -1,6 +1,5 @@
 pub mod parse_use;
 pub mod parse_turbo_fish;
-pub mod parse_grouped_expr;
 pub mod parse_three_dot;
 pub mod parse_assign;
 pub mod parse_type_hint;
@@ -32,3 +31,4 @@ pub mod parse_cast;
 pub mod parse_visibility;
 pub mod parse_static_member_access;
 pub mod parse_static_member_access_or_turbo_fish;
+pub mod parse_tuple;
