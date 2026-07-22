@@ -2065,7 +2065,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 // 检查表达式的类型
                 let typed_val = self.check_expr_as_val(value)?;
-                
+
                 // 如果有类型标注尝试获取类型 否则直接获取表达式的值
                 let ty = if let Some(ref ty_ident) = var_type {
                     self.lookup_type_by_name(&ty_ident.value, ty_ident.token.clone())?
@@ -2634,46 +2634,23 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 }
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
-    fn canonicalize_type(&mut self, ty_id: TyId) -> TyId {
-        let ty = self.tcx_ref().get(ty_id).clone();
-        match ty {
-            Ty::Struct { name, generics, .. } => {
-                if generics.is_empty() {
-                    self.tcx().alloc(Ty::AppliedGeneric(name, vec![]))
-                } else {
-                    ty_id
-                }
-            }
-
-            Ty::Enum { name, generics, .. } => {
-                if generics.is_empty() {
-                    self.tcx().alloc(Ty::AppliedGeneric(name, vec![]))
-                } else {
-                    ty_id
-                }
-            }
-
-            _ => ty_id,
-        }
-    }
-
     pub fn lookup_type_by_name(&mut self, name: &str, token: Token) -> CheckResult<TyId> {
-        let tyid = if let Some(symbol) = self.tcx().table.read().unwrap().get(name) {
+        if let Some(symbol) = self.tcx_ref().table.read().unwrap().get(name) {
             // 查局部符号表
-            Ok(symbol.ty.get_type())
-        } else if let Some(def_id) = self.name_resolver.lookup_name(self.current_mod_id, name) {
+            return Ok(symbol.ty.get_type())
+        }
+
+        if let Some(def_id) = self.name_resolver.lookup_name(self.current_mod_id, name) {
             // 全局符号表
             // 触发拉取式推导，确保那个 Def 已经被填坑了
-            self.resolve_def_type(def_id)
-        } else {
-            return Err(Self::make_err(
-                Some(&format!("type `{}` not found in this scope", name)),
-                TypeCheckerErrorKind::TypeNotFound,
-                token,
-            ));
-        };
+            return self.resolve_def_type(def_id)
+        }
 
-        Ok(self.canonicalize_type(tyid?))
+        return Err(Self::make_err(
+            Some(&format!("type `{}` not found in this scope", name)),
+            TypeCheckerErrorKind::TypeNotFound,
+            token,
+        ));
     }
 }
 
