@@ -1221,38 +1221,20 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
     pub fn check_type_expr(&mut self, expr: Expression) -> CheckResult<TypedExpression> {
         match expr {
             Expression::Ident(it) => {
-                let ident_name = &it.value;
+                let ty_id = self.lookup_type_by_name(&it.value, it.token.clone())?;
 
-                if let Some(symbol) = self.tcx().table.read().unwrap().get(&ident_name) {
-                    return Ok(TypedExpression::Ident(
-                        Ident {
-                            token: it.token,
-                            value: it.value,
-                        },
-                        symbol.ty.get_type(),
-                        None,
-                    ));
-                } else if let Some(def_id) = self
+                let def_id = self
                     .name_resolver
-                    .lookup_name(self.current_mod_id, &it.value)
-                {
-                    let ty_id = self.resolve_def_type(def_id)?;
+                    .lookup_name(self.current_mod_id, &it.value);
 
-                    return Ok(TypedExpression::Ident(
-                        Ident {
-                            token: it.token,
-                            value: it.value,
-                        },
-                        ty_id,
-                        Some(def_id),
-                    ));
-                } else {
-                    Err(Self::make_err(
-                        None,
-                        TypeCheckerErrorKind::VariableNotFound,
-                        it.token,
-                    ))
-                }
+                Ok(TypedExpression::Ident(
+                    Ident {
+                        token: it.token,
+                        value: it.value,
+                    },
+                    ty_id,
+                    def_id,
+                ))
             }
 
             Expression::Prefix { token, op, right } => {
@@ -2035,16 +2017,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 // 如果有类型标注尝试获取类型 否则直接获取表达式的值
                 let ty = if let Some(ref ty_ident) = var_type {
-                    match self.tcx().table.read().unwrap().get(&ty_ident.value) {
-                        Some(it) => it.ty.get_type(),
-                        None => {
-                            return Err(Self::make_err(
-                                None,
-                                TypeCheckerErrorKind::TypeNotFound,
-                                ty_ident.token.clone(),
-                            ));
-                        }
-                    }
+                    self.lookup_type_by_name(&ty_ident.value, ty_ident.token.clone())?
                 } else {
                     typed_val.get_type()
                 };
@@ -2092,19 +2065,10 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 
                 // 检查表达式的类型
                 let typed_val = self.check_expr_as_val(value)?;
-
+                
                 // 如果有类型标注尝试获取类型 否则直接获取表达式的值
                 let ty = if let Some(ref ty_ident) = var_type {
-                    match self.tcx().table.read().unwrap().get(&ty_ident.value) {
-                        Some(it) => it.ty.get_type(),
-                        None => {
-                            return Err(Self::make_err(
-                                None,
-                                TypeCheckerErrorKind::TypeNotFound,
-                                ty_ident.token.clone(),
-                            ));
-                        }
-                    }
+                    self.lookup_type_by_name(&ty_ident.value, ty_ident.token.clone())?
                 } else {
                     typed_val.get_type()
                 };
@@ -2582,7 +2546,7 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
                         _ => {}
                     }
                 }
-                
+
                 raw_generics
                     .iter()
                     .filter(|it| matches!(&***it, Expression::Ident(_)))
@@ -2670,23 +2634,46 @@ impl<'a, 'b> TypeChecker<'a, 'b> {
 }
 
 impl<'a, 'b> TypeChecker<'a, 'b> {
+    fn canonicalize_type(&mut self, ty_id: TyId) -> TyId {
+        let ty = self.tcx_ref().get(ty_id).clone();
+        match ty {
+            Ty::Struct { name, generics, .. } => {
+                if generics.is_empty() {
+                    self.tcx().alloc(Ty::AppliedGeneric(name, vec![]))
+                } else {
+                    ty_id
+                }
+            }
+
+            Ty::Enum { name, generics, .. } => {
+                if generics.is_empty() {
+                    self.tcx().alloc(Ty::AppliedGeneric(name, vec![]))
+                } else {
+                    ty_id
+                }
+            }
+
+            _ => ty_id,
+        }
+    }
+
     pub fn lookup_type_by_name(&mut self, name: &str, token: Token) -> CheckResult<TyId> {
-        // 查局部符号表
-        if let Some(symbol) = self.tcx().table.read().unwrap().get(name) {
-            return Ok(symbol.ty.get_type());
-        }
-
-        // 全局符号表
-        if let Some(def_id) = self.name_resolver.lookup_name(self.current_mod_id, name) {
+        let tyid = if let Some(symbol) = self.tcx().table.read().unwrap().get(name) {
+            // 查局部符号表
+            Ok(symbol.ty.get_type())
+        } else if let Some(def_id) = self.name_resolver.lookup_name(self.current_mod_id, name) {
+            // 全局符号表
             // 触发拉取式推导，确保那个 Def 已经被填坑了
-            return self.resolve_def_type(def_id);
-        }
+            self.resolve_def_type(def_id)
+        } else {
+            return Err(Self::make_err(
+                Some(&format!("type `{}` not found in this scope", name)),
+                TypeCheckerErrorKind::TypeNotFound,
+                token,
+            ));
+        };
 
-        Err(Self::make_err(
-            Some(&format!("type `{}` not found in this scope", name)),
-            TypeCheckerErrorKind::TypeNotFound,
-            token,
-        ))
+        Ok(self.canonicalize_type(tyid?))
     }
 }
 
